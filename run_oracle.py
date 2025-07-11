@@ -11,6 +11,7 @@ from dotenv import load_dotenv
 from datetime import datetime, timezone
 from supabase_client import supabase
 import tiktoken
+from business_logic import call_llm
 
 load_dotenv()
 
@@ -322,11 +323,22 @@ async def health():
 async def generate_summary_endpoint(request: GenerateSummaryRequest):
     """Generate medical summary of conversation"""
     try:
+        # Validate UUIDs
+        import uuid
+        try:
+            # Validate UUIDs
+            uuid.UUID(str(request.conversation_id))
+            uuid.UUID(str(request.user_id))
+        except ValueError as e:
+            return {"error": f"Invalid UUID format: {e}", "status": "error"}
+        
         # Fetch all messages from conversation
+        print(f"Fetching messages for conversation: {request.conversation_id}")
         messages_response = supabase.table("messages").select("*").eq("conversation_id", request.conversation_id).order("created_at").execute()
         
         if not messages_response.data:
-            return {"error": "No messages found", "status": "error"}
+            print(f"No messages found for conversation: {request.conversation_id}")
+            return {"error": "No messages found for this conversation", "status": "error"}
         
         messages = messages_response.data
         
@@ -372,24 +384,40 @@ Write concise medical summary:"""
         
         summary_content = summary_response["content"]
         
+        # Validate summary content
+        if not summary_content or not summary_content.strip():
+            raise Exception("Generated summary is empty")
+        
+        print(f"Generated summary ({len(summary_content)} chars): {summary_content[:100]}...")
+        
         # Delete old summary
-        supabase.table("llm_context").delete().eq("conversation_id", request.conversation_id).eq("user_id", request.user_id).execute()
+        delete_response = supabase.table("llm_context").delete().eq("conversation_id", request.conversation_id).eq("user_id", request.user_id).execute()
+        print(f"Delete response: {delete_response}")
         
         # Insert new summary
         insert_data = {
-            "conversation_id": request.conversation_id,
-            "user_id": request.user_id,
+            "conversation_id": str(request.conversation_id),  # Ensure string format
+            "user_id": str(request.user_id),  # Ensure string format
             "llm_summary": summary_content,
             "created_at": datetime.now(timezone.utc).isoformat()
         }
         
-        supabase.table("llm_context").insert(insert_data).execute()
+        print(f"Inserting summary data: {insert_data}")
+        insert_response = supabase.table("llm_context").insert(insert_data).execute()
+        
+        # Check if insert was successful
+        if not insert_response.data:
+            print(f"Insert failed! Response: {insert_response}")
+            raise Exception(f"Failed to insert summary: {insert_response}")
+        
+        print(f"Insert successful! Response: {insert_response.data}")
         
         return {
             "summary": summary_content,
             "token_count": count_tokens(summary_content),
             "compression_ratio": round(total_tokens / count_tokens(summary_content), 2),
-            "status": "success"
+            "status": "success",
+            "inserted_id": insert_response.data[0].get("id") if insert_response.data else None
         }
         
     except Exception as e:
