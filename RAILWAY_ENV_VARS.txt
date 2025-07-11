@@ -1,0 +1,5 @@
+# Copy these to Railway's environment variables:
+
+OPENROUTER_API_KEY=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
+SUPABASE_URL=your-supabase-url-here
+SUPABASE_ANON_KEY=your-supabase-anon-key-here
