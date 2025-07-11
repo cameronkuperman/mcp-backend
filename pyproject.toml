@@ -1,0 +1,17 @@
+[project]
+name = "mcp-backend"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "aiohttp>=3.9.0",
+    "asyncio>=3.4.3",
+    "fastapi>=0.104.1",
+    "fastmcp>=2.10.4",
+    "pydantic>=2.5.0",
+    "python-dotenv>=1.0.0",
+    "requests>=2.31.0",
+    "supabase>=2.16.0",
+    "uvicorn>=0.24.0",
+]
