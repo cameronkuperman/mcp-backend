@@ -73,6 +73,19 @@ Before deploying to Railway:
 - **Issue**: Pydantic/tiktoken build errors
 - **Fix**: Use Python 3.11 via nixpacks.toml and runtime.txt
 
+### Railway "pip: command not found" Error:
+- **Issue**: pip not available in Nixpacks build environment
+- **Fix**: 
+  1. Update nixpacks.toml to include `python311Packages.pip` in nixPkgs
+  2. Create railway-build.sh script that ensures pip installation:
+     ```bash
+     python -m ensurepip --upgrade
+     python -m pip install --upgrade pip
+     python -m pip install -r requirements.txt
+     ```
+  3. Use `python -m pip` instead of bare `pip` command
+  4. NOTE: First deployment takes 5-10 minutes to download packages (~550MB)
+
 ### API Keys Exposed:
 - **Issue**: Sensitive data in logs or commits
 - **Fix**: IMMEDIATELY rotate keys and update .gitignore

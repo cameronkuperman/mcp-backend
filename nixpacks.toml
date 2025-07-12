@@ -1,8 +1,8 @@
 [phases.setup]
-nixPkgs = ['python311', 'python311Packages.pip', 'gcc', 'curl']
+nixPkgs = ['python311', 'python311Packages.pip', 'gcc', 'curl', 'bash']
 
 [phases.install]
-cmds = ['chmod +x railway-build.sh', './railway-build.sh']
+cmds = ['bash .nixpacks/install.sh']
 
 [start]
-cmd = "uvicorn run_oracle:app --host 0.0.0.0 --port $PORT"
+cmd = "python -m uvicorn run_oracle:app --host 0.0.0.0 --port ${PORT:-8000}"
