@@ -1,7 +1,25 @@
+# Environment variables - NEVER COMMIT
+.env
 .env*
+.env.local
+.env.production
+*.env
+
+# API Keys - NEVER COMMIT
+*api_key*
+*API_KEY*
+RAILWAY_ENV_VARS.txt
+
+# Python
 *.pyc
 __pycache__/
 .venv/
 .python-version
+
+# System
 .DS_Store
 *.log
+
+# IDE
+.vscode/
+.idea/
