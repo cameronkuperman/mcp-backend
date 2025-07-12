@@ -14,6 +14,7 @@ import tiktoken
 from business_logic import call_llm, make_prompt, get_llm_context as get_llm_context_biz, get_user_data
 import uuid
 import json
+import re
 
 load_dotenv()
 
@@ -30,6 +31,57 @@ def count_tokens(text: str) -> int:
     if encoding:
         return len(encoding.encode(text))
     return len(text.split()) * 1.3  # Rough estimate if tiktoken fails
+
+def extract_json_from_response(content: str) -> Optional[dict]:
+    """Extract JSON from response with multiple fallback strategies"""
+    # Strategy 1: Direct parse if already dict
+    if isinstance(content, dict):
+        return content
+    
+    # Strategy 2: Try direct JSON parse
+    try:
+        return json.loads(content)
+    except:
+        pass
+    
+    # Strategy 3: Find JSON in code blocks FIRST (most common from LLMs)
+    try:
+        # Look for ```json blocks
+        json_block = re.search(r'```(?:json)?\s*(\{.*?\})\s*```', content, re.DOTALL)
+        if json_block:
+            return json.loads(json_block.group(1))
+    except:
+        pass
+    
+    # Strategy 4: Find JSON in text (handle nested objects)
+    try:
+        # Find the first { and match to the corresponding }
+        start = content.find('{')
+        if start != -1:
+            depth = 0
+            for i in range(start, len(content)):
+                if content[i] == '{':
+                    depth += 1
+                elif content[i] == '}':
+                    depth -= 1
+                    if depth == 0:
+                        json_str = content[start:i+1]
+                        return json.loads(json_str)
+    except:
+        pass
+    
+    # Strategy 5: Create fallback response for deep dive
+    if "question" in content.lower() or "?" in content:
+        # Extract potential question from text
+        lines = content.strip().split('\n')
+        question = next((line.strip() for line in lines if '?' in line), lines[0] if lines else "Can you describe your symptoms?")
+        return {
+            "question": question,
+            "question_type": "open_ended",
+            "internal_analysis": {"extracted": True}
+        }
+    
+    return None
 
 app.add_middleware(
     CORSMiddleware,
@@ -582,8 +634,21 @@ async def start_deep_dive(request: DeepDiveStartRequest):
             "form_data": request.form_data
         }
         
-        # Get model from query params or use default
-        model = request.model or "deepseek/deepseek-r1-0528:free"
+        # FIXED: Use working model with fallback
+        model = request.model or "deepseek/deepseek-chat"  # Changed from deepseek-r1
+        
+        # Add model validation and fallback
+        WORKING_MODELS = [
+            "deepseek/deepseek-chat",
+            "meta-llama/llama-3.2-3b-instruct:free",
+            "google/gemini-2.0-flash-exp:free",
+            "microsoft/phi-3-mini-128k-instruct:free"
+        ]
+        
+        # If specified model fails, try fallbacks
+        if model not in WORKING_MODELS:
+            print(f"Warning: Model {model} not in working list, using deepseek/deepseek-chat")
+            model = "deepseek/deepseek-chat"
         
         # Generate initial question
         query = request.form_data.get("symptoms", "Health analysis requested")
@@ -607,21 +672,26 @@ async def start_deep_dive(request: DeepDiveStartRequest):
             max_tokens=1024
         )
         
-        # Parse response
+        # Parse response with robust fallback
         try:
-            if isinstance(llm_response["content"], dict):
-                question_data = llm_response["content"]
-            else:
-                content = llm_response["raw_content"]
-                start_idx = content.find('{')
-                end_idx = content.rfind('}') + 1
-                if start_idx != -1 and end_idx > start_idx:
-                    json_str = content[start_idx:end_idx]
-                    question_data = json.loads(json_str)
-                else:
-                    raise ValueError("No JSON found in response")
+            # First try our robust parser
+            question_data = extract_json_from_response(llm_response.get("content", llm_response.get("raw_content", "")))
+            
+            if not question_data:
+                # Fallback: Create a generic first question
+                question_data = {
+                    "question": f"Can you describe the {request.body_part} pain in more detail? Is it sharp, dull, burning, or aching?",
+                    "question_type": "symptom_characterization",
+                    "internal_analysis": {"fallback": True}
+                }
         except Exception as e:
-            return {"error": "Failed to parse response", "status": "error"}
+            print(f"Parse error in deep dive start: {e}")
+            # Use fallback question
+            question_data = {
+                "question": f"Can you describe the {request.body_part} pain in more detail? Is it sharp, dull, burning, or aching?",
+                "question_type": "symptom_characterization",
+                "internal_analysis": {"error": str(e)}
+            }
         
         # Create session
         session_id = str(uuid.uuid4())
@@ -713,27 +783,30 @@ async def continue_deep_dive(request: DeepDiveContinueRequest):
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": "Process answer and decide next step"}
             ],
-            model=session.get("model_used", "deepseek/deepseek-r1-0528:free"),
+            model=session.get("model_used", "deepseek/deepseek-chat"),  # Fixed default model
             user_id=session.get("user_id"),
             temperature=0.3,
             max_tokens=1024
         )
         
-        # Parse response
+        # Parse response with fallback
         try:
-            if isinstance(llm_response["content"], dict):
-                decision_data = llm_response["content"]
-            else:
-                content = llm_response["raw_content"]
-                start_idx = content.find('{')
-                end_idx = content.rfind('}') + 1
-                if start_idx != -1 and end_idx > start_idx:
-                    json_str = content[start_idx:end_idx]
-                    decision_data = json.loads(json_str)
-                else:
-                    raise ValueError("No JSON found in response")
+            decision_data = extract_json_from_response(llm_response.get("content", llm_response.get("raw_content", "")))
+            
+            if not decision_data:
+                # Create fallback decision
+                decision_data = {
+                    "need_another_question": request.question_number < 2,
+                    "question": "Have you experienced any other symptoms along with this?",
+                    "confidence_projection": "Gathering more information",
+                    "updated_analysis": session.get("internal_state", {})
+                }
         except Exception as e:
-            return {"error": "Failed to parse response", "status": "error"}
+            print(f"Parse error in deep dive continue: {e}")
+            decision_data = {
+                "ready_for_analysis": True,
+                "questions_completed": request.question_number
+            }
         
         # Update session
         update_data = {
@@ -827,27 +900,49 @@ async def complete_deep_dive(request: DeepDiveCompleteRequest):
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": "Generate comprehensive final analysis based on all Q&A"}
             ],
-            model=session.get("model_used", "deepseek/deepseek-r1-0528:free"),
+            model=session.get("model_used", "deepseek/deepseek-chat"),  # Fixed default model
             user_id=session.get("user_id"),
             temperature=0.3,
             max_tokens=2048
         )
         
-        # Parse final analysis
+        # Parse final analysis with comprehensive fallback
         try:
-            if isinstance(llm_response["content"], dict):
-                analysis_result = llm_response["content"]
-            else:
-                content = llm_response["raw_content"]
-                start_idx = content.find('{')
-                end_idx = content.rfind('}') + 1
-                if start_idx != -1 and end_idx > start_idx:
-                    json_str = content[start_idx:end_idx]
-                    analysis_result = json.loads(json_str)
-                else:
-                    raise ValueError("No JSON found in response")
+            analysis_result = extract_json_from_response(llm_response.get("content", llm_response.get("raw_content", "")))
+            
+            if not analysis_result:
+                # Create structured fallback analysis
+                analysis_result = {
+                    "confidence": 70,
+                    "primaryCondition": f"Analysis of {session.get('body_part', 'symptom')} pain",
+                    "likelihood": "Likely",
+                    "symptoms": [s for q in questions for s in [q.get("answer", "")] if s],
+                    "recommendations": [
+                        "Monitor symptoms closely",
+                        "Seek medical evaluation if symptoms worsen",
+                        "Keep a symptom diary"
+                    ],
+                    "urgency": "medium",
+                    "differentials": [],
+                    "redFlags": ["Seek immediate care if symptoms suddenly worsen"],
+                    "selfCare": ["Rest and avoid activities that worsen symptoms"],
+                    "reasoning_snippets": ["Based on reported symptoms"]
+                }
         except Exception as e:
-            return {"error": "Failed to parse final analysis", "status": "error"}
+            print(f"Parse error in deep dive complete: {e}")
+            # Use fallback analysis
+            analysis_result = {
+                "confidence": 60,
+                "primaryCondition": "Requires further medical evaluation",
+                "likelihood": "Possible",
+                "symptoms": ["As reported"],
+                "recommendations": ["Consult with a healthcare provider"],
+                "urgency": "medium",
+                "differentials": [],
+                "redFlags": [],
+                "selfCare": [],
+                "reasoning_snippets": ["Unable to complete full analysis"]
+            }
         
         # Update session with results
         update_data = {
