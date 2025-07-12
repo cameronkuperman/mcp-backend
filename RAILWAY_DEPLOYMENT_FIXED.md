@@ -11,7 +11,7 @@ Railway is trying to use Python 3.13 which has compatibility issues with pydanti
 
 ## Summary of Fixes Applied
 
-1. **Model Issue Fixed**: Changed default Deep Dive model from `deepseek/deepseek-r1-0528:free` to `deepseek/deepseek-chat`
+1. **Model Issue Fixed**: Changed default Deep Dive model to `tngtech/deepseek-r1t-chimera:free` (same as Oracle - works great!)
 2. **JSON Parsing Enhanced**: Added robust JSON extraction that handles markdown code blocks and nested objects
 3. **Fallback Logic Added**: Comprehensive fallbacks for parse failures
 4. **Model Validation**: List of working models with automatic fallback
@@ -68,7 +68,7 @@ Update your frontend to handle empty questions gracefully:
 
 ```typescript
 // In deepdive-client.ts
-const DEFAULT_MODEL = 'deepseek/deepseek-chat'; // NOT deepseek-r1
+const DEFAULT_MODEL = 'tngtech/deepseek-r1t-chimera:free'; // Use chimera like Oracle!
 
 // In your component
 if (!response.question || response.question.trim() === '') {
@@ -80,7 +80,8 @@ if (!response.question || response.question.trim() === '') {
 ## Working Models List
 
 These models are validated and working:
-- `deepseek/deepseek-chat` (default, most reliable)
+- `tngtech/deepseek-r1t-chimera:free` (BEST - Used by Oracle and Deep Dive)
+- `deepseek/deepseek-chat` (Good for Quick Scan)
 - `meta-llama/llama-3.2-3b-instruct:free` (fast)
 - `google/gemini-2.0-flash-exp:free` (good for context)
 - `microsoft/phi-3-mini-128k-instruct:free` (lightweight)
