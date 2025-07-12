@@ -1,0 +1,11 @@
+[phases.setup]
+nixPkgs = ["...", "python311"]
+
+[phases.install]
+cmds = [
+    "pip install uv",
+    "uv pip install --system -r requirements.txt"
+]
+
+[start]
+cmd = "python run_oracle.py"
