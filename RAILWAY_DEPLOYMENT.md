@@ -1,217 +1,238 @@
-# Railway Deployment Guide for MCP Backend
+# Railway Deployment Guide for Oracle AI Server
 
-## Overview
-This guide will help you deploy your MCP backend to Railway, which should resolve the DNS issues since Railway's infrastructure handles external API calls differently than your local network.
+This guide will help you deploy your Oracle AI server (with Quick Scan and Deep Dive) to Railway.
 
 ## Prerequisites
-- Railway account (sign up at https://railway.app)
-- GitHub account (to connect your repo)
-- Your environment variables ready
 
-## Step 1: Prepare Your Repository
+1. Railway account (sign up at https://railway.app)
+2. Railway CLI installed (optional but recommended)
+3. Git repository for your project
 
-1. **Create a new GitHub repository** or use existing one
-2. **Push your code**:
+## Step 1: Prepare Your Project
+
+All necessary files are already configured:
+- ✅ `requirements.txt` - Python dependencies
+- ✅ `Procfile` - Tells Railway how to start your app
+- ✅ `runtime.txt` - Specifies Python version
+- ✅ `railway.json` - Railway configuration
+- ✅ `.env` - Environment variables (not committed to git)
+
+## Step 2: Create Railway Project
+
+### Option A: Using Railway Dashboard (Recommended)
+
+1. Go to https://railway.app and sign in
+2. Click "New Project"
+3. Choose "Deploy from GitHub repo"
+4. Connect your GitHub account and select your repository
+5. Railway will automatically detect it's a Python project
+
+### Option B: Using Railway CLI
+
 ```bash
-git init
-git add .
-git commit -m "Initial MCP backend commit"
-git remote add origin https://github.com/YOUR_USERNAME/mcp-backend.git
-git push -u origin main
+# Install Railway CLI
+npm install -g @railway/cli
+
+# Login to Railway
+railway login
+
+# Initialize new project
+railway init
+
+# Link to existing project (if you created one in dashboard)
+railway link
 ```
-
-## Step 2: Set Up Railway Project
-
-1. **Go to Railway Dashboard**: https://railway.app/dashboard
-2. **Click "New Project"**
-3. **Select "Deploy from GitHub repo"**
-4. **Connect your GitHub account** and select your repository
-5. **Railway will automatically detect it's a Python app**
 
 ## Step 3: Configure Environment Variables
 
-In Railway dashboard, go to your project's Variables tab and add:
+In Railway dashboard:
 
-```env
-# Required
-OPENROUTER_API_KEY=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
-SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_ANON_KEY=your-supabase-anon-key
+1. Go to your project
+2. Click on your service
+3. Go to "Variables" tab
+4. Add the following variables:
 
-# Optional
-APP_URL=https://your-app.railway.app
-PYTHON_VERSION=3.11
-```
-
-## Step 4: Configure Build & Deploy
-
-Railway will use the `railway.json` file we created:
-
-```json
-{
-  "$schema": "https://railway.app/railway.schema.json",
-  "build": {
-    "builder": "NIXPACKS",
-    "buildCommand": "pip install -r requirements.txt"
-  },
-  "deploy": {
-    "startCommand": "uvicorn run_full_server:app --host 0.0.0.0 --port $PORT",
-    "restartPolicyType": "ON_FAILURE",
-    "restartPolicyMaxRetries": 10
-  }
-}
-```
-
-## Step 5: Update Your Code for Production
-
-1. **Update `run_full_server.py`** to use PORT environment variable:
-
-```python
-import os
-import uvicorn
-from mcp_server import mcp
-
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 8000))
-    app = mcp.http_app()
-    uvicorn.run(app, host="0.0.0.0", port=port)
-```
-
-2. **Update CORS in `api_routes.py`** for your frontend domain:
-
-```python
-api.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "https://your-frontend.vercel.app",  # Add your production frontend
-    ],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-```
-
-## Step 6: Deploy
-
-1. **Push your changes** to GitHub:
 ```bash
+# Required Variables
+OPENROUTER_API_KEY=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
+SUPABASE_URL=https://ekaxwbatykostnmopnhn.supabase.co
+SUPABASE_ANON_KEY=your-anon-key-here
+SUPABASE_SERVICE_KEY=your-service-key-here
+
+# Optional Variables
+PORT=8000  # Railway will override this automatically
+APP_URL=https://your-app.railway.app  # Will be set after deployment
+```
+
+⚠️ **IMPORTANT**: Replace the Supabase keys with your actual keys from `.env` file
+
+## Step 4: Deploy
+
+### Option A: Automatic Deploy (GitHub Integration)
+
+If you connected GitHub, Railway will automatically deploy when you push to your main branch.
+
+```bash
+# Commit your changes
 git add .
-git commit -m "Configure for Railway deployment"
-git push
+git commit -m "Ready for Railway deployment"
+git push origin main
 ```
 
-2. **Railway will automatically deploy** when you push to main branch
+### Option B: Manual Deploy (Railway CLI)
 
-3. **Monitor deployment** in Railway dashboard
-
-## Step 7: Get Your API URL
-
-Once deployed, Railway will provide you with a URL like:
-```
-https://mcp-backend-production-xxxx.up.railway.app
-```
-
-## Step 8: Update Your Frontend
-
-Update your Next.js app to use the Railway URL:
-
-```typescript
-// In your API client
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://mcp-backend-production-xxxx.up.railway.app/api';
-```
-
-## Testing Your Deployment
-
-1. **Health Check**:
 ```bash
-curl https://your-app.railway.app/api/health
-```
+# Deploy current directory
+railway up
 
-2. **Test Chat Endpoint**:
-```bash
-curl -X POST https://your-app.railway.app/api/chat \
-  -H "Content-Type: application/json" \
-  -d '{
-    "query": "Test message",
-    "user_id": "test-user",
-    "conversation_id": "test-conv",
-    "category": "health-scan"
-  }'
-```
-
-## Troubleshooting
-
-### If DNS Issues Persist
-The `openrouter_proxy.py` file includes fallback mechanisms:
-- Direct IP connection attempts
-- Multiple endpoint retries
-- Mock responses as last resort
-
-### Logs
-View logs in Railway dashboard or use Railway CLI:
-```bash
+# Check deployment logs
 railway logs
 ```
 
+## Step 5: Get Your API URL
+
+After deployment:
+
+1. Go to Railway dashboard
+2. Click on your service
+3. Go to "Settings" tab
+4. Under "Domains", click "Generate Domain"
+5. Your API will be available at: `https://your-app-name.railway.app`
+
+## Step 6: Update Your Next.js App
+
+Update your Next.js environment variables:
+
+```env
+# .env.local
+NEXT_PUBLIC_ORACLE_API_URL=https://your-app-name.railway.app
+```
+
+## Step 7: Test Your Endpoints
+
+Test that all endpoints are working:
+
+```bash
+# Health check
+curl https://your-app-name.railway.app/api/health
+
+# Quick Scan test
+curl -X POST https://your-app-name.railway.app/api/quick-scan \
+  -H "Content-Type: application/json" \
+  -d '{
+    "body_part": "head",
+    "form_data": {
+      "symptoms": "headache"
+    }
+  }'
+
+# Deep Dive test
+curl -X POST https://your-app-name.railway.app/api/deep-dive/start \
+  -H "Content-Type: application/json" \
+  -d '{
+    "body_part": "head",
+    "form_data": {
+      "symptoms": "severe headache"
+    }
+  }'
+```
+
+## Monitoring & Logs
+
+### View Logs
+
+In Railway dashboard:
+- Click on your service
+- Go to "Deployments" tab
+- Click on any deployment to see logs
+
+Or use CLI:
+```bash
+railway logs --tail
+```
+
+### Monitor Usage
+
+Railway provides:
+- CPU and Memory usage graphs
+- Request metrics
+- Error tracking
+- Deployment history
+
+## Troubleshooting
+
 ### Common Issues
 
-1. **Port binding errors**: Make sure to use `$PORT` environment variable
-2. **Module not found**: Ensure all dependencies are in `requirements.txt`
-3. **Timeout errors**: Railway has a 5-minute timeout for requests
+1. **Port binding error**
+   - Railway automatically sets PORT env variable
+   - Make sure your app uses `os.environ.get("PORT", 8000)`
 
-## Alternative: Use Different LLM Provider
+2. **Module not found errors**
+   - Check that all dependencies are in `requirements.txt`
+   - Railway uses the exact versions specified
 
-If OpenRouter continues to have issues, you can switch to:
+3. **Environment variable issues**
+   - Double-check all variables are set in Railway dashboard
+   - Use Railway's "Raw Editor" for bulk editing
 
-1. **OpenAI Direct**:
-```python
-# In business_logic.py
-response = requests.post(
-    "https://api.openai.com/v1/chat/completions",
-    headers={"Authorization": f"Bearer {openai_key}"},
-    json={"model": "gpt-3.5-turbo", "messages": messages}
-)
+4. **CORS errors**
+   - Your FastAPI app already has CORS configured for all origins
+   - If issues persist, check browser console for specific origin
+
+### Debug Commands
+
+```bash
+# Check deployment status
+railway status
+
+# View environment variables (hidden values)
+railway variables
+
+# Restart service
+railway restart
+
+# View recent deployments
+railway deployments
 ```
 
-2. **Anthropic Claude**:
-```python
-response = requests.post(
-    "https://api.anthropic.com/v1/messages",
-    headers={"x-api-key": anthropic_key},
-    json={"model": "claude-3-sonnet", "messages": messages}
-)
-```
+## Advanced Configuration
 
-## Environment-Specific Configuration
+### Custom Domain
 
-Create a `config.py`:
+1. Go to Settings → Domains
+2. Add your custom domain
+3. Update DNS records as instructed
 
-```python
-import os
+### Scaling
 
-class Config:
-    # Detect environment
-    IS_PRODUCTION = os.environ.get("RAILWAY_ENVIRONMENT") == "production"
-    
-    # API endpoints
-    if IS_PRODUCTION:
-        # Production endpoints that work on Railway
-        OPENROUTER_URL = "https://api.openrouter.ai/v1/chat/completions"
-    else:
-        # Local development with potential DNS issues
-        OPENROUTER_URL = "http://localhost:8000/api/chat"  # Use mock
-    
-    # Other config
-    SUPABASE_URL = os.environ.get("SUPABASE_URL")
-    SUPABASE_KEY = os.environ.get("SUPABASE_ANON_KEY")
-```
+Railway automatically scales your app. For manual control:
+1. Go to Settings → Resource Limits
+2. Adjust CPU and Memory limits
 
-## Summary
+### Health Checks
 
-Deploying to Railway should resolve the DNS issues because:
-1. Railway's infrastructure has proper DNS resolution
-2. Requests go through Railway's network, not your local network
-3. No VPN or local network restrictions apply
+Railway uses your `/api/health` endpoint for health checks automatically.
 
-After deployment, your Oracle API will be accessible globally and the DNS issues should be resolved!
+## Cost Estimation
+
+Railway's free tier includes:
+- $5 free credits monthly
+- 512MB RAM
+- 1 vCPU
+
+Your Oracle AI server should comfortably run within free tier limits for development/testing.
+
+## Next Steps
+
+1. Set up monitoring alerts
+2. Configure custom domain (optional)
+3. Set up CI/CD with GitHub Actions (optional)
+4. Monitor usage and optimize as needed
+
+Your Oracle AI server with Quick Scan and Deep Dive is now live! 🎉
+
+## Support
+
+- Railway Discord: https://discord.gg/railway
+- Railway Docs: https://docs.railway.app
+- Status Page: https://status.railway.app

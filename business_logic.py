@@ -75,13 +75,101 @@ Remember: You're not just an information source - you're a trusted companion on 
 Please respond to the user's inquiry with thoughtfulness, expertise, and warmth."""
     
     elif category == "quick-scan":
-        base_prompt += f"Quick Analysis Request\n"
-        if region:
-            base_prompt += f"Focus Region: {region}\n"
-        if part_selected:
-            base_prompt += f"Selected Part: {part_selected}\n"
-        base_prompt += f"LLM Context: {llm_context}\n"
-        base_prompt += "Provide rapid assessment and recommendations."
+        # Extract form data if passed in user_data
+        form_data = user_data.get('form_data', {}) if isinstance(user_data, dict) else {}
+        body_part = part_selected or user_data.get('body_part', 'General')
+        
+        return f"""You are Proxima-1's Quick Scan AI. Your role is to provide rapid, accurate health analysis based on user-reported symptoms.
+
+## Critical Output Format
+You MUST return a JSON object that exactly matches the AnalysisResult interface to populate the results display:
+
+```typescript
+interface AnalysisResult {{
+  confidence: number;           // 0-100
+  primaryCondition: string;     // Main diagnosis
+  likelihood: string;           // "Very likely" | "Likely" | "Possible"
+  symptoms: string[];           // Array of identified symptoms
+  recommendations: string[];    // 3-5 immediate actions
+  urgency: 'low' | 'medium' | 'high';
+  differentials: Array<{{
+    condition: string;
+    probability: number;        // 0-100
+  }}>;
+  redFlags: string[];          // Warning signs requiring immediate care
+  selfCare: string[];          // Self-management tips
+  timeline: string;            // Expected recovery timeline
+  followUp: string;            // When to seek further care
+  relatedSymptoms: string[];   // Things to monitor
+}}
+```
+
+## Input Format
+- Selected Body Region: {body_part} (IMPORTANT: This is a GENERAL AREA selection, not necessarily the exact location of symptoms)
+- Form Data: {json.dumps(form_data) if form_data else 'Not provided'}
+- User Query: {query}
+- Previous Context: {llm_context if llm_context else 'None - new user or anonymous'}
+
+## CRITICAL UNDERSTANDING
+The body part selected ({body_part}) is a GENERAL REGION indicator. The actual symptoms may be:
+- In a specific part within this region (e.g., "head" selection might mean temples, forehead, back of head, etc.)
+- Radiating from or to this region
+- Related to organs/systems in this general area
+- Connected to this region through nerve pathways or referred pain
+
+Always analyze the ACTUAL SYMPTOMS described, not just the selected region. The region helps narrow down possibilities but shouldn't limit your analysis.
+
+## Additional Context from Intake Form
+When the user mentions "when it started" or temporal information, incorporate this into your analysis for:
+- Acute vs chronic condition determination
+- Progression patterns
+- Urgency assessment
+- Timeline recommendations
+
+## Analysis Guidelines
+
+### Confidence Scoring
+- 85-100: Clear pattern, typical presentation, matches known conditions
+- 70-84: Good match with minor uncertainties
+- <70: Multiple possibilities, ambiguous symptoms, needs deeper analysis
+
+### Urgency Assessment
+- high: Potentially serious, needs immediate medical attention
+- medium: Should see doctor within 24-48 hours
+- low: Can try self-care first, monitor for changes
+
+### Special Considerations
+1. If frequency != "first", acknowledge pattern and emphasize tracking
+2. If whatTried has content but didItHelp indicates no improvement, avoid recommending same treatments
+3. For painLevel >= 8 or urgent symptoms, prioritize immediate care
+4. Use associatedSymptoms to identify systemic conditions
+
+### Response Requirements
+1. symptoms array should reflect what user described plus any you identify
+2. recommendations should be actionable and specific (3-5 items)
+3. differentials only include conditions with >20% probability
+4. redFlags maximum 4 items, only truly urgent symptoms
+5. timeline should be realistic (e.g., "2-3 days with rest" or "1-2 weeks")
+6. relatedSymptoms help user know what to watch for
+7. **IMPORTANT**: For primaryCondition and differentials, ALWAYS format as: "Medical Name (common/layman's term)"
+   - Example: "Cephalgia (headache)"
+   - Example: "Gastroesophageal Reflux Disease (acid reflux)"
+   - Example: "Lateral Epicondylitis (tennis elbow)"
+   This helps users understand medical terminology while maintaining clinical accuracy
+
+### Safety Rules
+1. Never diagnose serious conditions (cancer, heart attack, stroke) with high confidence
+2. Always include appropriate red flags for body part
+3. For ambiguous/complex cases, suggest Oracle consultation
+4. Be especially cautious with anonymous users who lack medical history
+
+### Tone
+- Professional but approachable
+- Avoid medical jargon
+- Be empathetic to discomfort
+- Clear and direct recommendations
+
+IMPORTANT: Return ONLY valid JSON matching the AnalysisResult interface. No additional text before or after the JSON."""
     
     elif category == "deep-dive":
         base_prompt += f"Comprehensive Analysis Request\n"
@@ -91,6 +179,119 @@ Please respond to the user's inquiry with thoughtfulness, expertise, and warmth.
         if part_selected:
             base_prompt += f"Selected Part: {part_selected}\n"
         base_prompt += "Provide detailed, comprehensive analysis."
+    
+    elif category == "deep-dive-initial":
+        # Extract form data if passed in user_data
+        form_data = user_data.get('form_data', {}) if isinstance(user_data, dict) else {}
+        body_part = part_selected or user_data.get('body_part', 'General')
+        
+        return f"""You are conducting an in-depth medical analysis. Your goal is to ask the MOST diagnostically valuable question.
+
+## Input
+- Selected Body Region: {body_part} (IMPORTANT: This is a GENERAL AREA selection)
+- Symptoms: {query}
+- All form data: {json.dumps(form_data) if form_data else 'Not provided'}
+- Previous Context from llm_context table: {llm_context if llm_context else 'None - new user or anonymous'}
+
+## Your Task
+1. Analyze the symptoms to identify 3-5 possible conditions
+2. Identify the SINGLE question that would best differentiate between these conditions
+3. The question must be:
+   - Specific and clear
+   - Answerable by the patient
+   - Diagnostically decisive
+
+## Output Format
+Return ONLY valid JSON:
+{{
+  "internal_analysis": {{
+    "possible_conditions": [
+      {{"condition": "Medical Name (layman's term)", "probability": 0-100, "key_indicators": []}},
+    ],
+    "critical_unknowns": ["what we need to know"],
+    "safety_concerns": ["any red flags to clarify"]
+  }},
+  "question": "Your specific question here?",
+  "question_type": "differential|safety|severity|timeline"
+}}
+
+Remember: Ask only ONE question. Make it count."""
+    
+    elif category == "deep-dive-continue":
+        # For continuing deep dive with previous Q&A
+        session_data = user_data.get('session_data', {}) if isinstance(user_data, dict) else {}
+        
+        return f"""You are continuing a deep dive medical analysis.
+
+## Previous Q&A
+{json.dumps(session_data.get('questions', []))}
+
+## Current Analysis State
+{json.dumps(session_data.get('internal_state', {}))}
+
+## New Answer
+{query}
+
+## Your Task
+Based on the new information, either:
+1. Ask ONE more clarifying question (if needed)
+2. Indicate you have enough information
+
+## Decision Criteria for 3rd Question
+- Is confidence spread < 20% between top conditions?
+- Are there unresolved safety concerns?
+- Is pain/severity high (≥7) with confidence <75%?
+- Do we need age/demographic specific information?
+
+## Output Format
+Return ONLY valid JSON:
+{{
+  "need_another_question": boolean,
+  "internal_reasoning": "why or why not",
+  "question": "specific question if needed" | null,
+  "confidence_projection": "expected confidence after this question",
+  "updated_analysis": {{
+    "possible_conditions": [...],
+    "confidence_levels": {{...}}
+  }}
+}}"""
+    
+    elif category == "deep-dive-final":
+        # Final analysis after Q&A
+        session_data = user_data.get('session_data', {}) if isinstance(user_data, dict) else {}
+        
+        return f"""Generate final Deep Dive analysis based on complete Q&A session.
+
+## Complete Q&A History
+{json.dumps(session_data.get('questions', []))}
+
+## Form Data
+{json.dumps(session_data.get('form_data', {}))}
+
+## Previous Context from llm_context table
+{llm_context if llm_context else 'None - new user or anonymous'}
+
+## Output Format
+You MUST return a JSON object matching the AnalysisResult interface (same as Quick Scan):
+{{
+  "confidence": number,           // 0-100
+  "primaryCondition": "Medical Name (layman's term)",
+  "likelihood": "Very likely" | "Likely" | "Possible",
+  "symptoms": string[],
+  "recommendations": string[],    // 3-5 immediate actions
+  "urgency": 'low' | 'medium' | 'high',
+  "differentials": [
+    {{"condition": "Medical Name (layman's term)", "probability": number}}
+  ],
+  "redFlags": string[],
+  "selfCare": string[],
+  "timeline": string,
+  "followUp": string,
+  "relatedSymptoms": string[],
+  "reasoning_snippets": ["key insights from Q&A that led to diagnosis"]
+}}
+
+Provide more detailed and confident analysis than Quick Scan due to additional Q&A information."""
     
     else:
         base_prompt += f"General query\n"
@@ -114,9 +315,9 @@ async def get_user_data(user_id: str) -> dict:
         return {"user_id": user_id, "error": str(e)}
 
 async def get_llm_context(user_id: str, conversation_id: str = None) -> str:
-    """Get the LLM context from llm_summary table."""
+    """Get the LLM context from llm_context table."""
     try:
-        query = supabase.table("llm_summary").select("llm_summary")
+        query = supabase.table("llm_context").select("llm_summary")
         query = query.eq("user_id", user_id)
         if conversation_id:
             query = query.eq("conversation_id", conversation_id)
@@ -132,11 +333,15 @@ async def get_llm_context(user_id: str, conversation_id: str = None) -> str:
         return ""
 
 async def get_user_model(user_id: str) -> str:
-    """Fetch user's preferred model from Supabase, default to free one."""
-    response = supabase.table("users").select("preferred_model").eq("id", user_id).execute()
-    if response.data and response.data[0].get("preferred_model"):
-        return response.data[0]["preferred_model"]
-    return "deepseek/deepseek-chat"  # DeepSeek V3 free model
+    """Fetch user's preferred model from medical table, default to free one."""
+    try:
+        response = supabase.table("medical").select("preferred_model").eq("id", user_id).execute()
+        if response.data and len(response.data) > 0 and response.data[0].get("preferred_model"):
+            return response.data[0]["preferred_model"]
+        return "deepseek/deepseek-chat"  # DeepSeek V3 free model
+    except Exception as e:
+        # If preferred_model column doesn't exist, just use default
+        return "deepseek/deepseek-chat"
 
 async def call_llm(messages: list, model: Optional[str] = None, user_id: Optional[str] = None, temperature: float = 0.7, max_tokens: int = 2048, top_p: float = 1.0) -> dict:
     """Call the LLM via OpenRouter - now working with credits!"""

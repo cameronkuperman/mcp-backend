@@ -13,6 +13,16 @@ print(f"Test User ID: {user_id}")
 print(f"Test Conversation ID: {conversation_id}")
 print("-" * 60)
 
+# First, create a user in the medical table (required for foreign key)
+print("Creating user in medical table...")
+medical_data = {
+    "id": user_id,
+    "created_at": "2025-01-17T12:00:00Z",
+    "user_data": {"test": True, "name": "Test User"}
+}
+medical_response = supabase.table("medical").insert(medical_data).execute()
+print(f"Medical user created: {bool(medical_response.data)}")
+
 # First, create a conversation
 print("Creating conversation...")
 conv_data = {
@@ -80,4 +90,5 @@ print("\nCleaning up test data...")
 supabase.table("messages").delete().eq("conversation_id", conversation_id).execute()
 supabase.table("conversations").delete().eq("id", conversation_id).execute()
 supabase.table("llm_context").delete().eq("conversation_id", conversation_id).execute()
+supabase.table("medical").delete().eq("id", user_id).execute()
 print("Done!")

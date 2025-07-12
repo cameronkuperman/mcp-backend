@@ -21,7 +21,8 @@ def count_tokens(text: str) -> int:
     return len(encoding.encode(text))
 
 class GenerateSummaryRequest(BaseModel):
-    conversation_id: str
+    conversation_id: Optional[str] = None
+    quick_scan_id: Optional[str] = None
     user_id: str
 
 class AggregateSummariesRequest(BaseModel):
@@ -70,29 +71,90 @@ def calculate_compression_ratio(total_tokens: int) -> float:
 
 @app.post("/api/generate_summary")
 async def generate_llm_summary(request: GenerateSummaryRequest):
-    """Generate medical summary of conversation"""
+    """Generate medical summary of conversation or quick scan"""
     try:
-        # 1. Fetch all messages from conversation
-        messages_response = supabase.table("messages").select("*").eq("conversation_id", request.conversation_id).order("created_at").execute()
+        # Validate request
+        if not request.conversation_id and not request.quick_scan_id:
+            return {"error": "Either conversation_id or quick_scan_id must be provided", "status": "error"}
         
-        if not messages_response.data:
-            return {"error": "No messages found", "status": "error"}
+        if request.quick_scan_id:
+            # Handle Quick Scan summary
+            scan_response = supabase.table("quick_scans").select("*").eq("id", request.quick_scan_id).execute()
+            
+            if not scan_response.data:
+                return {"error": "Quick scan not found", "status": "error"}
+            
+            scan_data = scan_response.data[0]
+            
+            # Create summary for quick scan
+            summary_prompt = f"""You are a physician creating a clinical note from a Quick Scan assessment.
+
+SCAN DATE: {scan_data.get('created_at', '')[:10]}
+BODY PART: {scan_data.get('body_part', 'Not specified')}
+CONFIDENCE: {scan_data.get('confidence_score', 0)}%
+URGENCY: {scan_data.get('urgency_level', 'Not specified')}
+
+PATIENT REPORTED DATA:
+{scan_data.get('form_data', {})}
+
+AI ANALYSIS:
+{scan_data.get('analysis_result', {})}
+
+Create a concise 150-word clinical summary focusing on:
+- Chief complaint and location
+- Reported symptoms and severity
+- AI assessment findings
+- Recommended actions
+- Any red flags noted
+
+IMPORTANT: Only mention symptoms and findings that were explicitly reported by the patient or identified in the analysis. Do not add or infer information not present in the data.
+
+Write the clinical summary:"""
+
+            # Generate summary
+            summary_response = await call_llm(
+                messages=[{"role": "system", "content": summary_prompt}],
+                model="deepseek/deepseek-chat",
+                max_tokens=200,
+                temperature=0.3
+            )
+            
+            summary_content = summary_response["content"]
+            
+            # Update quick_scans table with summary
+            supabase.table("quick_scans").update({
+                "llm_summary": summary_content
+            }).eq("id", request.quick_scan_id).execute()
+            
+            return {
+                "summary": summary_content,
+                "type": "quick_scan",
+                "scan_id": request.quick_scan_id,
+                "status": "success"
+            }
+            
+        else:
+            # Handle conversation summary (existing logic)
+            messages_response = supabase.table("messages").select("*").eq("conversation_id", request.conversation_id).order("created_at").execute()
+            
+            if not messages_response.data:
+                return {"error": "No messages found", "status": "error"}
         
-        messages = messages_response.data
-        
-        # 2. Build conversation text and count tokens
-        conversation_text = ""
-        for msg in messages:
-            timestamp = msg.get("created_at", "")[:10]  # Date only
-            role = msg.get("role", "").capitalize()
-            content = msg.get("content", "")
-            conversation_text += f"{timestamp} - {role}: {content}\n\n"
-        
-        total_tokens = count_tokens(conversation_text)
-        summary_tokens = calculate_summary_length(total_tokens)
-        
-        # 3. Create medical summary prompt
-        summary_prompt = f"""You are a physician creating clinical notes for future reference.
+            messages = messages_response.data
+            
+            # 2. Build conversation text and count tokens
+            conversation_text = ""
+            for msg in messages:
+                timestamp = msg.get("created_at", "")[:10]  # Date only
+                role = msg.get("role", "").capitalize()
+                content = msg.get("content", "")
+                conversation_text += f"{timestamp} - {role}: {content}\n\n"
+            
+            total_tokens = count_tokens(conversation_text)
+            summary_tokens = calculate_summary_length(total_tokens)
+            
+            # 3. Create medical summary prompt
+            summary_prompt = f"""You are a physician creating clinical notes for future reference.
 
 CONSULTATION DATE: {datetime.now(timezone.utc).strftime('%Y-%m-%d')}
 CONVERSATION LENGTH: {len(messages)} messages
@@ -112,38 +174,38 @@ CONVERSATION:
 
 Write a concise medical summary:"""
 
-        # 4. Generate summary
-        summary_response = await call_llm(
-            messages=[{"role": "system", "content": summary_prompt}],
-            model="deepseek/deepseek-chat",
-            max_tokens=summary_tokens + 100,  # Buffer
-            temperature=0.3  # Lower temp for factual summary
-        )
-        
-        summary_content = summary_response["content"]
-        
-        # 5. Delete old summary if exists
-        delete_response = supabase.table("llm_context").delete().eq("conversation_id", request.conversation_id).eq("user_id", request.user_id).execute()
-        
-        # 6. Insert new summary
-        insert_data = {
-            "conversation_id": request.conversation_id,
-            "user_id": request.user_id,
-            "llm_summary": summary_content,
-            "created_at": datetime.now(timezone.utc).isoformat(),
-            "token_count": count_tokens(summary_content),
-            "original_message_count": len(messages),
-            "original_token_count": total_tokens
-        }
-        
-        insert_response = supabase.table("llm_context").insert(insert_data).execute()
-        
-        return {
-            "summary": summary_content,
-            "token_count": count_tokens(summary_content),
-            "compression_ratio": round(total_tokens / count_tokens(summary_content), 2),
-            "status": "success"
-        }
+            # 4. Generate summary
+            summary_response = await call_llm(
+                messages=[{"role": "system", "content": summary_prompt}],
+                model="deepseek/deepseek-chat",
+                max_tokens=summary_tokens + 100,  # Buffer
+                temperature=0.3  # Lower temp for factual summary
+            )
+            
+            summary_content = summary_response["content"]
+            
+            # 5. Delete old summary if exists
+            delete_response = supabase.table("llm_context").delete().eq("conversation_id", request.conversation_id).eq("user_id", request.user_id).execute()
+            
+            # 6. Insert new summary
+            insert_data = {
+                "conversation_id": request.conversation_id,
+                "user_id": request.user_id,
+                "llm_summary": summary_content,
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "token_count": count_tokens(summary_content),
+                "original_message_count": len(messages),
+                "original_token_count": total_tokens
+            }
+            
+            insert_response = supabase.table("llm_context").insert(insert_data).execute()
+            
+            return {
+                "summary": summary_content,
+                "token_count": count_tokens(summary_content),
+                "compression_ratio": round(total_tokens / count_tokens(summary_content), 2),
+                "status": "success"
+            }
         
     except Exception as e:
         print(f"Error generating summary: {e}")
