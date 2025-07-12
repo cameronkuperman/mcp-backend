@@ -375,7 +375,7 @@ interface DeepDiveStartRequest {
     [key: string]: any;
   };
   user_id?: string;                // Optional for anonymous
-  model?: string;                  // Default: "deepseek/deepseek-r1-0528:free"
+  model?: string;                  // Default: "deepseek/deepseek-chat"
 }
 ```
 
@@ -740,7 +740,7 @@ The backend integrates with MCP (Model Context Protocol) through `mcp-backend.py
 Default models by endpoint:
 - Chat: `deepseek/deepseek-chat`
 - Quick Scan: `deepseek/deepseek-chat`
-- Deep Dive: `deepseek/deepseek-r1-0528:free`
+- Deep Dive: `deepseek/deepseek-chat`
 - Summaries: `deepseek/deepseek-chat`
 - Large Aggregations: `google/gemini-2.0-flash-exp:free`
 

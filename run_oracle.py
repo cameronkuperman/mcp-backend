@@ -113,7 +113,7 @@ class DeepDiveStartRequest(BaseModel):
     body_part: str
     form_data: Dict[str, Any]
     user_id: Optional[str] = None
-    model: Optional[str] = None  # Will default to deepseek-r1
+    model: Optional[str] = None  # Will default to deepseek/deepseek-chat
 
 class DeepDiveContinueRequest(BaseModel):
     session_id: str
@@ -634,21 +634,22 @@ async def start_deep_dive(request: DeepDiveStartRequest):
             "form_data": request.form_data
         }
         
-        # FIXED: Use working model with fallback
-        model = request.model or "deepseek/deepseek-chat"  # Changed from deepseek-r1
+        # Use chimera model for deep dive (like Oracle chat which works great!)
+        model = request.model or "tngtech/deepseek-r1t-chimera:free"
         
         # Add model validation and fallback
         WORKING_MODELS = [
+            "tngtech/deepseek-r1t-chimera:free",  # Best for deep dive!
             "deepseek/deepseek-chat",
             "meta-llama/llama-3.2-3b-instruct:free",
             "google/gemini-2.0-flash-exp:free",
             "microsoft/phi-3-mini-128k-instruct:free"
         ]
         
-        # If specified model fails, try fallbacks
+        # If specified model not in list, use chimera
         if model not in WORKING_MODELS:
-            print(f"Warning: Model {model} not in working list, using deepseek/deepseek-chat")
-            model = "deepseek/deepseek-chat"
+            print(f"Model {model} not in working list, using chimera")
+            model = "tngtech/deepseek-r1t-chimera:free"
         
         # Generate initial question
         query = request.form_data.get("symptoms", "Health analysis requested")
@@ -783,7 +784,7 @@ async def continue_deep_dive(request: DeepDiveContinueRequest):
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": "Process answer and decide next step"}
             ],
-            model=session.get("model_used", "deepseek/deepseek-chat"),  # Fixed default model
+            model=session.get("model_used", "tngtech/deepseek-r1t-chimera:free"),  # Use chimera like Oracle
             user_id=session.get("user_id"),
             temperature=0.3,
             max_tokens=1024
@@ -900,7 +901,7 @@ async def complete_deep_dive(request: DeepDiveCompleteRequest):
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": "Generate comprehensive final analysis based on all Q&A"}
             ],
-            model=session.get("model_used", "deepseek/deepseek-chat"),  # Fixed default model
+            model=session.get("model_used", "tngtech/deepseek-r1t-chimera:free"),  # Use chimera like Oracle
             user_id=session.get("user_id"),
             temperature=0.3,
             max_tokens=2048

@@ -28,11 +28,11 @@ class OpenRouterProxy:
         
         # Free models in order of preference
         self.free_models = [
-            "deepseek/deepseek-chat",  # DeepSeek V3 free
-            "deepseek/deepseek-r1",    # DeepSeek reasoning
-            "meta-llama/llama-3.2-3b-instruct:free",
-            "google/gemini-2.0-flash-exp:free",
-            "microsoft/phi-3-mini-128k-instruct:free",
+            "tngtech/deepseek-r1t-chimera:free",  # BEST MODEL - Oracle uses this!
+            "deepseek/deepseek-chat",  # Good for quick scan
+            "meta-llama/llama-3.2-3b-instruct:free",  # Fast and reliable
+            "google/gemini-2.0-flash-exp:free",  # Good for complex tasks
+            "microsoft/phi-3-mini-128k-instruct:free",  # Lightweight
             "nousresearch/hermes-3-llama-3.1-8b:free",
             "qwen/qwen-2-7b-instruct:free",
             "meta-llama/llama-3.2-1b-instruct:free",  # Smallest as last resort

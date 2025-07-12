@@ -24,7 +24,7 @@ interface DeepDiveStartRequest {
   body_part: string;
   form_data: QuickScanFormData;  // Same as Quick Scan
   user_id?: string;  // Optional for anonymous
-  model?: string;    // Optional - defaults to "deepseek/deepseek-r1-0528:free"
+  model?: string;    // Optional - defaults to "deepseek/deepseek-chat"
 }
 ```
 
@@ -119,7 +119,7 @@ export const deepDiveService = {
         body_part: bodyPart,
         form_data: formData,
         user_id: userId,
-        model: model || 'deepseek/deepseek-r1-0528:free'
+        model: model || 'deepseek/deepseek-chat'
       }),
     });
 
@@ -635,7 +635,7 @@ const result = await deepDiveService.startDeepDive(
 );
 
 // From URL params
-const model = searchParams.get('model') || 'deepseek/deepseek-r1-0528:free';
+const model = searchParams.get('model') || 'deepseek/deepseek-chat';
 ```
 
 ## Key Features

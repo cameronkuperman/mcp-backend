@@ -346,7 +346,7 @@ export async function createConversation(userId: string, title: string) {
       conversation_type: 'oracle_health',
       status: 'active',
       ai_provider: 'openrouter',
-      model_name: 'tngtech/deepseek-r1t-chimera:free',
+      model_name: 'deepseek/deepseek-chat',
       metadata: {}
     })
     .select()
