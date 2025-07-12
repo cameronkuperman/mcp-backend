@@ -106,13 +106,12 @@ uv run python run_oracle.py
 # Test health check
 curl http://localhost:8000/api/health
 
-# Test deep dive (with WORKING model)
+# Test deep dive (uses chimera by default - same as Oracle!)
 curl -X POST http://localhost:8000/api/deep-dive/start \
   -H "Content-Type: application/json" \
   -d '{
     "body_part": "chest",
-    "form_data": {"symptoms": "pain"},
-    "model": "deepseek/deepseek-chat"
+    "form_data": {"symptoms": "pain"}
   }'
 ```
 
