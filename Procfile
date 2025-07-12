@@ -1,1 +1,1 @@
-web: python run_oracle.py
+web: uv run python run_oracle.py
