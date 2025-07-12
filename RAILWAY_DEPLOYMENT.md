@@ -54,7 +54,7 @@ In Railway dashboard:
 
 ```bash
 # Required Variables
-OPENROUTER_API_KEY=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
+OPENROUTER_API_KEY=your-openrouter-api-key-here
 SUPABASE_URL=https://ekaxwbatykostnmopnhn.supabase.co
 SUPABASE_ANON_KEY=your-anon-key-here
 SUPABASE_SERVICE_KEY=your-service-key-here
