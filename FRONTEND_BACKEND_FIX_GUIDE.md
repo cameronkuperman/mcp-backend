@@ -11,10 +11,11 @@
 Based on current availability and performance:
 
 ### Recommended Models (in order of preference):
-1. **`deepseek/deepseek-chat`** - Most reliable, good performance
-2. **`meta-llama/llama-3.2-3b-instruct:free`** - Very fast, reliable
-3. **`google/gemini-2.0-flash-exp:free`** - Fast, good for larger contexts
-4. **`microsoft/phi-3-mini-128k-instruct:free`** - Lightweight, fast
+1. **`tngtech/deepseek-r1t-chimera:free`** - BEST! Used by Oracle Chat (working great)
+2. **`deepseek/deepseek-chat`** - Good for Quick Scan
+3. **`meta-llama/llama-3.2-3b-instruct:free`** - Very fast, reliable
+4. **`google/gemini-2.0-flash-exp:free`** - Fast, good for larger contexts
+5. **`microsoft/phi-3-mini-128k-instruct:free`** - Lightweight, fast
 
 ## Backend Fixes
 
@@ -211,10 +212,11 @@ Apply similar fixes to the continue and complete functions:
 
 ```typescript
 // Update the model configuration
-const DEFAULT_MODEL = 'deepseek/deepseek-chat'; // Changed from deepseek-r1
+const DEFAULT_MODEL = 'tngtech/deepseek-r1t-chimera:free'; // Use chimera like Oracle!
 
 // Add model fallback list
 const FALLBACK_MODELS = [
+  'tngtech/deepseek-r1t-chimera:free',  // Best model!
   'deepseek/deepseek-chat',
   'meta-llama/llama-3.2-3b-instruct:free',
   'google/gemini-2.0-flash-exp:free',
