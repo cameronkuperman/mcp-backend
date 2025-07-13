@@ -1,0 +1,8 @@
+[build]
+builder = "nixpacks"
+
+[deploy]
+startCommand = "python run_oracle.py"
+
+[build.nixpacks]
+pythonVersion = "3.11"

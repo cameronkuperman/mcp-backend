@@ -73,6 +73,16 @@ Before deploying to Railway:
 - **Issue**: Pydantic/tiktoken build errors
 - **Fix**: Use Python 3.11 via nixpacks.toml and runtime.txt
 
+### CRITICAL DEPLOYMENT RULES:
+1. **NEVER BREAK THE DEPLOYMENT**
+2. **ALWAYS TEST WITH**: `python -m py_compile run_oracle.py`
+3. **NEVER USE INVALID MODEL NAMES** (no :nitro unless verified)
+4. **ALWAYS ENSURE PYTHON IS AVAILABLE**:
+   - railway.toml specifies Python 3.11
+   - nixpacks.toml ensures pip is installed
+   - runtime.txt has exact version
+5. **PROCFILE MUST USE**: `python run_oracle.py` NOT uvicorn command
+
 ### Railway "pip: command not found" Error:
 - **Issue**: pip not available in Nixpacks build environment
 - **Fix**: 
