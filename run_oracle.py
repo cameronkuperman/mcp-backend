@@ -175,7 +175,7 @@ Write concise medical summary:"""
                         "Content-Type": "application/json"
                     },
                     json={
-                        "model": "deepseek/deepseek-chat:nitro",
+                        "model": "deepseek/deepseek-chat",
                         "messages": [{"role": "system", "content": aggregate_prompt}],
                         "max_tokens": target_tokens,
                         "temperature": 0.3
@@ -468,7 +468,7 @@ INSTRUCTIONS:
             "Content-Type": "application/json"
         },
         json={
-            "model": request.model or "deepseek/deepseek-chat:nitro",
+            "model": request.model or "deepseek/deepseek-chat",
             "messages": messages,
             "temperature": 0.7,
             "max_tokens": 2048
@@ -600,7 +600,7 @@ Write concise medical summary:"""
         # Generate summary
         summary_response = await call_llm(
             messages=[{"role": "system", "content": summary_prompt}],
-            model="deepseek/deepseek-chat:nitro",
+            model="deepseek/deepseek-chat",
             max_tokens=summary_tokens + 100,
             temperature=0.3
         )
@@ -801,7 +801,7 @@ async def start_deep_dive(request: DeepDiveStartRequest):
         # Add model validation and fallback
         WORKING_MODELS = [
             "tngtech/deepseek-r1t-chimera:free",  # Best for deep dive!
-            "deepseek/deepseek-chat:nitro",
+            "deepseek/deepseek-chat",
             "meta-llama/llama-3.2-3b-instruct:free",
             "google/gemini-2.0-flash-exp:free",
             "microsoft/phi-3-mini-128k-instruct:free"
