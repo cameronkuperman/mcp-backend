@@ -111,13 +111,13 @@ interface AnalysisResult {{
 - Previous Context: {llm_context if llm_context else 'None - new user or anonymous'}
 
 ## CRITICAL UNDERSTANDING
-The body part selected ({body_part}) is a GENERAL REGION indicator. The actual symptoms may be:
+The body part selected ({body_part}) is a GENERAL REGION indicator from a 3D model click. The actual symptoms may be:
 - In a specific part within this region (e.g., "head" selection might mean temples, forehead, back of head, etc.)
 - Radiating from or to this region
 - Related to organs/systems in this general area
 - Connected to this region through nerve pathways or referred pain
 
-Always analyze the ACTUAL SYMPTOMS described, not just the selected region. The region helps narrow down possibilities but shouldn't limit your analysis.
+IMPORTANT: The user clicked on a 3D muscular model, so the selection is a general area, not an exact anatomical point. Always analyze the ACTUAL SYMPTOMS described, not just the selected region. The region helps narrow down possibilities but shouldn't limit your analysis.
 
 ## Additional Context from Intake Form
 When the user mentions "when it started" or temporal information, incorporate this into your analysis for:
@@ -188,7 +188,7 @@ IMPORTANT: Return ONLY valid JSON matching the AnalysisResult interface. No addi
         return f"""You are conducting an in-depth medical analysis. Your goal is to ask the MOST diagnostically valuable question.
 
 ## Input
-- Selected Body Region: {body_part} (IMPORTANT: This is a GENERAL AREA selection)
+- Selected Body Region: {body_part} (IMPORTANT: This is a GENERAL AREA selection from clicking on a 3D model)
 - Symptoms: {query}
 - All form data: {json.dumps(form_data) if form_data else 'Not provided'}
 - Previous Context from llm_context table: {llm_context if llm_context else 'None - new user or anonymous'}
@@ -259,6 +259,7 @@ Return ONLY valid JSON:
     elif category == "deep-dive-final":
         # Final analysis after Q&A
         session_data = user_data.get('session_data', {}) if isinstance(user_data, dict) else {}
+        medical_data = session_data.get('medical_data', {})
         
         return f"""Generate final Deep Dive analysis based on complete Q&A session.
 
@@ -267,6 +268,9 @@ Return ONLY valid JSON:
 
 ## Form Data
 {json.dumps(session_data.get('form_data', {}))}
+
+## Medical History
+{str(medical_data)[:200] + '...' if medical_data else 'Not available'}
 
 ## Previous Context from llm_context table
 {llm_context if llm_context else 'None - new user or anonymous'}
@@ -338,7 +342,7 @@ async def get_user_model(user_id: str) -> str:
         response = supabase.table("medical").select("preferred_model").eq("id", user_id).execute()
         if response.data and len(response.data) > 0 and response.data[0].get("preferred_model"):
             return response.data[0]["preferred_model"]
-        return "deepseek/deepseek-chat"  # DeepSeek V3 free model
+        return "deepseek/deepseek-chat:nitro"  # DeepSeek V3 free model with nitro for faster performance
     except Exception as e:
         # If preferred_model column doesn't exist, just use default
         return "deepseek/deepseek-chat"
@@ -353,7 +357,7 @@ async def call_llm(messages: list, model: Optional[str] = None, user_id: Optiona
     if not model and user_id:
         model = await get_user_model(user_id)
     elif not model:
-        model = "deepseek/deepseek-chat"
+        model = "deepseek/deepseek-chat:nitro"
 
     # Make the request using requests library (proven to work)
     def make_request():
