@@ -1324,45 +1324,43 @@ async def generate_health_story(request: HealthStoryRequest):
             context = "\n\n".join(context_parts)
         
         # Generate health story
-        system_prompt = """You are a compassionate AI health companion analyzing a user's health journey. 
-        Generate a personalized health story that:
+        system_prompt = """You are analyzing health patterns and trends from user data to create a narrative health story.
+
+        Write 2-3 paragraphs in a flowing, narrative style that:
+        - Identifies patterns and correlations in the health data
+        - Uses specific percentages and metrics when available
+        - Connects symptoms to lifestyle factors
+        - Highlights improvements and positive changes
+        - Acknowledges ongoing concerns without alarm
+        - Focuses on trends over time
+
+        Style Guidelines:
+        - Write in second person ("Your health journey...")
+        - Use natural, flowing language without technical jargon
+        - Avoid mentioning specific tools, scans, or app features
+        - Present insights as observations about their health patterns
+        - Include specific metrics (percentages, timeframes, correlations)
+        - Connect different health aspects (sleep, pain, exercise, etc.)
+
+        Do NOT:
+        - Mention "quick scan", "deep dive", "oracle", or any app features
+        - Use medical terminology without explanation
+        - Give direct medical advice
+        - Use alarmist language
+        - Reference the data sources directly
         
-        1. Highlights progress and improvements
-        2. Identifies patterns (both positive and concerning)
-        3. Acknowledges challenges without being alarmist
-        4. Focuses on growth and regression insights
-        5. Uses specific data points when available
-        6. Maintains an encouraging, supportive tone  but do not overely focus on being encouraging. Focus on the data and the user's journey. Not congratulating the user for doing well or using the app.
-        7. IMPORTANT: Include specific details from quick scans, such as:
-           - Body parts scanned and when
-           - Pain levels reported (e.g., "your chest pain of 7/10")
-           - Primary conditions identified
-           - Recommendations given
-           - Changes in symptoms over time
-        8. Reference medical profile data, oracle conversations, and deep dive results and quick scans.
-        9. You absolutely must use ALL points of data in the health story (quick scan, deep dive, oracle chats, and user table info).
-        10. Refrain from using the user's name in the health story.
-        11. Remove any artifacts from importing data. This may include brackets, asterisks, or other symbols.
+        Transform the data into insights like:
+        - "Your morning headaches show a pattern..."
+        - "The chest discomfort you've been experiencing..."
+        - "Your sleep quality has improved by X%..."
+        - "Pain levels tend to spike when..."
         
-        Format the response as a 2-3 paragraph narrative that weaves together the user's quick scan results, symptom tracking, and other health interactions. For example:
-        "Your health journey this week shows you've been proactive about monitoring your [body part] concerns. The quick scan on [date] revealed [condition] with [confidence]% confidence, and you reported a pain level of [X/10]..."
-        But specifically try to to demonstrate the user's progress and improvements.
-        
-        Do NOT include:
-        - Direct medical advice or diagnoses
-        - Urgent recommendations
-        - Specific medication suggestions
-        - Alarmist language
-        
-        Focus on patterns, progress, and gentle observations about the user's health journey. Always mention specific quick scan findings when available.
-        
-        Example:
+        Example style:
         Your health journey continues to show positive momentum. This week has been marked by significant improvements in your sleep quality, with an average increase of 23% in deep sleep phases compared to last week. This improvement correlates strongly with the reduction in evening screen time you've implemented.
-        
+
         The persistent morning headaches you've been experiencing appear to be linked to a combination of factors: dehydration, elevated stress levels on weekdays, and potentially your sleeping position. The pattern analysis shows that headaches are 78% more likely on days following less than 6 hours of sleep.
-        
-        Your body's response to the new exercise routine has been overwhelmingly positive. Heart rate variability has improved by 15%, and your resting heart rate has decreased by 4 bpm over the past month. These are strong indicators of improving cardiovascular health.
-        """
+
+        Your body's response to the new exercise routine has been overwhelmingly positive. Heart rate variability has improved by 15%, and your resting heart rate has decreased by 4 bpm over the past month. These are strong indicators of improving cardiovascular health."""
         
         messages = [
             {"role": "system", "content": system_prompt},
