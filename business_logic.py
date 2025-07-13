@@ -220,6 +220,12 @@ Remember: Ask only ONE question. Make it count."""
     elif category == "deep-dive-continue":
         # For continuing deep dive with previous Q&A
         session_data = user_data.get('session_data', {}) if isinstance(user_data, dict) else {}
+        medical_data = user_data.get('medical_data', {}) if isinstance(user_data, dict) else {}
+        
+        # Add medical context if available
+        medical_context = ""
+        if medical_data and medical_data not in [{}, None]:
+            medical_context = f"\n- Medical History: {str(medical_data)[:200]}..."
         
         return f"""You are continuing a deep dive medical analysis.
 
@@ -227,7 +233,7 @@ Remember: Ask only ONE question. Make it count."""
 {json.dumps(session_data.get('questions', []))}
 
 ## Current Analysis State
-{json.dumps(session_data.get('internal_state', {}))}
+{json.dumps(session_data.get('internal_state', {}))}{medical_context}
 
 ## New Answer
 {query}

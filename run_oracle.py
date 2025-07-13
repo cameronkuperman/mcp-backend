@@ -706,9 +706,8 @@ async def start_deep_dive(request: DeepDiveStartRequest):
             "user_id": request.user_id,
             "body_part": request.body_part,
             "form_data": request.form_data,
-            "medical_data": medical_data if medical_data and "error" not in medical_data else {},
             "model_used": model,
-            "questions": [],
+            "questions": [],  # PostgreSQL array, not dict
             "current_step": 1,
             "internal_state": question_data.get("internal_analysis", {}),
             "status": "active",
@@ -717,11 +716,17 @@ async def start_deep_dive(request: DeepDiveStartRequest):
         
         # Always save session to database (for both authenticated and anonymous users)
         try:
-            supabase.table("deep_dive_sessions").insert(session_data).execute()
+            insert_response = supabase.table("deep_dive_sessions").insert(session_data).execute()
+            print(f"Deep dive session saved: {session_id}")
+            print(f"Insert response: {insert_response.data if insert_response.data else 'No data returned'}")
         except Exception as db_error:
-            print(f"Database error saving session: {db_error}")
-            # Still return success since we have the session in memory
-            pass
+            print(f"ERROR saving deep dive session: {db_error}")
+            print(f"Session data attempted: {session_data}")
+            # Return error instead of continuing
+            return {
+                "error": f"Failed to save session: {str(db_error)}",
+                "status": "error"
+            }
         
         return {
             "session_id": session_id,
@@ -740,10 +745,18 @@ async def start_deep_dive(request: DeepDiveStartRequest):
 async def continue_deep_dive(request: DeepDiveContinueRequest):
     """Continue Deep Dive with answer processing"""
     try:
+        print(f"\n=== DEEP DIVE CONTINUE ===")
+        print(f"Looking for session: {request.session_id}")
+        
         # Get session from database
         session_response = supabase.table("deep_dive_sessions").select("*").eq("id", request.session_id).execute()
+        print(f"Session query response: {len(session_response.data) if session_response.data else 0} records found")
         
         if not session_response.data:
+            print(f"ERROR: No session found with ID {request.session_id}")
+            # Try to list recent sessions for debugging
+            recent = supabase.table("deep_dive_sessions").select("id, created_at").order("created_at", desc=True).limit(5).execute()
+            print(f"Recent sessions: {recent.data if recent.data else 'None'}")
             return {"error": "Session not found", "status": "error"}
         
         session = session_response.data[0]
@@ -766,19 +779,28 @@ async def continue_deep_dive(request: DeepDiveContinueRequest):
         session_data = {
             "questions": questions,
             "internal_state": session.get("internal_state", {}),
-            "form_data": session.get("form_data", {}),
-            "medical_data": session.get("medical_data", {})
+            "form_data": session.get("form_data", {})
         }
+        
+        # Fetch medical data if user_id exists
+        medical_data = {}
+        if session.get("user_id"):
+            medical_data = await get_user_medical_data(session["user_id"])
         
         # Get user context
         llm_context = ""
         if session.get("user_id"):
             llm_context = await get_llm_context_biz(session["user_id"])
         
-        # Generate continue prompt
+        # Generate continue prompt with medical data
+        prompt_data = {
+            "session_data": session_data,
+            "medical_data": medical_data if medical_data and "error" not in medical_data else None
+        }
+        
         system_prompt = make_prompt(
             query=request.answer,
-            user_data={"session_data": session_data},
+            user_data=prompt_data,
             llm_context=llm_context,
             category="deep-dive-continue"
         )
@@ -886,12 +908,17 @@ async def complete_deep_dive(request: DeepDiveCompleteRequest):
         if session.get("user_id"):
             llm_context = await get_llm_context_biz(session["user_id"])
         
+        # Fetch medical data if user_id exists
+        medical_data = {}
+        if session.get("user_id"):
+            medical_data = await get_user_medical_data(session["user_id"])
+        
         # Generate final analysis
         session_data = {
             "questions": questions,
             "form_data": session.get("form_data", {}),
             "internal_state": session.get("internal_state", {}),
-            "medical_data": session.get("medical_data", {})
+            "medical_data": medical_data if medical_data and "error" not in medical_data else None
         }
         
         system_prompt = make_prompt(
