@@ -2,10 +2,6 @@
 # Force Python 3.11 and include Rust for building tiktoken/pydantic-core
 nixPkgs = ["python311", "python311Packages.pip", "gcc", "rustc", "cargo"]
 
-[providers.python]
-# Explicitly set Python version
-version = "3.11"
-
 [phases.install]
 # Ensure we use Python 3.11's pip
 cmds = [
