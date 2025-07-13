@@ -8,7 +8,7 @@ import uvicorn
 import os
 import requests
 from dotenv import load_dotenv
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from supabase_client import supabase
 import tiktoken
 from business_logic import call_llm, make_prompt, get_llm_context as get_llm_context_biz, get_user_data
@@ -123,6 +123,11 @@ class DeepDiveContinueRequest(BaseModel):
 class DeepDiveCompleteRequest(BaseModel):
     session_id: str
     final_answer: Optional[str] = None
+
+class HealthStoryRequest(BaseModel):
+    user_id: str
+    date_range: Optional[Dict[str, str]] = None  # {"start": "ISO date", "end": "ISO date"}
+    include_data: Optional[Dict[str, bool]] = None  # Which data sources to include
 
 # Supabase helper functions
 async def get_user_medical_data(user_id: str) -> dict:
@@ -248,6 +253,151 @@ async def update_conversation(conversation_id: str, user_id: str):
             }).eq("id", conversation_id).execute()
     except Exception as e:
         print(f"Error updating conversation: {e}")
+
+async def get_health_story_data(user_id: str, date_range: Optional[Dict[str, str]] = None) -> dict:
+    """Gather all relevant data for health story generation"""
+    
+    # Default to last 7 days if no date range provided
+    if not date_range:
+        end_date = datetime.now(timezone.utc)
+        start_date = end_date - timedelta(days=7)
+        date_range = {
+            "start": start_date.isoformat(),
+            "end": end_date.isoformat()
+        }
+    
+    # Debug: print the date range being used
+    print(f"Health story date range: {date_range['start']} to {date_range['end']}")
+    
+    data = {
+        "medical_profile": None,
+        "oracle_chats": [],
+        "quick_scans": [],
+        "deep_dives": [],
+        "symptom_tracking": []
+    }
+    
+    try:
+        # Get medical profile
+        data["medical_profile"] = await get_user_medical_data(user_id)
+        
+        # Get Oracle chat messages - need to join through conversations table
+        # First get user's conversations
+        conv_response = supabase.table("conversations")\
+            .select("id")\
+            .eq("user_id", user_id)\
+            .execute()
+        
+        conversation_ids = [conv["id"] for conv in (conv_response.data or [])]
+        
+        # Then get messages from those conversations
+        if conversation_ids:
+            chat_response = supabase.table("messages")\
+                .select("*")\
+                .in_("conversation_id", conversation_ids)\
+                .gte("created_at", date_range["start"])\
+                .lte("created_at", date_range["end"])\
+                .order("created_at", desc=False)\
+                .execute()
+            data["oracle_chats"] = chat_response.data if chat_response.data else []
+        else:
+            data["oracle_chats"] = []
+        
+        # Get Quick Scans - comprehensive debugging
+        print("\n=== QUICK SCAN RETRIEVAL DEBUG ===")
+        print(f"Querying quick_scans for user_id: '{user_id}'")
+        print(f"User ID type: {type(user_id)}")
+        print(f"User ID repr: {repr(user_id)}")
+        print(f"User ID length: {len(str(user_id)) if user_id else 0}")
+        
+        # Try multiple approaches to get quick scans
+        
+        # Approach 1: Try with string conversion (since quick_scans.user_id is text)
+        print("\nApproach 1: Converting user_id to string")
+        scan_response = supabase.table("quick_scans")\
+            .select("*")\
+            .eq("user_id", str(user_id))\
+            .execute()
+        data["quick_scans"] = scan_response.data if scan_response.data else []
+        print(f"Result: {len(data['quick_scans'])} scans found")
+        
+        # Approach 2: If no results, try without conversion
+        if not data["quick_scans"]:
+            print("\nApproach 2: Using user_id as-is")
+            scan_response = supabase.table("quick_scans")\
+                .select("*")\
+                .eq("user_id", user_id)\
+                .execute()
+            data["quick_scans"] = scan_response.data if scan_response.data else []
+            print(f"Result: {len(data['quick_scans'])} scans found")
+        
+        # Approach 3: If still no results, try to get ANY quick scan to see format
+        if not data["quick_scans"]:
+            print("\nApproach 3: Getting sample quick scans to check user_id format")
+            sample_response = supabase.table("quick_scans")\
+                .select("id, user_id, body_part, created_at")\
+                .limit(5)\
+                .execute()
+            if sample_response.data:
+                print(f"Found {len(sample_response.data)} sample scans:")
+                for sample in sample_response.data:
+                    print(f"  - user_id: '{sample.get('user_id')}' (type: {type(sample.get('user_id'))}, len: {len(str(sample.get('user_id', '')))})")
+                    print(f"    body_part: {sample.get('body_part')}, created: {sample.get('created_at')}")
+                
+                # Check if our user_id matches any of these formats
+                print(f"\nComparing our user_id '{user_id}' with sample user_ids...")
+                for sample in sample_response.data:
+                    if str(user_id).lower() == str(sample.get('user_id', '')).lower():
+                        print(f"  MATCH FOUND (case-insensitive): '{sample.get('user_id')}'")
+            else:
+                print("No quick scans found in the entire table!")
+        
+        # If we found scans, show details
+        if data["quick_scans"]:
+            print(f"\n✓ Successfully retrieved {len(data['quick_scans'])} quick scans")
+            first_scan = data["quick_scans"][0]
+            print(f"Sample scan: body_part={first_scan.get('body_part')}, created={first_scan.get('created_at')}")
+        else:
+            print("\n✗ No quick scans found for this user")
+            print("Possible issues:")
+            print("1. User ID format mismatch (UUID vs string)")
+            print("2. Quick scans saved with different user_id")
+            print("3. No quick scans exist for this user")
+            print("4. Database connection or permission issue")
+        
+        print("=== END DEBUG ===\n")
+        
+        # Debug: Print first quick scan if available
+        if data["quick_scans"]:
+            first_scan = data["quick_scans"][0]
+            print(f"Sample quick scan data: body_part={first_scan.get('body_part')}, confidence={first_scan.get('confidence_score')}")
+            if first_scan.get('analysis_result'):
+                print(f"Analysis contains: primaryCondition={first_scan['analysis_result'].get('primaryCondition')}")
+        
+        # Get Deep Dive sessions (user_id is text type)
+        dive_response = supabase.table("deep_dive_sessions")\
+            .select("*")\
+            .eq("user_id", str(user_id))\
+            .gte("created_at", date_range["start"])\
+            .lte("created_at", date_range["end"])\
+            .order("created_at", desc=False)\
+            .execute()
+        data["deep_dives"] = dive_response.data if dive_response.data else []
+        
+        # Get symptom tracking data (user_id is text type)
+        symptom_response = supabase.table("symptom_tracking")\
+            .select("*")\
+            .eq("user_id", str(user_id))\
+            .gte("occurrence_date", date_range["start"])\
+            .lte("occurrence_date", date_range["end"])\
+            .order("occurrence_date", desc=False)\
+            .execute()
+        data["symptom_tracking"] = symptom_response.data if symptom_response.data else []
+        
+    except Exception as e:
+        print(f"Error gathering health story data: {e}")
+    
+    return data
 
 @app.post("/api/chat")
 async def chat(request: ChatRequest):
@@ -583,7 +733,15 @@ async def quick_scan_endpoint(request: QuickScanRequest):
                     "created_at": datetime.now(timezone.utc).isoformat()
                 }
                 
+                print(f"\n=== SAVING QUICK SCAN ===")
+                print(f"Scan ID: {scan_id}")
+                print(f"User ID: '{request.user_id}' (type: {type(request.user_id)})")
+                print(f"User ID repr: {repr(request.user_id)}")
+                print(f"Body part: {request.body_part}")
+                
                 supabase.table("quick_scans").insert(scan_data).execute()
+                print("Quick scan saved successfully!")
+                print("=== END SAVE ===\n")
                 
                 # Save symptoms to tracking table
                 if "symptoms" in request.form_data:
@@ -998,6 +1156,242 @@ Key Findings: {', '.join(analysis_result.get('reasoning_snippets', [])[:3])}"""
         print(f"Error in deep dive complete: {e}")
         return {"error": str(e), "status": "error"}
 
+@app.post("/api/health-story")
+async def generate_health_story(request: HealthStoryRequest):
+    """Generate weekly health story analysis"""
+    api_key = os.getenv("OPENROUTER_API_KEY")
+    
+    print(f"Health story request received for user_id: '{request.user_id}'")
+    print(f"User ID type: {type(request.user_id)}, length: {len(request.user_id)}")
+    
+    try:
+        # Gather all relevant data
+        health_data = await get_health_story_data(request.user_id, request.date_range)
+        
+        # Count tokens and prepare context
+        total_tokens = 0
+        context_parts = []
+        
+        # Add medical profile if available
+        if health_data["medical_profile"]:
+            profile_text = f"Medical Profile: {json.dumps(health_data['medical_profile'], indent=2)}"
+            context_parts.append(profile_text)
+            total_tokens += count_tokens(profile_text)
+        
+        # Add recent oracle chats (limit to most relevant)
+        if health_data["oracle_chats"]:
+            recent_chats = health_data["oracle_chats"][-10:]  # Last 10 messages
+            chat_text = "Recent Oracle Conversations:\n"
+            for msg in recent_chats:
+                chat_text += f"- {msg.get('created_at', '')}: {msg.get('content', '')[:200]}...\n"
+            context_parts.append(chat_text)
+            total_tokens += count_tokens(chat_text)
+        
+        # Add quick scans with detailed information
+        if health_data["quick_scans"]:
+            print(f"Adding {len(health_data['quick_scans'])} quick scans to health story context")
+            scan_text = "Recent Quick Scans:\n"
+            for scan in health_data["quick_scans"]:
+                # Get the analysis result - it's stored directly in the scan
+                analysis = scan.get('analysis_result', {})
+                form_data = scan.get('form_data', {})
+                
+                # Format the date more nicely
+                created_at = scan.get('created_at', '')
+                if created_at:
+                    try:
+                        date_obj = datetime.fromisoformat(created_at.replace('Z', '+00:00'))
+                        formatted_date = date_obj.strftime('%Y-%m-%d %H:%M')
+                    except:
+                        formatted_date = created_at[:10]
+                else:
+                    formatted_date = 'Unknown date'
+                
+                scan_text += f"\n- {formatted_date}: {scan.get('body_part', 'Unknown body part')} scan\n"
+                
+                # Add user-reported symptoms from form data
+                if form_data.get('symptoms'):
+                    scan_text += f"  Reported Symptoms: {form_data.get('symptoms')}\n"
+                if form_data.get('painLevel'):
+                    scan_text += f"  Pain Level: {form_data.get('painLevel')}/10\n"
+                if form_data.get('duration'):
+                    scan_text += f"  Duration: {form_data.get('duration')}\n"
+                
+                # Add analysis results
+                scan_text += f"  Primary Condition: {analysis.get('primaryCondition', 'Unknown')}\n"
+                scan_text += f"  Likelihood: {analysis.get('likelihood', 'Unknown')}\n"
+                scan_text += f"  Confidence: {analysis.get('confidence', scan.get('confidence_score', 0))}%\n"
+                scan_text += f"  Urgency: {analysis.get('urgency', scan.get('urgency_level', 'unknown'))}\n"
+                
+                # Add symptoms identified by AI
+                symptoms = analysis.get('symptoms', [])
+                if symptoms and isinstance(symptoms, list):
+                    scan_text += f"  Identified Symptoms: {', '.join(str(s) for s in symptoms[:5])}\n"
+                
+                # Add key recommendations
+                recommendations = analysis.get('recommendations', [])
+                if recommendations and isinstance(recommendations, list):
+                    scan_text += f"  Key Recommendations: {', '.join(str(r) for r in recommendations[:3])}\n"
+                
+                # Add self-care if available
+                self_care = analysis.get('selfCare', [])
+                if self_care and isinstance(self_care, list) and len(self_care) > 0:
+                    scan_text += f"  Self-Care Tips: {str(self_care[0])}\n"
+                
+                # Add red flags if any
+                red_flags = analysis.get('redFlags', [])
+                if red_flags and isinstance(red_flags, list) and len(red_flags) > 0:
+                    scan_text += f"  Warning Signs: {str(red_flags[0])}\n"
+                
+            context_parts.append(scan_text)
+            total_tokens += count_tokens(scan_text)
+        else:
+            print("No quick scans found for health story")
+            # Explicitly add a note about no quick scans
+            no_scans_text = "Recent Quick Scans: No quick scans recorded during this period.\n"
+            context_parts.append(no_scans_text)
+            total_tokens += count_tokens(no_scans_text)
+        
+        # Add deep dive summaries
+        if health_data["deep_dives"]:
+            dive_text = "Deep Dive Analyses:\n"
+            for dive in health_data["deep_dives"]:
+                if dive.get("status") == "completed" and dive.get("final_analysis"):
+                    dive_text += f"- {dive.get('created_at', '')}: {dive.get('body_part', '')} - "
+                    dive_text += f"{dive.get('final_analysis', {}).get('primaryCondition', 'Analysis completed')}\n"
+            context_parts.append(dive_text)
+            total_tokens += count_tokens(dive_text)
+        
+        # Add symptom tracking
+        if health_data["symptom_tracking"]:
+            symptom_text = "Symptom Tracking:\n"
+            for entry in health_data["symptom_tracking"]:
+                symptom_text += f"- {entry.get('date', '')}: "
+                symptoms = entry.get('symptoms', [])
+                if symptoms:
+                    symptom_text += f"{', '.join(symptoms[:3])}\n"
+            context_parts.append(symptom_text)
+            total_tokens += count_tokens(symptom_text)
+        
+        # If context is too large, summarize it
+        if total_tokens > 10000:
+            # Use LLM to summarize the context
+            summary_response = await call_llm(
+                messages=[
+                    {"role": "system", "content": "Summarize the following health data concisely, focusing on key patterns and changes:"},
+                    {"role": "user", "content": "\n".join(context_parts)}
+                ],
+                model="deepseek/deepseek-chat",
+                user_id=request.user_id,
+                temperature=0.3,
+                max_tokens=1024
+            )
+            context = summary_response.get("content", "\n".join(context_parts[:2]))
+        else:
+            context = "\n\n".join(context_parts)
+        
+        # Generate health story
+        system_prompt = """You are a compassionate AI health companion analyzing a user's health journey. 
+        Generate a personalized health story that:
+        
+        1. Highlights progress and improvements
+        2. Identifies patterns (both positive and concerning)
+        3. Acknowledges challenges without being alarmist
+        4. Focuses on growth and regression insights
+        5. Uses specific data points when available
+        6. Maintains an encouraging, supportive tone  but do not overely focus on being encouraging. Focus on the data and the user's journey. Not congratulating the user for doing well or using the app.
+        7. IMPORTANT: Include specific details from quick scans, such as:
+           - Body parts scanned and when
+           - Pain levels reported (e.g., "your chest pain of 7/10")
+           - Primary conditions identified
+           - Recommendations given
+           - Changes in symptoms over time
+        8. Reference medical profile data, oracle conversations, and deep dive results and quick scans.
+        9. You absolutely must use ALL points of data in the health story (quick scan, deep dive, oracle chats, and user table info).
+        10. Refrain from using the user's name in the health story.
+        11. Remove any artifacts from importing data. This may include brackets, asterisks, or other symbols.
+        
+        Format the response as a 2-3 paragraph narrative that weaves together the user's quick scan results, symptom tracking, and other health interactions. For example:
+        "Your health journey this week shows you've been proactive about monitoring your [body part] concerns. The quick scan on [date] revealed [condition] with [confidence]% confidence, and you reported a pain level of [X/10]..."
+        But specifically try to to demonstrate the user's progress and improvements.
+        
+        Do NOT include:
+        - Direct medical advice or diagnoses
+        - Urgent recommendations
+        - Specific medication suggestions
+        - Alarmist language
+        
+        Focus on patterns, progress, and gentle observations about the user's health journey. Always mention specific quick scan findings when available.
+        
+        Example:
+        Your health journey continues to show positive momentum. This week has been marked by significant improvements in your sleep quality, with an average increase of 23% in deep sleep phases compared to last week. This improvement correlates strongly with the reduction in evening screen time you've implemented.
+        
+        The persistent morning headaches you've been experiencing appear to be linked to a combination of factors: dehydration, elevated stress levels on weekdays, and potentially your sleeping position. The pattern analysis shows that headaches are 78% more likely on days following less than 6 hours of sleep.
+        
+        Your body's response to the new exercise routine has been overwhelmingly positive. Heart rate variability has improved by 15%, and your resting heart rate has decreased by 4 bpm over the past month. These are strong indicators of improving cardiovascular health.
+        """
+        
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": f"Based on the following health data from the past week, generate a health story:\n\n{context}"}
+        ]
+        
+        # Call LLM
+        llm_response = await call_llm(
+            messages=messages,
+            model="deepseek/deepseek-chat",  # Using quickscan model as requested
+            user_id=request.user_id,
+            temperature=0.7,
+            max_tokens=1024
+        )
+        
+        story_text = llm_response.get("content", "Unable to generate health story at this time.")
+        
+        # Generate response
+        story_id = str(uuid.uuid4())
+        generated_date = datetime.now(timezone.utc)
+        
+        # Save to database (create health_stories table if needed)
+        try:
+            story_data = {
+                "id": story_id,
+                "user_id": request.user_id,
+                "header": "Current Analysis",
+                "story_text": story_text,
+                "generated_date": generated_date.isoformat(),
+                "date_range": request.date_range,
+                "data_sources": {
+                    "oracle_chats": len(health_data["oracle_chats"]),
+                    "quick_scans": len(health_data["quick_scans"]),
+                    "deep_dives": len(health_data["deep_dives"]),
+                    "symptom_entries": len(health_data["symptom_tracking"])
+                },
+                "created_at": generated_date.isoformat()
+            }
+            
+            # Attempt to save to health_stories table
+            supabase.table("health_stories").insert(story_data).execute()
+        except Exception as db_error:
+            print(f"Database save error (non-critical): {db_error}")
+        
+        return {
+            "success": True,
+            "health_story": {
+                "header": "Current Analysis",
+                "story_text": story_text,
+                "generated_date": generated_date.strftime("%B %d, %Y • AI-generated analysis"),
+                "story_id": story_id
+            }
+        }
+        
+    except Exception as e:
+        print(f"Error generating health story: {e}")
+        return {
+            "success": False,
+            "error": "Failed to generate health story",
+            "message": str(e)
+        }
+
 @app.get("/")
 async def root():
     return {
@@ -1018,13 +1412,13 @@ async def root():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))
     print("\n" + "="*60)
-    print("🚀 ORACLE AI SERVER - READY!")
+    print("ORACLE AI SERVER - READY!")
     print("="*60)
-    print(f"✅ Server: http://localhost:{port}")
-    print(f"💬 Chat: POST http://localhost:{port}/api/chat")
-    print(f"❤️  Health: GET http://localhost:{port}/api/health")
-    print("🤖 Using: DeepSeek AI (Free)")
+    print(f"Server: http://localhost:{port}")
+    print(f"Chat: POST http://localhost:{port}/api/chat")
+    print(f"Health: GET http://localhost:{port}/api/health")
+    print("Using: DeepSeek AI (Free)")
     print("="*60)
-    print("\n✨ Your AI Oracle is ready to help!\n")
+    print("\nYour AI Oracle is ready to help!\n")
     
     uvicorn.run(app, host="0.0.0.0", port=port)

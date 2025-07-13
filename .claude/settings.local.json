@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pip install:*)",
+      "Bash(uv sync:*)",
+      "Bash(cp:*)",
+      "Bash(ls:*)"
+    ],
+    "deny": []
+  }
+}
