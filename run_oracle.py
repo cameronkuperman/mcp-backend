@@ -175,7 +175,7 @@ Write concise medical summary:"""
                         "Content-Type": "application/json"
                     },
                     json={
-                        "model": "deepseek/deepseek-chat",
+                        "model": "deepseek/deepseek-chat:nitro",
                         "messages": [{"role": "system", "content": aggregate_prompt}],
                         "max_tokens": target_tokens,
                         "temperature": 0.3
@@ -422,18 +422,15 @@ async def chat(request: ChatRequest):
     system_prompt = f"""You are Oracle, a compassionate health AI assistant with memory of past interactions.
 
 MEDICAL HISTORY: {medical_summary if medical_summary else "No medical history on file."}
-CONVERSATION CONTEXT: {llm_context[:300] + "..." if llm_context else "This is our first conversation."}
+PREVIOUS CONVERSATIONS: {llm_context[:300] + "..." if llm_context else "This is our first conversation."}
 
-CRITICAL INSTRUCTIONS:
-• ALWAYS check if current symptoms relate to past conditions mentioned in medical history or previous conversations
-• If user mentions something discussed before, acknowledge it: "As we discussed previously..." or "Given your history of..."
-• Connect current concerns to past patterns: "This is similar to what you experienced..."
-• Reference specific past advice if relevant: "Last time, we talked about..."
-• Give concise advice (2-3 paragraphs max) but make connections to history
-• Be warm and show you remember them as an individual
-• Recommend doctors for serious/persistent issues
-
-IMPORTANT: Actively reference their medical history and past conversations when relevant. Show continuity of care."""
+INSTRUCTIONS:
+- Check if symptoms relate to past conditions or previous conversations
+- Reference past discussions naturally: "As we discussed..." or "Given your history of..."
+- Give concise advice (2-3 paragraphs max) using plain text, no markdown
+- Show you remember them as an individual patient
+- Recommend professional care for serious/persistent issues
+- Be warm, direct, and helpful without lengthy explanations"""
     
     # Build messages with history
     messages = [{"role": "system", "content": system_prompt}]
@@ -471,7 +468,7 @@ IMPORTANT: Actively reference their medical history and past conversations when 
             "Content-Type": "application/json"
         },
         json={
-            "model": request.model or "deepseek/deepseek-chat",
+            "model": request.model or "deepseek/deepseek-chat:nitro",
             "messages": messages,
             "temperature": 0.7,
             "max_tokens": 2048
@@ -603,7 +600,7 @@ Write concise medical summary:"""
         # Generate summary
         summary_response = await call_llm(
             messages=[{"role": "system", "content": summary_prompt}],
-            model="deepseek/deepseek-chat",
+            model="deepseek/deepseek-chat:nitro",
             max_tokens=summary_tokens + 100,
             temperature=0.3
         )
@@ -656,16 +653,19 @@ async def quick_scan_endpoint(request: QuickScanRequest):
     try:
         # Get user data if user_id provided (otherwise anonymous)
         user_data = {}
+        medical_data = {}
         llm_context = ""
         
         if request.user_id:
             user_data = await get_user_data(request.user_id)
+            medical_data = await get_user_medical_data(request.user_id)
             llm_context = await get_llm_context_biz(request.user_id)
         
         # Prepare data for prompt
         prompt_data = {
             "body_part": request.body_part,
-            "form_data": request.form_data
+            "form_data": request.form_data,
+            "medical_data": medical_data if medical_data and "error" not in medical_data else None
         }
         
         # Generate the quick scan prompt
@@ -780,16 +780,19 @@ async def start_deep_dive(request: DeepDiveStartRequest):
     try:
         # Get user data if provided
         user_data = {}
+        medical_data = {}
         llm_context = ""
         
         if request.user_id:
             user_data = await get_user_data(request.user_id)
+            medical_data = await get_user_medical_data(request.user_id)
             llm_context = await get_llm_context_biz(request.user_id)
         
         # Prepare data for prompt
         prompt_data = {
             "body_part": request.body_part,
-            "form_data": request.form_data
+            "form_data": request.form_data,
+            "medical_data": medical_data if medical_data and "error" not in medical_data else None
         }
         
         # Use chimera model for deep dive (like Oracle chat which works great!)
@@ -798,7 +801,7 @@ async def start_deep_dive(request: DeepDiveStartRequest):
         # Add model validation and fallback
         WORKING_MODELS = [
             "tngtech/deepseek-r1t-chimera:free",  # Best for deep dive!
-            "deepseek/deepseek-chat",
+            "deepseek/deepseek-chat:nitro",
             "meta-llama/llama-3.2-3b-instruct:free",
             "google/gemini-2.0-flash-exp:free",
             "microsoft/phi-3-mini-128k-instruct:free"
@@ -862,7 +865,7 @@ async def start_deep_dive(request: DeepDiveStartRequest):
             "body_part": request.body_part,
             "form_data": request.form_data,
             "model_used": model,
-            "questions": [],
+            "questions": [],  # PostgreSQL array, not dict
             "current_step": 1,
             "internal_state": question_data.get("internal_analysis", {}),
             "status": "active",
@@ -871,11 +874,17 @@ async def start_deep_dive(request: DeepDiveStartRequest):
         
         # Always save session to database (for both authenticated and anonymous users)
         try:
-            supabase.table("deep_dive_sessions").insert(session_data).execute()
+            insert_response = supabase.table("deep_dive_sessions").insert(session_data).execute()
+            print(f"Deep dive session saved: {session_id}")
+            print(f"Insert response: {insert_response.data if insert_response.data else 'No data returned'}")
         except Exception as db_error:
-            print(f"Database error saving session: {db_error}")
-            # Still return success since we have the session in memory
-            pass
+            print(f"ERROR saving deep dive session: {db_error}")
+            print(f"Session data attempted: {session_data}")
+            # Return error instead of continuing
+            return {
+                "error": f"Failed to save session: {str(db_error)}",
+                "status": "error"
+            }
         
         return {
             "session_id": session_id,
@@ -894,10 +903,18 @@ async def start_deep_dive(request: DeepDiveStartRequest):
 async def continue_deep_dive(request: DeepDiveContinueRequest):
     """Continue Deep Dive with answer processing"""
     try:
+        print(f"\n=== DEEP DIVE CONTINUE ===")
+        print(f"Looking for session: {request.session_id}")
+        
         # Get session from database
         session_response = supabase.table("deep_dive_sessions").select("*").eq("id", request.session_id).execute()
+        print(f"Session query response: {len(session_response.data) if session_response.data else 0} records found")
         
         if not session_response.data:
+            print(f"ERROR: No session found with ID {request.session_id}")
+            # Try to list recent sessions for debugging
+            recent = supabase.table("deep_dive_sessions").select("id, created_at").order("created_at", desc=True).limit(5).execute()
+            print(f"Recent sessions: {recent.data if recent.data else 'None'}")
             return {"error": "Session not found", "status": "error"}
         
         session = session_response.data[0]
@@ -923,15 +940,25 @@ async def continue_deep_dive(request: DeepDiveContinueRequest):
             "form_data": session.get("form_data", {})
         }
         
+        # Fetch medical data if user_id exists
+        medical_data = {}
+        if session.get("user_id"):
+            medical_data = await get_user_medical_data(session["user_id"])
+        
         # Get user context
         llm_context = ""
         if session.get("user_id"):
             llm_context = await get_llm_context_biz(session["user_id"])
         
-        # Generate continue prompt
+        # Generate continue prompt with medical data
+        prompt_data = {
+            "session_data": session_data,
+            "medical_data": medical_data if medical_data and "error" not in medical_data else None
+        }
+        
         system_prompt = make_prompt(
             query=request.answer,
-            user_data={"session_data": session_data},
+            user_data=prompt_data,
             llm_context=llm_context,
             category="deep-dive-continue"
         )
@@ -1039,11 +1066,17 @@ async def complete_deep_dive(request: DeepDiveCompleteRequest):
         if session.get("user_id"):
             llm_context = await get_llm_context_biz(session["user_id"])
         
+        # Fetch medical data if user_id exists
+        medical_data = {}
+        if session.get("user_id"):
+            medical_data = await get_user_medical_data(session["user_id"])
+        
         # Generate final analysis
         session_data = {
             "questions": questions,
             "form_data": session.get("form_data", {}),
-            "internal_state": session.get("internal_state", {})
+            "internal_state": session.get("internal_state", {}),
+            "medical_data": medical_data if medical_data and "error" not in medical_data else None
         }
         
         system_prompt = make_prompt(
