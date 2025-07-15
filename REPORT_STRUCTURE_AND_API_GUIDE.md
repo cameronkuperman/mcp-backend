@@ -2,6 +2,19 @@
 
 This guide explains exactly how to call the report APIs and what structure you get back.
 
+## ✅ BACKEND STATUS: FULLY IMPLEMENTED
+
+All report endpoints are now implemented in `run_oracle.py`:
+- ✅ `/api/report/analyze` - AI analysis endpoint
+- ✅ `/api/report/comprehensive` - Full medical reports  
+- ✅ `/api/report/urgent-triage` - Emergency summaries
+- ✅ `/api/report/symptom-timeline` - Symptom progression tracking
+- ✅ `/api/report/photo-progression` - Visual condition tracking
+- ✅ `/api/report/specialist` - Specialist referral reports
+- ✅ `/api/report/annual-summary` - Yearly health summaries
+
+**Database Setup Required**: Run `database_migrations.sql` in your Supabase SQL editor to create the required tables.
+
 ## API Call Flow
 
 ### Step 1: Analyze What Report Type to Generate

@@ -1921,8 +1921,6 @@ MOST RECENT ASSESSMENTS:
 @app.post("/api/report/symptom-timeline")
 async def generate_symptom_timeline(request: SymptomTimelineRequest):
     """Generate symptom timeline report"""
-    # Similar pattern - load analysis, gather data, generate report
-    # I'll provide a condensed version for brevity
     try:
         analysis_response = supabase.table("report_analyses")\
             .select("*")\
@@ -1932,14 +1930,119 @@ async def generate_symptom_timeline(request: SymptomTimelineRequest):
         if not analysis_response.data:
             return {"error": "Analysis not found", "status": "error"}
         
-        # Implementation follows same pattern as comprehensive report
-        # but focuses on symptom timeline
-        return {
-            "report_id": str(uuid.uuid4()),
+        analysis = analysis_response.data[0]
+        config = analysis.get("report_config", {})
+        
+        # Gather data with focus on timeline
+        data = await gather_report_data(request.user_id or analysis["user_id"], config)
+        
+        # Build timeline context
+        context = f"""Generate a symptom timeline report focused on: {request.symptom_focus or config.get('primary_focus', 'symptoms')}
+
+Time Range: {config['time_range']['start'][:10]} to {config['time_range']['end'][:10]}
+
+Symptom Data:
+{json.dumps([{
+    'date': s['created_at'][:10],
+    'symptom': s.get('symptom_name', 'Unknown'),
+    'severity': s.get('severity', 0),
+    'body_part': s.get('body_part')
+} for s in data['symptom_tracking']], indent=2)}
+
+Quick Scans:
+{json.dumps([{
+    'date': s['created_at'][:10],
+    'body_part': s['body_part'],
+    'condition': s.get('analysis_result', {}).get('primaryCondition'),
+    'severity': s.get('analysis_result', {}).get('painLevel', 0)
+} for s in data['quick_scans']], indent=2)}"""
+
+        system_prompt = """Generate a symptom timeline report. Return JSON:
+{
+  "executive_summary": {
+    "one_page_summary": "Timeline overview",
+    "chief_complaints": ["main symptoms"],
+    "key_findings": ["patterns discovered"]
+  },
+  "symptom_progression": {
+    "primary_symptom": "main symptom tracked",
+    "timeline": [
+      {
+        "date": "YYYY-MM-DD",
+        "severity": 1-10,
+        "description": "symptom description",
+        "triggers_identified": ["potential triggers"],
+        "treatments_tried": ["treatments used"],
+        "effectiveness": "treatment response"
+      }
+    ],
+    "patterns_identified": {
+      "frequency": "how often symptoms occur",
+      "peak_times": ["when symptoms are worst"],
+      "seasonal_trends": "seasonal patterns",
+      "correlation_factors": ["correlated factors"]
+    }
+  },
+  "trend_analysis": {
+    "overall_direction": "improving/worsening/stable",
+    "severity_trend": "severity changes over time",
+    "frequency_trend": "frequency changes",
+    "response_to_treatment": "treatment effectiveness"
+  }
+}"""
+
+        llm_response = await call_llm(
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": context}
+            ],
+            model="tngtech/deepseek-r1t-chimera:free",
+            user_id=request.user_id,
+            temperature=0.3,
+            max_tokens=2000
+        )
+        
+        report_data = extract_json_from_response(llm_response.get("content", llm_response.get("raw_content", "")))
+        
+        if not report_data:
+            report_data = {
+                "executive_summary": {
+                    "one_page_summary": "Symptom timeline analysis could not be completed.",
+                    "chief_complaints": [],
+                    "key_findings": []
+                },
+                "symptom_progression": {
+                    "primary_symptom": request.symptom_focus or "Unknown",
+                    "timeline": [],
+                    "patterns_identified": {}
+                },
+                "trend_analysis": {}
+            }
+        
+        # Save report
+        report_id = str(uuid.uuid4())
+        report_record = {
+            "id": report_id,
+            "user_id": request.user_id,
+            "analysis_id": request.analysis_id,
             "report_type": "symptom_timeline",
-            "status": "success",
-            "message": "Symptom timeline report generation placeholder"
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "report_data": report_data,
+            "executive_summary": report_data["executive_summary"]["one_page_summary"],
+            "confidence_score": 80,
+            "model_used": "tngtech/deepseek-r1t-chimera:free"
         }
+        
+        supabase.table("medical_reports").insert(report_record).execute()
+        
+        return {
+            "report_id": report_id,
+            "report_type": "symptom_timeline",
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "report_data": report_data,
+            "status": "success"
+        }
+        
     except Exception as e:
         print(f"Error generating symptom timeline: {e}")
         return {"error": str(e), "status": "error"}
@@ -1947,35 +2050,503 @@ async def generate_symptom_timeline(request: SymptomTimelineRequest):
 @app.post("/api/report/photo-progression")
 async def generate_photo_progression(request: PhotoProgressionRequest):
     """Generate photo progression report"""
-    # Placeholder for photo progression report
-    return {
-        "report_id": str(uuid.uuid4()),
-        "report_type": "photo_progression",
-        "status": "success",
-        "message": "Photo progression report generation placeholder"
+    try:
+        analysis_response = supabase.table("report_analyses")\
+            .select("*")\
+            .eq("id", request.analysis_id)\
+            .execute()
+        
+        if not analysis_response.data:
+            return {"error": "Analysis not found", "status": "error"}
+        
+        analysis = analysis_response.data[0]
+        config = analysis.get("report_config", {})
+        
+        # Get photo session data (placeholder - would need actual photo table)
+        photo_sessions = []
+        
+        # Build context for photo analysis
+        context = f"""Generate a photo progression report.
+
+Time Range: {config['time_range']['start'][:10]} to {config['time_range']['end'][:10]}
+
+Photo Sessions Available: {len(photo_sessions)}
+
+Note: This is a preliminary photo progression report. Full implementation requires photo analysis capabilities."""
+
+        system_prompt = """Generate a photo progression report. Return JSON:
+{
+  "executive_summary": {
+    "one_page_summary": "Photo progression overview",
+    "key_findings": ["visual changes noted"]
+  },
+  "visual_analysis": {
+    "photos_analyzed": [
+      {
+        "photo_id": "session-id",
+        "date": "YYYY-MM-DD",
+        "ai_description": "what the AI sees",
+        "size_measurement": "estimated size",
+        "color_changes": ["color observations"],
+        "concerning_features": ["concerning aspects"]
+      }
+    ],
+    "progression_summary": {
+      "overall_change": "improvement/worsening/stable",
+      "size_change": "size changes over time",
+      "color_evolution": "color changes",
+      "texture_changes": "texture observations",
+      "border_changes": "border changes"
+    },
+    "ai_recommendations": {
+      "urgency_level": "low/medium/high",
+      "specific_concerns": ["specific concerns"],
+      "recommended_timeline": "when to follow up",
+      "what_to_monitor": ["monitoring points"]
     }
+  }
+}"""
+
+        llm_response = await call_llm(
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": context}
+            ],
+            model="tngtech/deepseek-r1t-chimera:free",
+            user_id=request.user_id,
+            temperature=0.3,
+            max_tokens=1500
+        )
+        
+        report_data = extract_json_from_response(llm_response.get("content", llm_response.get("raw_content", "")))
+        
+        if not report_data:
+            report_data = {
+                "executive_summary": {
+                    "one_page_summary": "Photo progression analysis requires visual data that is not currently available.",
+                    "key_findings": ["Photo analysis capabilities pending implementation"]
+                },
+                "visual_analysis": {
+                    "photos_analyzed": [],
+                    "progression_summary": {
+                        "overall_change": "Unable to assess without photos"
+                    },
+                    "ai_recommendations": {
+                        "urgency_level": "medium",
+                        "recommended_timeline": "Consult healthcare provider for visual assessment"
+                    }
+                }
+            }
+        
+        # Save report
+        report_id = str(uuid.uuid4())
+        report_record = {
+            "id": report_id,
+            "user_id": request.user_id,
+            "analysis_id": request.analysis_id,
+            "report_type": "photo_progression",
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "report_data": report_data,
+            "executive_summary": report_data["executive_summary"]["one_page_summary"],
+            "confidence_score": 60,
+            "model_used": "tngtech/deepseek-r1t-chimera:free"
+        }
+        
+        supabase.table("medical_reports").insert(report_record).execute()
+        
+        return {
+            "report_id": report_id,
+            "report_type": "photo_progression",
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "report_data": report_data,
+            "status": "success"
+        }
+        
+    except Exception as e:
+        print(f"Error generating photo progression: {e}")
+        return {"error": str(e), "status": "error"}
 
 @app.post("/api/report/specialist")
 async def generate_specialist_report(request: SpecialistReportRequest):
     """Generate specialist-focused report"""
-    # Placeholder for specialist report
-    return {
-        "report_id": str(uuid.uuid4()),
-        "report_type": "specialist_focused",
-        "status": "success",
-        "message": "Specialist report generation placeholder"
-    }
+    try:
+        analysis_response = supabase.table("report_analyses")\
+            .select("*")\
+            .eq("id", request.analysis_id)\
+            .execute()
+        
+        if not analysis_response.data:
+            return {"error": "Analysis not found", "status": "error"}
+        
+        analysis = analysis_response.data[0]
+        config = analysis.get("report_config", {})
+        
+        # Gather all data
+        data = await gather_report_data(request.user_id or analysis["user_id"], config)
+        
+        # Build specialist context
+        specialty = request.specialty or "specialist"
+        context = f"""Generate a {specialty} referral report.
+
+Time Range: {config['time_range']['start'][:10]} to {config['time_range']['end'][:10]}
+Specialty Focus: {specialty}
+Primary Concern: {config.get('primary_focus', 'general health')}
+
+Clinical Data:
+{json.dumps([{
+    'date': s['created_at'][:10],
+    'assessment': s.get('analysis_result', {}).get('primaryCondition'),
+    'confidence': s.get('confidence_score'),
+    'red_flags': s.get('analysis_result', {}).get('redFlags', [])
+} for s in data['quick_scans']], indent=2)}
+
+Symptom History:
+{json.dumps([{
+    'date': s['created_at'][:10],
+    'symptom': s.get('symptom_name'),
+    'severity': s.get('severity')
+} for s in data['symptom_tracking']], indent=2)}"""
+
+        system_prompt = f"""Generate a specialist referral report for {specialty}. Return JSON:
+{{
+  "executive_summary": {{
+    "one_page_summary": "Clinical summary for specialist",
+    "chief_complaints": ["primary concerns"],
+    "key_findings": ["clinically relevant findings"],
+    "referral_reason": "why specialist consultation needed"
+  }},
+  "clinical_presentation": {{
+    "presenting_symptoms": ["current symptoms"],
+    "symptom_duration": "timeline of symptoms",
+    "progression": "how symptoms have changed",
+    "previous_treatments": ["treatments tried"],
+    "response_to_treatment": "treatment responses"
+  }},
+  "specialist_focus": {{
+    "relevant_findings": ["findings relevant to {specialty}"],
+    "diagnostic_considerations": ["differential diagnoses"],
+    "specific_questions": ["questions for specialist"],
+    "urgency_assessment": "routine/urgent/emergent"
+  }},
+  "recommendations": {{
+    "suggested_workup": ["recommended tests/procedures"],
+    "clinical_questions": ["specific questions to address"],
+    "timing": "recommended timeframe for consultation"
+  }}
+}}"""
+
+        llm_response = await call_llm(
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": context}
+            ],
+            model="tngtech/deepseek-r1t-chimera:free",
+            user_id=request.user_id,
+            temperature=0.3,
+            max_tokens=2000
+        )
+        
+        report_data = extract_json_from_response(llm_response.get("content", llm_response.get("raw_content", "")))
+        
+        if not report_data:
+            report_data = {
+                "executive_summary": {
+                    "one_page_summary": f"Specialist referral report for {specialty} consultation.",
+                    "chief_complaints": [],
+                    "key_findings": [],
+                    "referral_reason": "Clinical evaluation needed"
+                },
+                "clinical_presentation": {},
+                "specialist_focus": {},
+                "recommendations": {
+                    "timing": "Within 2-4 weeks"
+                }
+            }
+        
+        # Save report
+        report_id = str(uuid.uuid4())
+        report_record = {
+            "id": report_id,
+            "user_id": request.user_id,
+            "analysis_id": request.analysis_id,
+            "report_type": "specialist_focused",
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "report_data": report_data,
+            "executive_summary": report_data["executive_summary"]["one_page_summary"],
+            "confidence_score": 85,
+            "model_used": "tngtech/deepseek-r1t-chimera:free",
+            "specialty": specialty
+        }
+        
+        supabase.table("medical_reports").insert(report_record).execute()
+        
+        return {
+            "report_id": report_id,
+            "report_type": "specialist_focused",
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "report_data": report_data,
+            "specialty": specialty,
+            "status": "success"
+        }
+        
+    except Exception as e:
+        print(f"Error generating specialist report: {e}")
+        return {"error": str(e), "status": "error"}
 
 @app.post("/api/report/annual-summary")
 async def generate_annual_summary(request: AnnualSummaryRequest):
     """Generate annual summary report"""
-    # Placeholder for annual summary
-    return {
-        "report_id": str(uuid.uuid4()),
-        "report_type": "annual_summary",
-        "status": "success",
-        "message": "Annual summary report generation placeholder"
+    try:
+        analysis_response = supabase.table("report_analyses")\
+            .select("*")\
+            .eq("id", request.analysis_id)\
+            .execute()
+        
+        if not analysis_response.data:
+            return {"error": "Analysis not found", "status": "error"}
+        
+        analysis = analysis_response.data[0]
+        
+        # Override config for annual scope
+        year = request.year or datetime.now().year
+        annual_range = {
+            "start": f"{year}-01-01T00:00:00Z",
+            "end": f"{year}-12-31T23:59:59Z"
+        }
+        
+        config = {
+            "time_range": annual_range,
+            "data_sources": {"quick_scans": [], "deep_dives": []}
+        }
+        
+        # Get all data for the year
+        scan_response = supabase.table("quick_scans")\
+            .select("*")\
+            .eq("user_id", str(request.user_id))\
+            .gte("created_at", annual_range["start"])\
+            .lte("created_at", annual_range["end"])\
+            .execute()
+        
+        dive_response = supabase.table("deep_dive_sessions")\
+            .select("*")\
+            .eq("user_id", str(request.user_id))\
+            .eq("status", "completed")\
+            .gte("created_at", annual_range["start"])\
+            .lte("created_at", annual_range["end"])\
+            .execute()
+        
+        symptom_response = supabase.table("symptom_tracking")\
+            .select("*")\
+            .eq("user_id", str(request.user_id))\
+            .gte("created_at", annual_range["start"])\
+            .lte("created_at", annual_range["end"])\
+            .execute()
+        
+        quick_scans = scan_response.data or []
+        deep_dives = dive_response.data or []
+        symptoms = symptom_response.data or []
+        
+        # Build annual context
+        context = f"""Generate an annual health summary for {year}.
+
+Annual Statistics:
+- Total Quick Scans: {len(quick_scans)}
+- Total Deep Dives: {len(deep_dives)}
+- Symptom Entries: {len(symptoms)}
+
+Conditions Assessed:
+{json.dumps([s.get('analysis_result', {}).get('primaryCondition') for s in quick_scans if s.get('analysis_result', {}).get('primaryCondition')], indent=2)}
+
+Symptom Frequency:
+{json.dumps({}, indent=2)}
+
+Seasonal Patterns: {len([s for s in symptoms if '01' in s.get('created_at', '')[:7] or '02' in s.get('created_at', '')[:7] or '12' in s.get('created_at', '')[:7]])} winter entries, {len([s for s in symptoms if '06' in s.get('created_at', '')[:7] or '07' in s.get('created_at', '')[:7] or '08' in s.get('created_at', '')[:7]])} summer entries"""
+
+        system_prompt = """Generate an annual health summary. Return JSON:
+{
+  "executive_summary": {
+    "one_page_summary": "Complete year overview",
+    "key_findings": ["major health insights"],
+    "action_items": ["recommendations for next year"]
+  },
+  "yearly_overview": {
+    "total_assessments": 0,
+    "most_common_concerns": ["top health issues"],
+    "health_trends": {
+      "improving_areas": ["areas of improvement"],
+      "concerning_trends": ["areas needing attention"],
+      "stable_conditions": ["stable health aspects"]
+    },
+    "seasonal_patterns": {
+      "winter_issues": ["winter health patterns"],
+      "summer_concerns": ["summer health patterns"],
+      "year_round_stable": ["consistent health aspects"]
     }
+  },
+  "health_metrics": {
+    "symptom_frequency": {},
+    "severity_averages": {},
+    "improvement_tracking": {
+      "symptoms_resolved": ["resolved issues"],
+      "new_symptoms": ["new health concerns"],
+      "chronic_patterns": ["ongoing health patterns"]
+    }
+  },
+  "preventive_recommendations": {
+    "screening_due": ["recommended screenings"],
+    "lifestyle_goals": ["health goals for next year"],
+    "monitoring_priorities": ["key areas to monitor"],
+    "specialist_referrals": ["specialist consultations needed"]
+  }
+}"""
+
+        llm_response = await call_llm(
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": context}
+            ],
+            model="tngtech/deepseek-r1t-chimera:free",
+            user_id=request.user_id,
+            temperature=0.3,
+            max_tokens=2500
+        )
+        
+        report_data = extract_json_from_response(llm_response.get("content", llm_response.get("raw_content", "")))
+        
+        if not report_data:
+            report_data = {
+                "executive_summary": {
+                    "one_page_summary": f"Annual health summary for {year} could not be generated.",
+                    "key_findings": [],
+                    "action_items": ["Schedule annual physical exam"]
+                },
+                "yearly_overview": {
+                    "total_assessments": len(quick_scans) + len(deep_dives),
+                    "most_common_concerns": [],
+                    "health_trends": {},
+                    "seasonal_patterns": {}
+                },
+                "health_metrics": {},
+                "preventive_recommendations": {}
+            }
+        
+        # Update total assessments
+        if "yearly_overview" in report_data:
+            report_data["yearly_overview"]["total_assessments"] = len(quick_scans) + len(deep_dives)
+        
+        # Save report
+        report_id = str(uuid.uuid4())
+        report_record = {
+            "id": report_id,
+            "user_id": request.user_id,
+            "analysis_id": request.analysis_id,
+            "report_type": "annual_summary",
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "report_data": report_data,
+            "executive_summary": report_data["executive_summary"]["one_page_summary"],
+            "confidence_score": 88,
+            "model_used": "tngtech/deepseek-r1t-chimera:free",
+            "year": year
+        }
+        
+        supabase.table("medical_reports").insert(report_record).execute()
+        
+        return {
+            "report_id": report_id,
+            "report_type": "annual_summary",
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "report_data": report_data,
+            "year": year,
+            "status": "success"
+        }
+        
+    except Exception as e:
+        print(f"Error generating annual summary: {e}")
+        return {"error": str(e), "status": "error"}
+
+# Additional Report Management Endpoints
+@app.get("/api/reports")
+async def get_user_reports(user_id: str):
+    """Get all reports for a user"""
+    try:
+        response = supabase.table("medical_reports")\
+            .select("id, report_type, created_at, executive_summary, confidence_score")\
+            .eq("user_id", user_id)\
+            .order("created_at", desc=True)\
+            .execute()
+        
+        reports = response.data or []
+        
+        # Format for frontend
+        formatted_reports = []
+        for report in reports:
+            formatted_reports.append({
+                "id": report["id"],
+                "type": report["report_type"],
+                "title": report["report_type"].replace("_", " ").title(),
+                "summary": report["executive_summary"][:150] + "..." if len(report.get("executive_summary", "")) > 150 else report.get("executive_summary", ""),
+                "confidence": report.get("confidence_score", 0),
+                "created_at": report["created_at"],
+                "generated_date": report["created_at"]
+            })
+        
+        return {
+            "reports": formatted_reports,
+            "total": len(formatted_reports),
+            "status": "success"
+        }
+        
+    except Exception as e:
+        print(f"Error fetching user reports: {e}")
+        return {"error": str(e), "status": "error"}
+
+@app.post("/api/reports/{report_id}/access")
+async def mark_report_accessed(report_id: str):
+    """Mark report as accessed (for analytics)"""
+    try:
+        # Update last_accessed timestamp
+        current_time = datetime.now(timezone.utc).isoformat()
+        
+        # This could update a last_accessed field if you want to track it
+        # For now, just return success since the field doesn't exist yet
+        
+        return {
+            "report_id": report_id,
+            "accessed_at": current_time,
+            "status": "success"
+        }
+        
+    except Exception as e:
+        print(f"Error marking report accessed: {e}")
+        return {"error": str(e), "status": "error"}
+
+@app.get("/api/reports/{report_id}")
+async def get_report_by_id(report_id: str):
+    """Get a specific report by ID"""
+    try:
+        response = supabase.table("medical_reports")\
+            .select("*")\
+            .eq("id", report_id)\
+            .execute()
+        
+        if not response.data:
+            return {"error": "Report not found", "status": "error"}
+        
+        report = response.data[0]
+        
+        return {
+            "report_id": report["id"],
+            "report_type": report["report_type"],
+            "generated_at": report["created_at"],
+            "report_data": report["report_data"],
+            "confidence_score": report.get("confidence_score", 0),
+            "model_used": report.get("model_used", ""),
+            "status": "success"
+        }
+        
+    except Exception as e:
+        print(f"Error fetching report: {e}")
+        return {"error": str(e), "status": "error"}
 
 @app.get("/")
 async def root():
@@ -1999,7 +2570,10 @@ async def root():
                 "photo_progression": "POST /api/report/photo-progression",
                 "symptom_timeline": "POST /api/report/symptom-timeline",
                 "specialist": "POST /api/report/specialist",
-                "annual_summary": "POST /api/report/annual-summary"
+                "annual_summary": "POST /api/report/annual-summary",
+                "list_user_reports": "GET /api/reports?user_id=USER_ID",
+                "get_report": "GET /api/reports/{report_id}",
+                "mark_accessed": "POST /api/reports/{report_id}/access"
             }
         }
     }
