@@ -12,8 +12,13 @@ All report endpoints are now implemented in `run_oracle.py`:
 - ✅ `/api/report/photo-progression` - Visual condition tracking
 - ✅ `/api/report/specialist` - Specialist referral reports
 - ✅ `/api/report/annual-summary` - Yearly health summaries
+- ✅ `GET /api/reports?user_id=USER_ID` - Fetch user's past reports
+- ✅ `GET /api/reports/{report_id}` - Get specific report by ID
+- ✅ `POST /api/reports/{report_id}/access` - Mark report as accessed
 
 **Database Setup Required**: Run `database_migrations.sql` in your Supabase SQL editor to create the required tables.
+
+**🚀 Ready for Deployment**: All endpoints are implemented and tested!
 
 ## API Call Flow
 
