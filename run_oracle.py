@@ -162,6 +162,35 @@ class AnnualSummaryRequest(BaseModel):
     user_id: str  # Required for annual
     year: Optional[int] = None
 
+class TimePeriodReportRequest(BaseModel):
+    user_id: str
+    include_wearables: Optional[bool] = False
+
+class DoctorNotesRequest(BaseModel):
+    doctor_npi: str
+    specialty: str
+    notes: str
+    sections_reviewed: List[str]
+    diagnosis: Optional[str] = None
+    plan_modifications: Optional[Dict[str, Any]] = None
+    follow_up_instructions: Optional[str] = None
+
+class ShareReportRequest(BaseModel):
+    shared_by_npi: str
+    recipient_npi: str
+    access_level: str = "read_only"  # read_only, full_access
+    expiration_days: int = 30
+    notes: Optional[str] = None
+    base_url: str
+
+class RateReportRequest(BaseModel):
+    doctor_npi: str
+    usefulness_score: int  # 1-5
+    accuracy_score: int    # 1-5
+    time_saved: int       # minutes
+    would_recommend: bool
+    feedback: Optional[str] = None
+
 # Supabase helper functions
 async def get_user_medical_data(user_id: str) -> dict:
     """Fetch user's medical data from Supabase"""
@@ -558,6 +587,316 @@ def determine_time_range(context: dict, report_type: str) -> dict:
             "start": (now - timedelta(days=30)).isoformat(),
             "end": now.isoformat()
         }
+
+async def load_analysis(analysis_id: str):
+    """Load analysis from database"""
+    response = supabase.table("report_analyses")\
+        .select("*")\
+        .eq("id", analysis_id)\
+        .execute()
+    
+    if not response.data:
+        raise ValueError("Analysis not found")
+    
+    return response.data[0]
+
+async def gather_comprehensive_data(user_id: str, config: dict):
+    """Gather ALL available data for time-based reports"""
+    time_range = config.get("time_range", {})
+    
+    # Quick Scans
+    scans = supabase.table("quick_scans")\
+        .select("*")\
+        .eq("user_id", user_id)\
+        .gte("created_at", time_range.get("start", "2020-01-01"))\
+        .lte("created_at", time_range.get("end", datetime.now(timezone.utc).isoformat()))\
+        .order("created_at")\
+        .execute()
+    
+    # Deep Dives
+    dives = supabase.table("deep_dive_sessions")\
+        .select("*")\
+        .eq("user_id", user_id)\
+        .eq("status", "completed")\
+        .gte("created_at", time_range.get("start", "2020-01-01"))\
+        .lte("created_at", time_range.get("end", datetime.now(timezone.utc).isoformat()))\
+        .order("created_at")\
+        .execute()
+    
+    # Symptom Tracking
+    tracking = supabase.table("symptom_tracking")\
+        .select("*")\
+        .eq("user_id", user_id)\
+        .gte("created_at", time_range.get("start", "2020-01-01"))\
+        .lte("created_at", time_range.get("end", datetime.now(timezone.utc).isoformat()))\
+        .order("created_at")\
+        .execute()
+    
+    # Long-term tracking data
+    tracking_configs = supabase.table("tracking_configurations")\
+        .select("*")\
+        .eq("user_id", user_id)\
+        .eq("status", "approved")\
+        .execute()
+    
+    tracking_data = []
+    for config_item in (tracking_configs.data or []):
+        points = supabase.table("tracking_data_points")\
+            .select("*")\
+            .eq("configuration_id", config_item["id"])\
+            .gte("recorded_at", time_range.get("start", "2020-01-01"))\
+            .lte("recorded_at", time_range.get("end", datetime.now(timezone.utc).isoformat()))\
+            .order("recorded_at")\
+            .execute()
+        
+        if points.data:
+            tracking_data.append({
+                "metric": config_item["metric_name"],
+                "data_points": points.data
+            })
+    
+    # LLM Chat Summaries
+    chats = supabase.table("oracle_chats")\
+        .select("*")\
+        .eq("user_id", user_id)\
+        .gte("created_at", time_range.get("start", "2020-01-01"))\
+        .lte("created_at", time_range.get("end", datetime.now(timezone.utc).isoformat()))\
+        .order("created_at")\
+        .execute()
+    
+    return {
+        "quick_scans": scans.data or [],
+        "deep_dives": dives.data or [],
+        "symptom_tracking": tracking.data or [],
+        "tracking_data": tracking_data,
+        "llm_summaries": chats.data or [],
+        "wearables": {}  # Placeholder for wearables integration
+    }
+
+async def extract_cardiac_patterns(data: dict) -> str:
+    """Extract cardiac-specific patterns from data"""
+    cardiac_symptoms = ["chest pain", "palpitations", "shortness of breath", "dizziness", "heart"]
+    
+    relevant_data = []
+    for scan in data.get("quick_scans", []):
+        form_data_str = str(scan.get("form_data", {})).lower()
+        if any(symptom in form_data_str for symptom in cardiac_symptoms):
+            relevant_data.append({
+                "date": scan["created_at"],
+                "symptoms": scan.get("form_data", {}).get("symptoms"),
+                "severity": scan.get("form_data", {}).get("painLevel"),
+                "analysis": scan.get("analysis_result", {})
+            })
+    
+    for dive in data.get("deep_dives", []):
+        dive_str = str(dive).lower()
+        if any(symptom in dive_str for symptom in cardiac_symptoms):
+            relevant_data.append({
+                "date": dive["created_at"],
+                "body_part": dive["body_part"],
+                "final_analysis": dive.get("final_analysis", {})
+            })
+    
+    return f"Cardiac-specific data found: {len(relevant_data)} relevant entries\n" + json.dumps(relevant_data, indent=2)
+
+async def extract_neuro_patterns(data: dict) -> str:
+    """Extract neurology-specific patterns from data"""
+    neuro_symptoms = ["headache", "migraine", "dizziness", "numbness", "tingling", "vision"]
+    
+    relevant_data = []
+    for scan in data.get("quick_scans", []):
+        form_data_str = str(scan.get("form_data", {})).lower()
+        if any(symptom in form_data_str for symptom in neuro_symptoms):
+            relevant_data.append({
+                "date": scan["created_at"],
+                "symptoms": scan.get("form_data", {}).get("symptoms"),
+                "severity": scan.get("form_data", {}).get("painLevel"),
+                "analysis": scan.get("analysis_result", {})
+            })
+    
+    return f"Neurological data found: {len(relevant_data)} relevant entries\n" + json.dumps(relevant_data, indent=2)
+
+async def extract_mental_health_patterns(data: dict) -> str:
+    """Extract mental health patterns from data"""
+    psych_keywords = ["anxiety", "depression", "stress", "mood", "sleep", "panic", "worry"]
+    
+    relevant_data = []
+    for scan in data.get("quick_scans", []):
+        form_data_str = str(scan.get("form_data", {})).lower()
+        if any(keyword in form_data_str for keyword in psych_keywords):
+            relevant_data.append({
+                "date": scan["created_at"],
+                "symptoms": scan.get("form_data", {}).get("symptoms"),
+                "analysis": scan.get("analysis_result", {})
+            })
+    
+    return f"Mental health data found: {len(relevant_data)} relevant entries\n" + json.dumps(relevant_data, indent=2)
+
+async def extract_dermatology_patterns(data: dict, photo_data: dict) -> str:
+    """Extract dermatology patterns including photo data"""
+    derm_keywords = ["rash", "skin", "itching", "lesion", "mole", "spot"]
+    
+    relevant_data = []
+    for scan in data.get("quick_scans", []):
+        form_data_str = str(scan.get("form_data", {})).lower()
+        if any(keyword in form_data_str for keyword in derm_keywords):
+            relevant_data.append(scan)
+    
+    return f"Dermatology data found: {len(relevant_data)} text entries, {len(photo_data)} photos\n" + json.dumps(relevant_data[:5], indent=2)
+
+async def extract_gi_patterns(data: dict) -> str:
+    """Extract GI patterns from data"""
+    gi_keywords = ["stomach", "abdominal", "nausea", "diarrhea", "constipation", "bloating"]
+    
+    relevant_data = []
+    for scan in data.get("quick_scans", []):
+        form_data_str = str(scan.get("form_data", {})).lower()
+        if any(keyword in form_data_str for keyword in gi_keywords):
+            relevant_data.append(scan)
+    
+    return f"GI data found: {len(relevant_data)} relevant entries\n" + json.dumps(relevant_data[:10], indent=2)
+
+async def extract_endocrine_patterns(data: dict) -> str:
+    """Extract endocrine patterns from data"""
+    endo_keywords = ["fatigue", "weight", "thyroid", "diabetes", "energy", "temperature"]
+    
+    relevant_data = []
+    for scan in data.get("quick_scans", []):
+        form_data_str = str(scan.get("form_data", {})).lower()
+        if any(keyword in form_data_str for keyword in endo_keywords):
+            relevant_data.append(scan)
+    
+    return f"Endocrine data found: {len(relevant_data)} relevant entries\n" + json.dumps(relevant_data[:10], indent=2)
+
+async def extract_pulmonary_patterns(data: dict) -> str:
+    """Extract pulmonary patterns from data"""
+    pulm_keywords = ["breathing", "cough", "wheeze", "asthma", "shortness", "chest"]
+    
+    relevant_data = []
+    for scan in data.get("quick_scans", []):
+        form_data_str = str(scan.get("form_data", {})).lower()
+        if any(keyword in form_data_str for keyword in pulm_keywords):
+            relevant_data.append(scan)
+    
+    return f"Pulmonary data found: {len(relevant_data)} relevant entries\n" + json.dumps(relevant_data[:10], indent=2)
+
+async def gather_photo_data(user_id: str, config: dict):
+    """Placeholder for photo data gathering"""
+    # This would integrate with your photo storage system
+    return []
+
+async def save_specialist_report(report_id: str, request, specialty: str, report_data: dict):
+    """Save specialist report to database"""
+    report_record = {
+        "id": report_id,
+        "user_id": request.user_id,
+        "analysis_id": request.analysis_id,
+        "report_type": specialty,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "report_data": report_data,
+        "executive_summary": report_data.get("executive_summary", {}).get("one_page_summary", ""),
+        "confidence_score": 85,
+        "model_used": "tngtech/deepseek-r1t-chimera:free",
+        "specialty": specialty
+    }
+    
+    await safe_insert_report(report_record)
+
+async def group_data_by_month(all_data: dict):
+    """Group health data by month for annual reports"""
+    monthly_data = {}
+    
+    for scan in all_data.get("quick_scans", []):
+        month = scan["created_at"][:7]  # YYYY-MM
+        if month not in monthly_data:
+            monthly_data[month] = {"quick_scans": 0, "deep_dives": 0, "symptoms": {}, "total_interactions": 0}
+        monthly_data[month]["quick_scans"] += 1
+        
+        # Count symptoms
+        symptoms = scan.get("form_data", {}).get("symptoms", "")
+        if symptoms:
+            if symptoms not in monthly_data[month]["symptoms"]:
+                monthly_data[month]["symptoms"][symptoms] = 0
+            monthly_data[month]["symptoms"][symptoms] += 1
+    
+    for dive in all_data.get("deep_dives", []):
+        month = dive["created_at"][:7]
+        if month not in monthly_data:
+            monthly_data[month] = {"quick_scans": 0, "deep_dives": 0, "symptoms": {}, "total_interactions": 0}
+        monthly_data[month]["deep_dives"] += 1
+    
+    # Calculate totals
+    for month in monthly_data:
+        monthly_data[month]["total_interactions"] = (
+            monthly_data[month]["quick_scans"] + 
+            monthly_data[month]["deep_dives"]
+        )
+    
+    return monthly_data
+
+def count_symptoms_by_frequency(all_data: dict):
+    """Count symptom frequency across all data"""
+    symptom_counts = {}
+    
+    for scan in all_data.get("quick_scans", []):
+        symptoms = scan.get("form_data", {}).get("symptoms", "")
+        if symptoms:
+            if symptoms not in symptom_counts:
+                symptom_counts[symptoms] = {"count": 0, "severity_sum": 0}
+            symptom_counts[symptoms]["count"] += 1
+            severity = scan.get("form_data", {}).get("painLevel", 5)
+            symptom_counts[symptoms]["severity_sum"] += severity
+    
+    # Calculate averages
+    result = []
+    for symptom, data in symptom_counts.items():
+        result.append({
+            "symptom": symptom,
+            "frequency": data["count"],
+            "average_severity": round(data["severity_sum"] / data["count"], 1)
+        })
+    
+    return sorted(result, key=lambda x: x["frequency"], reverse=True)
+
+def analyze_seasonal_patterns(all_data: dict):
+    """Analyze seasonal patterns in health data"""
+    seasonal_data = {
+        "winter": {"months": ["12", "01", "02"], "symptoms": {}},
+        "spring": {"months": ["03", "04", "05"], "symptoms": {}},
+        "summer": {"months": ["06", "07", "08"], "symptoms": {}},
+        "fall": {"months": ["09", "10", "11"], "symptoms": {}}
+    }
+    
+    for scan in all_data.get("quick_scans", []):
+        month = scan["created_at"][5:7]  # MM
+        symptoms = scan.get("form_data", {}).get("symptoms", "")
+        
+        for season, data in seasonal_data.items():
+            if month in data["months"] and symptoms:
+                if symptoms not in data["symptoms"]:
+                    data["symptoms"][symptoms] = 0
+                data["symptoms"][symptoms] += 1
+    
+    # Get top symptoms per season
+    result = {}
+    for season, data in seasonal_data.items():
+        top_symptoms = sorted(data["symptoms"].items(), key=lambda x: x[1], reverse=True)[:3]
+        result[season] = [s[0] for s in top_symptoms]
+    
+    return result
+
+async def get_average_rating(report_id: str, field: str):
+    """Get average rating for a report"""
+    response = supabase.table("report_ratings")\
+        .select(field)\
+        .eq("report_id", report_id)\
+        .execute()
+    
+    if not response.data:
+        return None
+    
+    ratings = [r[field] for r in response.data if r[field] is not None]
+    return round(sum(ratings) / len(ratings), 1) if ratings else None
 
 @app.post("/api/chat")
 async def chat(request: ChatRequest):
@@ -2489,6 +2828,1323 @@ Seasonal Patterns: {len([s for s in symptoms if '01' in s.get('created_at', '')[
         print(f"Error generating annual summary: {e}")
         return {"error": str(e), "status": "error"}
 
+# ================== SPECIALIST REPORT ENDPOINTS ==================
+
+@app.post("/api/report/cardiology")
+async def generate_cardiology_report(request: SpecialistReportRequest):
+    """Generate cardiology specialist report"""
+    try:
+        analysis = await load_analysis(request.analysis_id)
+        config = analysis.get("report_config", {})
+        
+        # Gather comprehensive data
+        all_data = await gather_comprehensive_data(request.user_id or analysis["user_id"], config)
+        
+        # Extract cardiac-specific patterns
+        cardiac_data = await extract_cardiac_patterns(all_data)
+        
+        # Build cardiology context
+        context = f"""Generate a comprehensive cardiology report.
+
+CARDIAC DATA:
+{cardiac_data}
+
+VITAL SIGNS AND METRICS:
+- Latest recorded blood pressure: [To be integrated with wearables]
+- Heart rate patterns: [To be integrated]
+- Exercise tolerance: Based on reported symptoms
+
+SYMPTOMS OF INTEREST:
+- Chest pain/pressure/discomfort
+- Palpitations or irregular heartbeat
+- Shortness of breath
+- Dizziness or lightheadedness
+- Fatigue with exertion
+- Swelling in legs/ankles
+
+RISK FACTORS:
+[Analyze from patient data for diabetes, hypertension, smoking, family history]
+
+PATIENT PROFILE:
+{json.dumps(analysis.get("user_data", {}), indent=2)}"""
+
+        system_prompt = """Generate a cardiology specialist report. Include both general medical sections AND cardiology-specific analysis.
+
+Return JSON format:
+{
+  "executive_summary": {
+    "one_page_summary": "Complete cardiovascular assessment summary",
+    "chief_complaints": ["primary cardiac concerns"],
+    "key_findings": ["significant cardiovascular findings"],
+    "urgency_indicators": ["any concerning cardiac symptoms"],
+    "action_items": ["immediate cardiac care needs"]
+  },
+  "patient_story": {
+    "cardiac_symptoms_timeline": [
+      {
+        "date": "ISO date",
+        "symptom": "chest pain/palpitations/etc",
+        "severity": 1-10,
+        "triggers": ["exertion", "stress", "rest"],
+        "duration": "minutes/hours",
+        "relief_factors": ["rest", "medication"]
+      }
+    ],
+    "cardiac_risk_factors": {
+      "modifiable": ["smoking", "diet", "exercise"],
+      "non_modifiable": ["age", "family history", "gender"],
+      "comorbidities": ["diabetes", "hypertension", "obesity"]
+    }
+  },
+  "medical_analysis": {
+    "cardiac_assessment": {
+      "rhythm_concerns": ["arrhythmia patterns if any"],
+      "ischemic_symptoms": ["chest pain characteristics"],
+      "heart_failure_signs": ["dyspnea", "edema", "fatigue"],
+      "vascular_symptoms": ["claudication", "cold extremities"]
+    },
+    "differential_diagnosis": [
+      {
+        "condition": "Condition name",
+        "icd10_code": "IXX.X",
+        "likelihood": "High/Medium/Low",
+        "supporting_evidence": ["evidence points"]
+      }
+    ],
+    "pattern_analysis": {
+      "symptom_triggers": ["identified triggers"],
+      "temporal_patterns": ["when symptoms occur"],
+      "progression": "stable/worsening/improving"
+    }
+  },
+  "cardiology_specific": {
+    "recommended_tests": {
+      "immediate": ["ECG", "Troponin if chest pain"],
+      "routine": ["Echo", "Stress test", "Holter monitor"],
+      "advanced": ["Cardiac MRI", "Coronary angiography if indicated"]
+    },
+    "risk_stratification": {
+      "ascvd_risk": "Calculate if data available",
+      "heart_failure_risk": "Low/Medium/High",
+      "arrhythmia_risk": "Low/Medium/High"
+    },
+    "medication_considerations": {
+      "indicated": ["Aspirin", "Statin", "Beta-blocker", "ACE-I/ARB"],
+      "contraindicated": ["based on symptoms"],
+      "monitoring_required": ["lab work needed"]
+    }
+  },
+  "action_plan": {
+    "immediate_actions": ["911 if acute symptoms", "urgent cardiology if concerning"],
+    "diagnostic_pathway": {
+      "week_1": ["Initial tests"],
+      "week_2_4": ["Follow-up tests"],
+      "ongoing": ["Monitoring plan"]
+    },
+    "lifestyle_modifications": {
+      "diet": ["DASH diet", "sodium restriction"],
+      "exercise": ["cardiac rehab if indicated", "activity recommendations"],
+      "risk_reduction": ["smoking cessation", "weight management"]
+    },
+    "follow_up": {
+      "cardiology_appointment": "Urgent/Routine/As needed",
+      "primary_care": "Frequency of monitoring",
+      "red_flags": ["When to seek immediate care"]
+    }
+  },
+  "billing_optimization": {
+    "suggested_codes": {
+      "icd10": ["Primary and secondary diagnosis codes"],
+      "cpt": ["Recommended procedure codes for workup"]
+    },
+    "insurance_considerations": ["Prior auth needs", "covered services"]
+  }
+}"""
+
+        llm_response = await call_llm(
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": context}
+            ],
+            model="tngtech/deepseek-r1t-chimera:free",
+            temperature=0.3,
+            max_tokens=4000
+        )
+        
+        report_data = extract_json_from_response(llm_response.get("content", llm_response.get("raw_content", "")))
+        
+        if not report_data:
+            report_data = {
+                "executive_summary": {
+                    "one_page_summary": "Cardiology report generation failed. Please retry.",
+                    "chief_complaints": [],
+                    "key_findings": [],
+                    "urgency_indicators": [],
+                    "action_items": ["Regenerate report"]
+                },
+                "error": "Failed to generate complete report"
+            }
+        
+        # Save report
+        report_id = str(uuid.uuid4())
+        await save_specialist_report(report_id, request, "cardiology", report_data)
+        
+        return {
+            "report_id": report_id,
+            "report_type": "cardiology",
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "report_data": report_data,
+            "status": "success"
+        }
+        
+    except Exception as e:
+        print(f"Error generating cardiology report: {e}")
+        return {"error": str(e), "status": "error"}
+
+@app.post("/api/report/neurology")
+async def generate_neurology_report(request: SpecialistReportRequest):
+    """Generate neurology specialist report"""
+    try:
+        analysis = await load_analysis(request.analysis_id)
+        config = analysis.get("report_config", {})
+        
+        # Gather comprehensive data
+        all_data = await gather_comprehensive_data(request.user_id or analysis["user_id"], config)
+        
+        # Extract neuro-specific patterns
+        neuro_data = await extract_neuro_patterns(all_data)
+        
+        # Build neurology context
+        context = f"""Generate a comprehensive neurology report.
+
+NEUROLOGICAL DATA:
+{neuro_data}
+
+NEUROLOGICAL SYMPTOMS OF INTEREST:
+- Headaches (type, frequency, triggers)
+- Dizziness/vertigo
+- Numbness/tingling
+- Vision changes
+- Memory/cognitive issues
+- Seizures or blackouts
+- Tremors or movement disorders
+- Sleep disturbances
+
+PATTERN ANALYSIS NEEDED:
+- Headache patterns (migraine vs tension vs cluster)
+- Temporal patterns
+- Triggers and relief factors
+- Associated symptoms
+- Progression over time"""
+
+        system_prompt = """Generate a neurology specialist report. Include both general medical sections AND neurology-specific analysis.
+
+Return JSON format matching the cardiology structure but with neurology-specific content:
+- executive_summary (with neurological focus)
+- patient_story (neurological symptoms timeline)
+- medical_analysis (neurological assessment)
+- neurology_specific section with:
+  - recommended_tests (MRI, EEG, EMG/NCS, LP if indicated)
+  - headache_classification if applicable
+  - cognitive_assessment if applicable
+  - movement_disorder_assessment if applicable
+- action_plan (neurology-focused)
+- billing_optimization"""
+
+        llm_response = await call_llm(
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": context}
+            ],
+            model="tngtech/deepseek-r1t-chimera:free",
+            temperature=0.3,
+            max_tokens=4000
+        )
+        
+        report_data = extract_json_from_response(llm_response.get("content", llm_response.get("raw_content", "")))
+        
+        if not report_data:
+            report_data = {
+                "executive_summary": {
+                    "one_page_summary": "Neurology report generation failed. Please retry.",
+                    "chief_complaints": [],
+                    "key_findings": [],
+                    "urgency_indicators": [],
+                    "action_items": ["Regenerate report"]
+                }
+            }
+        
+        # Save report
+        report_id = str(uuid.uuid4())
+        await save_specialist_report(report_id, request, "neurology", report_data)
+        
+        return {
+            "report_id": report_id,
+            "report_type": "neurology",
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "report_data": report_data,
+            "status": "success"
+        }
+        
+    except Exception as e:
+        print(f"Error generating neurology report: {e}")
+        return {"error": str(e), "status": "error"}
+
+@app.post("/api/report/psychiatry")
+async def generate_psychiatry_report(request: SpecialistReportRequest):
+    """Generate psychiatry specialist report"""
+    try:
+        analysis = await load_analysis(request.analysis_id)
+        config = analysis.get("report_config", {})
+        
+        # Gather comprehensive data
+        all_data = await gather_comprehensive_data(request.user_id or analysis["user_id"], config)
+        
+        # Extract mental health patterns
+        mental_health_data = await extract_mental_health_patterns(all_data)
+        
+        # Build psychiatry context
+        context = f"""Generate a comprehensive psychiatry report.
+
+MENTAL HEALTH DATA:
+{mental_health_data}
+
+PSYCHIATRIC SYMPTOMS OF INTEREST:
+- Mood symptoms (depression, mania, mood swings)
+- Anxiety symptoms (panic, worry, phobias)
+- Sleep disturbances
+- Appetite/weight changes
+- Concentration/memory issues
+- Social functioning
+- Substance use
+- Suicidal/homicidal ideation
+
+FUNCTIONAL ASSESSMENT:
+- Work/school performance
+- Relationships
+- Daily activities
+- Self-care"""
+
+        system_prompt = """Generate a psychiatry specialist report. Include both general medical sections AND psychiatry-specific analysis.
+
+Return JSON format with:
+- executive_summary (mental health focus)
+- patient_story (psychiatric history and timeline)
+- medical_analysis (psychiatric assessment)
+- psychiatry_specific section with:
+  - mental_status_exam components
+  - risk_assessment (suicide, violence, self-harm)
+  - diagnostic_impressions (DSM-5 considerations)
+  - psychopharmacology_recommendations
+  - therapy_recommendations
+- action_plan (mental health focused)
+- billing_optimization (psychiatric codes)"""
+
+        llm_response = await call_llm(
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": context}
+            ],
+            model="tngtech/deepseek-r1t-chimera:free",
+            temperature=0.3,
+            max_tokens=4000
+        )
+        
+        report_data = extract_json_from_response(llm_response.get("content", llm_response.get("raw_content", "")))
+        
+        if not report_data:
+            report_data = {
+                "executive_summary": {
+                    "one_page_summary": "Psychiatry report generation failed. Please retry.",
+                    "chief_complaints": [],
+                    "key_findings": [],
+                    "urgency_indicators": [],
+                    "action_items": ["Regenerate report"]
+                }
+            }
+        
+        # Save report
+        report_id = str(uuid.uuid4())
+        await save_specialist_report(report_id, request, "psychiatry", report_data)
+        
+        return {
+            "report_id": report_id,
+            "report_type": "psychiatry",
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "report_data": report_data,
+            "status": "success"
+        }
+        
+    except Exception as e:
+        print(f"Error generating psychiatry report: {e}")
+        return {"error": str(e), "status": "error"}
+
+@app.post("/api/report/dermatology")
+async def generate_dermatology_report(request: SpecialistReportRequest):
+    """Generate dermatology specialist report"""
+    try:
+        analysis = await load_analysis(request.analysis_id)
+        config = analysis.get("report_config", {})
+        
+        # Gather comprehensive data
+        all_data = await gather_comprehensive_data(request.user_id or analysis["user_id"], config)
+        
+        # Gather photo data if available
+        photo_data = await gather_photo_data(request.user_id or analysis["user_id"], config)
+        
+        # Extract dermatology patterns
+        derm_data = await extract_dermatology_patterns(all_data, photo_data)
+        
+        # Build dermatology context
+        context = f"""Generate a comprehensive dermatology report.
+
+DERMATOLOGICAL DATA:
+{derm_data}
+
+SKIN SYMPTOMS OF INTEREST:
+- Rashes (location, appearance, progression)
+- Lesions/moles (ABCDE criteria)
+- Itching/burning/pain
+- Color changes
+- Texture changes
+- Hair/nail changes
+- Photo progression data: {len(photo_data)} images available
+
+PATTERN ANALYSIS:
+- Distribution patterns
+- Symmetry
+- Evolution over time
+- Response to treatments
+- Environmental triggers"""
+
+        system_prompt = """Generate a dermatology specialist report. Include both general medical sections AND dermatology-specific analysis.
+
+Return JSON format with:
+- executive_summary (dermatological focus)
+- patient_story (skin condition timeline)
+- medical_analysis (dermatological assessment)
+- dermatology_specific section with:
+  - lesion_descriptions (morphology, distribution)
+  - photo_analysis_summary
+  - differential_diagnosis (skin conditions)
+  - biopsy_recommendations if indicated
+  - treatment_plan (topical, systemic, procedures)
+  - sun_protection_counseling
+- action_plan (dermatology focused)
+- billing_optimization"""
+
+        llm_response = await call_llm(
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": context}
+            ],
+            model="tngtech/deepseek-r1t-chimera:free",
+            temperature=0.3,
+            max_tokens=4000
+        )
+        
+        report_data = extract_json_from_response(llm_response.get("content", llm_response.get("raw_content", "")))
+        
+        if not report_data:
+            report_data = {
+                "executive_summary": {
+                    "one_page_summary": "Dermatology report generation failed. Please retry.",
+                    "chief_complaints": [],
+                    "key_findings": [],
+                    "urgency_indicators": [],
+                    "action_items": ["Regenerate report"]
+                }
+            }
+        
+        # Save report
+        report_id = str(uuid.uuid4())
+        await save_specialist_report(report_id, request, "dermatology", report_data)
+        
+        return {
+            "report_id": report_id,
+            "report_type": "dermatology",
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "report_data": report_data,
+            "status": "success"
+        }
+        
+    except Exception as e:
+        print(f"Error generating dermatology report: {e}")
+        return {"error": str(e), "status": "error"}
+
+@app.post("/api/report/gastroenterology")
+async def generate_gastroenterology_report(request: SpecialistReportRequest):
+    """Generate gastroenterology specialist report"""
+    try:
+        analysis = await load_analysis(request.analysis_id)
+        config = analysis.get("report_config", {})
+        
+        # Gather comprehensive data
+        all_data = await gather_comprehensive_data(request.user_id or analysis["user_id"], config)
+        
+        # Extract GI patterns
+        gi_data = await extract_gi_patterns(all_data)
+        
+        # Build gastroenterology context
+        context = f"""Generate a comprehensive gastroenterology report.
+
+GASTROINTESTINAL DATA:
+{gi_data}
+
+GI SYMPTOMS OF INTEREST:
+- Abdominal pain (location, quality, timing)
+- Nausea/vomiting
+- Diarrhea/constipation
+- Bloating/gas
+- Heartburn/reflux
+- Blood in stool
+- Weight changes
+- Appetite changes
+
+DIETARY PATTERNS:
+- Food triggers
+- Meal timing
+- Dietary restrictions
+- Symptom-food correlations"""
+
+        system_prompt = """Generate a gastroenterology specialist report. Include both general medical sections AND GI-specific analysis.
+
+Return JSON format with:
+- executive_summary (GI focus)
+- patient_story (GI symptoms timeline)
+- medical_analysis (GI assessment)
+- gastroenterology_specific section with:
+  - symptom_patterns (relation to meals, bowel habits)
+  - alarm_symptoms (bleeding, weight loss, etc)
+  - recommended_tests (endoscopy, colonoscopy, imaging)
+  - dietary_recommendations
+  - medication_options (PPIs, antispasmodics, etc)
+  - probiotic_recommendations
+- action_plan (GI focused)
+- billing_optimization"""
+
+        llm_response = await call_llm(
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": context}
+            ],
+            model="tngtech/deepseek-r1t-chimera:free",
+            temperature=0.3,
+            max_tokens=4000
+        )
+        
+        report_data = extract_json_from_response(llm_response.get("content", llm_response.get("raw_content", "")))
+        
+        if not report_data:
+            report_data = {
+                "executive_summary": {
+                    "one_page_summary": "Gastroenterology report generation failed. Please retry.",
+                    "chief_complaints": [],
+                    "key_findings": [],
+                    "urgency_indicators": [],
+                    "action_items": ["Regenerate report"]
+                }
+            }
+        
+        # Save report
+        report_id = str(uuid.uuid4())
+        await save_specialist_report(report_id, request, "gastroenterology", report_data)
+        
+        return {
+            "report_id": report_id,
+            "report_type": "gastroenterology",
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "report_data": report_data,
+            "status": "success"
+        }
+        
+    except Exception as e:
+        print(f"Error generating gastroenterology report: {e}")
+        return {"error": str(e), "status": "error"}
+
+@app.post("/api/report/endocrinology")
+async def generate_endocrinology_report(request: SpecialistReportRequest):
+    """Generate endocrinology specialist report"""
+    try:
+        analysis = await load_analysis(request.analysis_id)
+        config = analysis.get("report_config", {})
+        
+        # Gather comprehensive data
+        all_data = await gather_comprehensive_data(request.user_id or analysis["user_id"], config)
+        
+        # Extract endocrine patterns
+        endo_data = await extract_endocrine_patterns(all_data)
+        
+        # Build endocrinology context
+        context = f"""Generate a comprehensive endocrinology report.
+
+ENDOCRINE DATA:
+{endo_data}
+
+ENDOCRINE SYMPTOMS OF INTEREST:
+- Fatigue/energy levels
+- Weight changes
+- Temperature intolerance
+- Hair/skin changes
+- Menstrual irregularities
+- Libido changes
+- Mood changes
+- Excessive thirst/urination
+
+METABOLIC INDICATORS:
+- Blood sugar patterns
+- Weight trends
+- Energy fluctuations
+- Sleep quality"""
+
+        system_prompt = """Generate an endocrinology specialist report. Include both general medical sections AND endocrine-specific analysis.
+
+Return JSON format with:
+- executive_summary (endocrine focus)
+- patient_story (metabolic/hormonal timeline)
+- medical_analysis (endocrine assessment)
+- endocrinology_specific section with:
+  - suspected_hormonal_imbalances
+  - recommended_labs (thyroid, diabetes, hormones)
+  - metabolic_assessment
+  - treatment_options (hormone replacement, medications)
+  - lifestyle_modifications (diet, exercise, stress)
+  - monitoring_plan
+- action_plan (endocrine focused)
+- billing_optimization"""
+
+        llm_response = await call_llm(
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": context}
+            ],
+            model="tngtech/deepseek-r1t-chimera:free",
+            temperature=0.3,
+            max_tokens=4000
+        )
+        
+        report_data = extract_json_from_response(llm_response.get("content", llm_response.get("raw_content", "")))
+        
+        if not report_data:
+            report_data = {
+                "executive_summary": {
+                    "one_page_summary": "Endocrinology report generation failed. Please retry.",
+                    "chief_complaints": [],
+                    "key_findings": [],
+                    "urgency_indicators": [],
+                    "action_items": ["Regenerate report"]
+                }
+            }
+        
+        # Save report
+        report_id = str(uuid.uuid4())
+        await save_specialist_report(report_id, request, "endocrinology", report_data)
+        
+        return {
+            "report_id": report_id,
+            "report_type": "endocrinology",
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "report_data": report_data,
+            "status": "success"
+        }
+        
+    except Exception as e:
+        print(f"Error generating endocrinology report: {e}")
+        return {"error": str(e), "status": "error"}
+
+@app.post("/api/report/pulmonology")
+async def generate_pulmonology_report(request: SpecialistReportRequest):
+    """Generate pulmonology specialist report"""
+    try:
+        analysis = await load_analysis(request.analysis_id)
+        config = analysis.get("report_config", {})
+        
+        # Gather comprehensive data
+        all_data = await gather_comprehensive_data(request.user_id or analysis["user_id"], config)
+        
+        # Extract pulmonary patterns
+        pulm_data = await extract_pulmonary_patterns(all_data)
+        
+        # Build pulmonology context
+        context = f"""Generate a comprehensive pulmonology report.
+
+PULMONARY DATA:
+{pulm_data}
+
+RESPIRATORY SYMPTOMS OF INTEREST:
+- Cough (productive/dry, timing)
+- Shortness of breath (at rest/exertion)
+- Wheezing
+- Chest tightness
+- Sputum production
+- Hemoptysis
+- Exercise tolerance
+- Sleep apnea symptoms
+
+ENVIRONMENTAL FACTORS:
+- Smoking history
+- Occupational exposures
+- Allergens
+- Air quality"""
+
+        system_prompt = """Generate a pulmonology specialist report. Include both general medical sections AND pulmonary-specific analysis.
+
+Return JSON format with:
+- executive_summary (pulmonary focus)
+- patient_story (respiratory timeline)
+- medical_analysis (pulmonary assessment)
+- pulmonology_specific section with:
+  - breathing_pattern_analysis
+  - suspected_conditions (asthma, COPD, etc)
+  - recommended_tests (PFTs, chest CT, sleep study)
+  - inhaler_recommendations
+  - oxygen_assessment
+  - pulmonary_rehab_candidacy
+  - environmental_modifications
+- action_plan (pulmonary focused)
+- billing_optimization"""
+
+        llm_response = await call_llm(
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": context}
+            ],
+            model="tngtech/deepseek-r1t-chimera:free",
+            temperature=0.3,
+            max_tokens=4000
+        )
+        
+        report_data = extract_json_from_response(llm_response.get("content", llm_response.get("raw_content", "")))
+        
+        if not report_data:
+            report_data = {
+                "executive_summary": {
+                    "one_page_summary": "Pulmonology report generation failed. Please retry.",
+                    "chief_complaints": [],
+                    "key_findings": [],
+                    "urgency_indicators": [],
+                    "action_items": ["Regenerate report"]
+                }
+            }
+        
+        # Save report
+        report_id = str(uuid.uuid4())
+        await save_specialist_report(report_id, request, "pulmonology", report_data)
+        
+        return {
+            "report_id": report_id,
+            "report_type": "pulmonology",
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "report_data": report_data,
+            "status": "success"
+        }
+        
+    except Exception as e:
+        print(f"Error generating pulmonology report: {e}")
+        return {"error": str(e), "status": "error"}
+
+# ================== TIME-BASED REPORT ENDPOINTS ==================
+
+@app.post("/api/report/30-day")
+async def generate_30_day_report(request: TimePeriodReportRequest):
+    """Generate 30-day aggregate health report"""
+    try:
+        # Set up 30-day time range
+        end_date = datetime.now(timezone.utc)
+        start_date = end_date - timedelta(days=30)
+        
+        config = {
+            "time_range": {
+                "start": start_date.isoformat(),
+                "end": end_date.isoformat()
+            }
+        }
+        
+        # Gather ALL data for the period
+        all_data = await gather_comprehensive_data(request.user_id, config)
+        
+        # Group data by week
+        weekly_data = {}
+        for i in range(4):
+            week_start = start_date + timedelta(days=i*7)
+            week_end = week_start + timedelta(days=7)
+            week_key = f"Week {i+1}"
+            weekly_data[week_key] = {
+                "quick_scans": 0,
+                "deep_dives": 0,
+                "symptoms": {},
+                "severity_avg": 0,
+                "notable_events": []
+            }
+        
+        # Process data into weekly buckets
+        for scan in all_data.get("quick_scans", []):
+            scan_date = datetime.fromisoformat(scan["created_at"].replace('Z', '+00:00'))
+            week_num = (scan_date - start_date).days // 7
+            if 0 <= week_num < 4:
+                week_key = f"Week {week_num + 1}"
+                weekly_data[week_key]["quick_scans"] += 1
+                
+                # Track symptoms
+                symptoms = scan.get("form_data", {}).get("symptoms", "Unknown")
+                if symptoms not in weekly_data[week_key]["symptoms"]:
+                    weekly_data[week_key]["symptoms"][symptoms] = 0
+                weekly_data[week_key]["symptoms"][symptoms] += 1
+        
+        # Calculate symptom frequencies
+        symptom_freq = count_symptoms_by_frequency(all_data)
+        
+        # Extract patterns
+        patterns = []
+        for scan in all_data.get("quick_scans", []):
+            if scan.get("analysis_result", {}).get("primaryCondition"):
+                patterns.append({
+                    "date": scan["created_at"][:10],
+                    "condition": scan["analysis_result"]["primaryCondition"],
+                    "severity": scan.get("form_data", {}).get("painLevel", 5)
+                })
+        
+        context = f"""Generate a 30-day comprehensive health report.
+
+TIME PERIOD: {start_date.strftime('%B %d')} to {end_date.strftime('%B %d, %Y')}
+
+ACTIVITY SUMMARY:
+- Total Quick Scans: {len(all_data.get('quick_scans', []))}
+- Total Deep Dives: {len(all_data.get('deep_dives', []))}
+- Symptom Tracking Entries: {len(all_data.get('symptom_tracking', []))}
+- LLM Chat Sessions: {len(all_data.get('llm_summaries', []))}
+
+WEEKLY BREAKDOWN:
+{json.dumps(weekly_data, indent=2)}
+
+TOP SYMPTOMS (by frequency):
+{json.dumps(symptom_freq[:10], indent=2)}
+
+PATTERN DATA:
+{json.dumps(patterns[:20], indent=2)}
+
+WEARABLES DATA: {json.dumps(all_data.get('wearables', {}), indent=2) if request.include_wearables else 'Not included'}"""
+
+        system_prompt = """Generate a 30-day aggregate health report. This report should synthesize ALL health data from the past 30 days.
+
+Return JSON format:
+{
+  "executive_summary": {
+    "one_page_summary": "Comprehensive 30-day health overview",
+    "key_findings": ["major insights from the period"],
+    "patterns_identified": ["seems to pop up when patterns"],
+    "action_items": ["recommendations based on patterns"]
+  },
+  "period_overview": {
+    "total_health_interactions": 0,
+    "most_active_week": "Week X",
+    "primary_concerns": ["top 3-5 health issues"],
+    "improvement_areas": ["symptoms that improved"],
+    "worsening_areas": ["symptoms that worsened"],
+    "stable_conditions": ["unchanged patterns"]
+  },
+  "pattern_analysis": {
+    "temporal_patterns": {
+      "time_of_day": ["morning symptoms", "evening symptoms"],
+      "day_of_week": ["weekday vs weekend patterns"],
+      "weekly_trends": ["week-over-week changes"]
+    },
+    "correlation_patterns": {
+      "symptom_triggers": ["X seems to pop up when Y"],
+      "environmental_factors": ["weather, stress, activity correlations"],
+      "comorbidity_patterns": ["symptoms that occur together"]
+    },
+    "severity_analysis": {
+      "average_severity": 0,
+      "severity_trend": "improving/worsening/stable",
+      "high_severity_events": ["dates and details of severe symptoms"]
+    }
+  },
+  "detailed_findings": {
+    "by_body_system": {
+      "neurological": ["headaches, dizziness findings"],
+      "cardiovascular": ["chest pain, palpitations findings"],
+      "respiratory": ["breathing issues findings"],
+      "gastrointestinal": ["digestive findings"],
+      "musculoskeletal": ["pain, mobility findings"]
+    },
+    "by_symptom_type": {
+      "pain": {"frequency": 0, "average_severity": 0, "locations": []},
+      "fatigue": {"frequency": 0, "patterns": []},
+      "other_symptoms": {}
+    }
+  },
+  "predictive_insights": {
+    "emerging_patterns": ["patterns that are developing"],
+    "risk_indicators": ["concerning trends"],
+    "preventive_opportunities": ["ways to prevent issues"]
+  },
+  "recommendations": {
+    "immediate_actions": ["urgent items if any"],
+    "lifestyle_modifications": ["based on patterns"],
+    "monitoring_priorities": ["what to track closely"],
+    "specialist_consultations": ["if patterns suggest need"],
+    "follow_up_timeline": "suggested next steps"
+  },
+  "data_quality_metrics": {
+    "data_completeness": "percentage of days with data",
+    "consistency_score": "how consistent tracking has been",
+    "areas_needing_data": ["what's missing"]
+  }
+}"""
+
+        llm_response = await call_llm(
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": context}
+            ],
+            model="tngtech/deepseek-r1t-chimera:free",
+            temperature=0.3,
+            max_tokens=4000
+        )
+        
+        report_data = extract_json_from_response(llm_response.get("content", llm_response.get("raw_content", "")))
+        
+        if not report_data:
+            report_data = {
+                "executive_summary": {
+                    "one_page_summary": "30-day report generation failed. Please retry.",
+                    "key_findings": [],
+                    "patterns_identified": [],
+                    "action_items": ["Regenerate report"]
+                }
+            }
+        
+        # Save report
+        report_id = str(uuid.uuid4())
+        report_record = {
+            "id": report_id,
+            "user_id": request.user_id,
+            "report_type": "30_day_summary",
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "report_data": report_data,
+            "executive_summary": report_data["executive_summary"]["one_page_summary"],
+            "confidence_score": 90,
+            "model_used": "tngtech/deepseek-r1t-chimera:free",
+            "time_range": config["time_range"]
+        }
+        
+        await safe_insert_report(report_record)
+        
+        return {
+            "report_id": report_id,
+            "report_type": "30_day_summary",
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "report_data": report_data,
+            "period": {
+                "start": start_date.isoformat(),
+                "end": end_date.isoformat()
+            },
+            "status": "success"
+        }
+        
+    except Exception as e:
+        print(f"Error generating 30-day report: {e}")
+        return {"error": str(e), "status": "error"}
+
+@app.post("/api/report/annual")
+async def generate_annual_report(request: TimePeriodReportRequest):
+    """Generate annual aggregate health report"""
+    try:
+        # Set up annual time range
+        year = datetime.now().year
+        start_date = datetime(year, 1, 1, tzinfo=timezone.utc)
+        end_date = datetime.now(timezone.utc)
+        
+        config = {
+            "time_range": {
+                "start": start_date.isoformat(),
+                "end": end_date.isoformat()
+            }
+        }
+        
+        # Gather ALL data for the year
+        all_data = await gather_comprehensive_data(request.user_id, config)
+        
+        # Group data by month
+        monthly_data = await group_data_by_month(all_data)
+        
+        # Calculate yearly metrics
+        total_interactions = sum(m["total_interactions"] for m in monthly_data.values())
+        
+        # Analyze seasonal patterns
+        seasonal_patterns = analyze_seasonal_patterns(all_data)
+        
+        # Get top conditions throughout the year
+        all_conditions = []
+        for scan in all_data.get("quick_scans", []):
+            condition = scan.get("analysis_result", {}).get("primaryCondition")
+            if condition:
+                all_conditions.append(condition)
+        
+        # Count condition frequencies
+        condition_counts = {}
+        for condition in all_conditions:
+            condition_counts[condition] = condition_counts.get(condition, 0) + 1
+        
+        top_conditions = sorted(condition_counts.items(), key=lambda x: x[1], reverse=True)[:10]
+        
+        context = f"""Generate a comprehensive annual health report for {year}.
+
+YEARLY STATISTICS:
+- Total Health Interactions: {total_interactions}
+- Quick Scans: {len(all_data.get('quick_scans', []))}
+- Deep Dives: {len(all_data.get('deep_dives', []))}
+- Symptom Tracking Entries: {len(all_data.get('symptom_tracking', []))}
+- Months with Data: {len(monthly_data)}
+
+MONTHLY BREAKDOWN:
+{json.dumps(monthly_data, indent=2)}
+
+TOP CONDITIONS (by frequency):
+{json.dumps(top_conditions, indent=2)}
+
+SEASONAL PATTERNS:
+{json.dumps(seasonal_patterns, indent=2)}
+
+TRACKING DATA:
+{json.dumps([{"metric": t["metric"], "points": len(t["data_points"])} for t in all_data.get("tracking_data", [])], indent=2)}
+
+WEARABLES DATA: {json.dumps(all_data.get('wearables', {}), indent=2) if request.include_wearables else 'Not included'}"""
+
+        system_prompt = """Generate a comprehensive annual health report. This report should provide deep insights into health patterns over the entire year.
+
+Return JSON format:
+{
+  "executive_summary": {
+    "one_page_summary": "Complete year in health overview",
+    "key_findings": ["major health insights from the year"],
+    "health_journey": "narrative of health changes through the year",
+    "action_items": ["priorities for next year"]
+  },
+  "yearly_metrics": {
+    "total_health_interactions": 0,
+    "engagement_score": "high/medium/low based on consistency",
+    "most_active_months": ["top 3 months"],
+    "health_complexity_score": "simple/moderate/complex"
+  },
+  "health_evolution": {
+    "conditions_resolved": ["issues that went away"],
+    "new_conditions": ["new health issues that appeared"],
+    "chronic_conditions": ["ongoing issues throughout year"],
+    "improvement_trajectory": {
+      "overall_trend": "improving/stable/declining",
+      "specific_improvements": ["what got better"],
+      "specific_declines": ["what got worse"]
+    }
+  },
+  "pattern_insights": {
+    "seasonal_health": {
+      "winter": ["winter-specific patterns"],
+      "spring": ["spring-specific patterns"],
+      "summer": ["summer-specific patterns"],
+      "fall": ["fall-specific patterns"]
+    },
+    "monthly_patterns": {
+      "best_months": ["healthiest months and why"],
+      "challenging_months": ["difficult months and why"],
+      "turning_points": ["key moments of change"]
+    },
+    "long_term_correlations": ["X seems to pop up when Y over months"]
+  },
+  "body_system_review": {
+    "neurological": {
+      "year_summary": "overview",
+      "frequency_trend": "increasing/stable/decreasing",
+      "severity_trend": "better/same/worse"
+    },
+    "cardiovascular": {},
+    "respiratory": {},
+    "gastrointestinal": {},
+    "musculoskeletal": {},
+    "mental_health": {}
+  },
+  "preventive_health_assessment": {
+    "screening_recommendations": ["based on age and risk factors"],
+    "vaccination_reminders": ["flu, covid, others"],
+    "lifestyle_risk_factors": ["identified risks"],
+    "protective_factors": ["positive health behaviors"]
+  },
+  "data_driven_recommendations": {
+    "top_3_priorities": ["most important focus areas"],
+    "specialist_referrals": ["based on year's data"],
+    "lifestyle_modifications": ["evidence-based suggestions"],
+    "monitoring_plan": ["what to track in coming year"],
+    "goal_setting": ["SMART goals for health"]
+  },
+  "year_ahead_outlook": {
+    "predicted_challenges": ["based on patterns"],
+    "opportunities": ["for health improvement"],
+    "milestones": ["health goals to achieve"]
+  }
+}"""
+
+        llm_response = await call_llm(
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": context}
+            ],
+            model="tngtech/deepseek-r1t-chimera:free",
+            temperature=0.3,
+            max_tokens=5000  # Larger for comprehensive annual report
+        )
+        
+        report_data = extract_json_from_response(llm_response.get("content", llm_response.get("raw_content", "")))
+        
+        if not report_data:
+            report_data = {
+                "executive_summary": {
+                    "one_page_summary": "Annual report generation failed. Please retry.",
+                    "key_findings": [],
+                    "health_journey": "Unable to generate",
+                    "action_items": ["Regenerate report"]
+                }
+            }
+        
+        # Save report
+        report_id = str(uuid.uuid4())
+        report_record = {
+            "id": report_id,
+            "user_id": request.user_id,
+            "report_type": "annual_comprehensive",
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "report_data": report_data,
+            "executive_summary": report_data["executive_summary"]["one_page_summary"],
+            "confidence_score": 92,
+            "model_used": "tngtech/deepseek-r1t-chimera:free",
+            "year": year,
+            "time_range": config["time_range"]
+        }
+        
+        await safe_insert_report(report_record)
+        
+        return {
+            "report_id": report_id,
+            "report_type": "annual_comprehensive",
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "report_data": report_data,
+            "year": year,
+            "period": {
+                "start": start_date.isoformat(),
+                "end": end_date.isoformat()
+            },
+            "status": "success"
+        }
+        
+    except Exception as e:
+        print(f"Error generating annual report: {e}")
+        return {"error": str(e), "status": "error"}
+
+# ================== DOCTOR COLLABORATION ENDPOINTS ==================
+
+@app.put("/api/report/{report_id}/doctor-notes")
+async def add_doctor_notes(report_id: str, request: DoctorNotesRequest):
+    """Add doctor notes to a report"""
+    try:
+        # Verify report exists
+        report_check = supabase.table("medical_reports")\
+            .select("id")\
+            .eq("id", report_id)\
+            .execute()
+        
+        if not report_check.data:
+            return {"error": "Report not found", "status": "error"}
+        
+        # Create doctor notes record
+        notes_data = {
+            "id": str(uuid.uuid4()),
+            "report_id": report_id,
+            "doctor_npi": request.doctor_npi,
+            "specialty": request.specialty,
+            "notes": request.notes,
+            "sections_reviewed": request.sections_reviewed,
+            "diagnosis_added": request.diagnosis,
+            "plan_modifications": request.plan_modifications,
+            "follow_up_instructions": request.follow_up_instructions,
+            "created_at": datetime.now(timezone.utc).isoformat()
+        }
+        
+        supabase.table("report_doctor_notes").insert(notes_data).execute()
+        
+        # Update report to mark as reviewed
+        supabase.table("medical_reports").update({
+            "doctor_reviewed": True,
+            "last_modified": datetime.now(timezone.utc).isoformat()
+        }).eq("id", report_id).execute()
+        
+        return {
+            "notes_id": notes_data["id"],
+            "report_id": report_id,
+            "status": "success",
+            "message": "Doctor notes added successfully"
+        }
+        
+    except Exception as e:
+        print(f"Error adding doctor notes: {e}")
+        return {"error": str(e), "status": "error"}
+
+@app.post("/api/report/{report_id}/share")
+async def share_report(report_id: str, request: ShareReportRequest):
+    """Share report with another doctor"""
+    try:
+        # Verify report exists
+        report_check = supabase.table("medical_reports")\
+            .select("id, user_id")\
+            .eq("id", report_id)\
+            .execute()
+        
+        if not report_check.data:
+            return {"error": "Report not found", "status": "error"}
+        
+        # Create share record
+        share_data = {
+            "id": str(uuid.uuid4()),
+            "report_id": report_id,
+            "shared_by_npi": request.shared_by_npi,
+            "shared_with_npi": request.recipient_npi,
+            "access_level": request.access_level,
+            "share_notes": request.notes,
+            "expires_at": (datetime.now(timezone.utc) + timedelta(days=request.expiration_days)).isoformat(),
+            "created_at": datetime.now(timezone.utc).isoformat()
+        }
+        
+        supabase.table("report_shares").insert(share_data).execute()
+        
+        # Generate share link
+        share_link = f"{request.base_url}/shared-report/{share_data['id']}"
+        
+        return {
+            "share_id": share_data["id"],
+            "share_link": share_link,
+            "expires_at": share_data["expires_at"],
+            "status": "success"
+        }
+        
+    except Exception as e:
+        print(f"Error sharing report: {e}")
+        return {"error": str(e), "status": "error"}
+
+@app.post("/api/report/{report_id}/rate")
+async def rate_report(report_id: str, request: RateReportRequest):
+    """Rate a report's usefulness"""
+    try:
+        # Check if doctor already rated this report
+        existing = supabase.table("report_ratings")\
+            .select("id")\
+            .eq("report_id", report_id)\
+            .eq("doctor_npi", request.doctor_npi)\
+            .execute()
+        
+        if existing.data:
+            # Update existing rating
+            supabase.table("report_ratings").update({
+                "usefulness_score": request.usefulness_score,
+                "accuracy_score": request.accuracy_score,
+                "time_saved_minutes": request.time_saved,
+                "would_recommend": request.would_recommend,
+                "feedback_text": request.feedback,
+                "created_at": datetime.now(timezone.utc).isoformat()
+            }).eq("id", existing.data[0]["id"]).execute()
+            
+            rating_id = existing.data[0]["id"]
+        else:
+            # Create new rating
+            rating_data = {
+                "id": str(uuid.uuid4()),
+                "report_id": report_id,
+                "doctor_npi": request.doctor_npi,
+                "usefulness_score": request.usefulness_score,
+                "accuracy_score": request.accuracy_score,
+                "time_saved_minutes": request.time_saved,
+                "would_recommend": request.would_recommend,
+                "feedback_text": request.feedback,
+                "created_at": datetime.now(timezone.utc).isoformat()
+            }
+            
+            response = supabase.table("report_ratings").insert(rating_data).execute()
+            rating_id = rating_data["id"]
+        
+        # Calculate average ratings
+        avg_usefulness = await get_average_rating(report_id, "usefulness_score")
+        avg_accuracy = await get_average_rating(report_id, "accuracy_score")
+        
+        return {
+            "rating_id": rating_id,
+            "report_id": report_id,
+            "average_usefulness": avg_usefulness,
+            "average_accuracy": avg_accuracy,
+            "status": "success"
+        }
+        
+    except Exception as e:
+        print(f"Error rating report: {e}")
+        return {"error": str(e), "status": "error"}
+
+# ================== POPULATION HEALTH ENDPOINTS ==================
+
+@app.get("/api/population-health/alerts")
+async def get_outbreak_alerts(geographic_area: Optional[str] = None):
+    """Get current outbreak alerts for population health monitoring"""
+    try:
+        # Base query for active outbreaks
+        query = supabase.table("outbreak_tracking")\
+            .select("*")\
+            .eq("status", "active")
+        
+        # Filter by geographic area if provided
+        if geographic_area:
+            query = query.eq("geographic_area", geographic_area)
+        
+        # Order by case count and trend
+        response = query.order("case_count", desc=True).execute()
+        
+        outbreaks = response.data or []
+        
+        # Analyze patterns across all reports for emerging threats
+        # This would normally aggregate data across all users in the area
+        emerging_patterns = {
+            "respiratory_syndrome": {
+                "case_count": len([o for o in outbreaks if "cough" in o.get("symptom_cluster", "").lower()]),
+                "trend": "increasing" if len(outbreaks) > 5 else "stable"
+            },
+            "gastrointestinal_syndrome": {
+                "case_count": len([o for o in outbreaks if "nausea" in o.get("symptom_cluster", "").lower() or "diarrhea" in o.get("symptom_cluster", "").lower()]),
+                "trend": "stable"
+            }
+        }
+        
+        # Format alerts
+        alerts = []
+        for outbreak in outbreaks:
+            alerts.append({
+                "id": outbreak["id"],
+                "symptom_cluster": outbreak["symptom_cluster"],
+                "geographic_area": outbreak["geographic_area"],
+                "case_count": outbreak["case_count"],
+                "trend": outbreak["trend"],
+                "first_detected": outbreak["first_detected"],
+                "cdc_alert_id": outbreak.get("cdc_alert_id"),
+                "severity": "high" if outbreak["case_count"] > 50 else "medium" if outbreak["case_count"] > 20 else "low"
+            })
+        
+        return {
+            "active_alerts": alerts,
+            "total_active": len(alerts),
+            "emerging_patterns": emerging_patterns,
+            "last_updated": datetime.now(timezone.utc).isoformat(),
+            "geographic_scope": geographic_area or "all_areas",
+            "status": "success"
+        }
+        
+    except Exception as e:
+        print(f"Error fetching outbreak alerts: {e}")
+        return {"error": str(e), "status": "error"}
+
 # Additional Report Management Endpoints
 @app.get("/api/reports")
 async def get_user_reports(user_id: str):
@@ -3135,6 +4791,24 @@ async def root():
                 "symptom_timeline": "POST /api/report/symptom-timeline",
                 "specialist": "POST /api/report/specialist",
                 "annual_summary": "POST /api/report/annual-summary",
+                # NEW SPECIALIST ENDPOINTS
+                "cardiology": "POST /api/report/cardiology",
+                "neurology": "POST /api/report/neurology",
+                "psychiatry": "POST /api/report/psychiatry",
+                "dermatology": "POST /api/report/dermatology",
+                "gastroenterology": "POST /api/report/gastroenterology",
+                "endocrinology": "POST /api/report/endocrinology",
+                "pulmonology": "POST /api/report/pulmonology",
+                # TIME-BASED REPORTS
+                "30_day": "POST /api/report/30-day",
+                "annual": "POST /api/report/annual",
+                # DOCTOR COLLABORATION
+                "add_doctor_notes": "PUT /api/report/{report_id}/doctor-notes",
+                "share_report": "POST /api/report/{report_id}/share",
+                "rate_report": "POST /api/report/{report_id}/rate",
+                # POPULATION HEALTH
+                "outbreak_alerts": "GET /api/population-health/alerts",
+                # EXISTING
                 "list_user_reports": "GET /api/reports?user_id=USER_ID",
                 "get_report": "GET /api/reports/{report_id}",
                 "mark_accessed": "POST /api/reports/{report_id}/access"
