@@ -32,6 +32,10 @@ CREATE TABLE IF NOT EXISTS medical_reports (
     year INTEGER    -- For annual reports
 );
 
+-- Add columns if they don't exist (for existing tables)
+ALTER TABLE medical_reports ADD COLUMN IF NOT EXISTS specialty TEXT;
+ALTER TABLE medical_reports ADD COLUMN IF NOT EXISTS year INTEGER;
+
 -- Add indexes for better query performance
 CREATE INDEX IF NOT EXISTS idx_report_analyses_user_id ON report_analyses(user_id);
 CREATE INDEX IF NOT EXISTS idx_report_analyses_created_at ON report_analyses(created_at);
@@ -65,3 +69,8 @@ GRANT ALL ON report_analyses TO authenticated;
 GRANT ALL ON medical_reports TO authenticated;
 GRANT ALL ON report_analyses TO anon;
 GRANT ALL ON medical_reports TO anon;
+
+-- Note: Run the following additional migration files for complete setup:
+-- 1. supabase_migrations/quick_scan_tables.sql
+-- 2. supabase_migrations/deep_dive_sessions.sql
+-- 3. supabase_migrations/long_term_tracking.sql
