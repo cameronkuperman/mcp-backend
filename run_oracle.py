@@ -2497,7 +2497,7 @@ async def get_user_reports(user_id: str):
         response = supabase.table("medical_reports")\
             .select("id, report_type, created_at, executive_summary, confidence_score")\
             .eq("user_id", user_id)\
-            .order("created_at", desc=True)\
+            .order("created_at.desc")\
             .execute()
         
         reports = response.data or []
@@ -2870,7 +2870,7 @@ async def get_tracking_dashboard(user_id: str):
             .eq("status", "approved")\
             .eq("show_on_homepage", True)\
             .order("display_order")\
-            .order("created_at", desc=True)\
+            .order("created_at.desc")\
             .execute()
         
         active_configs = configs_response.data or []
@@ -2882,7 +2882,7 @@ async def get_tracking_dashboard(user_id: str):
             .eq("user_id", user_id)\
             .is_("actioned_at", "null")\
             .gte("created_at", cutoff_date)\
-            .order("created_at", desc=True)\
+            .order("created_at.desc")\
             .limit(5)\
             .execute()
         
@@ -3022,7 +3022,7 @@ async def get_past_scans_for_tracking(user_id: str, limit: int = 20):
         response = supabase.table("quick_scans")\
             .select("*")\
             .eq("user_id", user_id)\
-            .order("created_at", desc=True)\
+            .order("created_at.desc")\
             .limit(limit)\
             .execute()
         
@@ -3071,7 +3071,7 @@ async def get_past_dives_for_tracking(user_id: str, limit: int = 20):
             .select("*")\
             .eq("user_id", user_id)\
             .eq("status", "completed")\
-            .order("created_at", desc=True)\
+            .order("created_at.desc")\
             .limit(limit)\
             .execute()
         
