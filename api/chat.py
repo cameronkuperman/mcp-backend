@@ -10,7 +10,7 @@ from models.requests import ChatRequest, GenerateSummaryRequest
 from supabase_client import supabase
 from business_logic import call_llm, make_prompt, get_llm_context as get_llm_context_biz
 from utils.token_counter import count_tokens
-from llm_summary_tools import (
+from utils.summary_helpers import (
     create_conversational_summary, 
     create_quick_scan_summary
 )
