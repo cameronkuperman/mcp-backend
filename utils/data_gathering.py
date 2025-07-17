@@ -2,7 +2,22 @@
 from datetime import datetime, timezone, timedelta
 from typing import Optional, Dict, List, Any
 from supabase_client import supabase
-from api.chat import get_user_medical_data
+# Removed circular import - get_user_medical_data will be handled differently
+
+async def get_user_medical_data(user_id: str) -> Optional[Dict]:
+    """Get user's medical profile data"""
+    try:
+        response = supabase.table("user_medical_profiles")\
+            .select("*")\
+            .eq("user_id", user_id)\
+            .execute()
+        
+        if response.data:
+            return response.data[0]
+        return None
+    except Exception as e:
+        print(f"Error fetching medical profile: {e}")
+        return None
 
 async def get_health_story_data(user_id: str, date_range: Optional[Dict[str, str]] = None) -> dict:
     """Gather all relevant data for health story generation"""
@@ -326,3 +341,151 @@ async def extract_cardiac_patterns(data: dict) -> str:
         pattern_text += f"- {item['date'][:10]}: {item.get('symptoms', 'Cardiac symptoms')}\n"
     
     return pattern_text if relevant_data else "No cardiac-specific patterns found."
+
+async def extract_neuro_patterns(data: dict) -> str:
+    """Extract neurology-specific patterns from data"""
+    neuro_symptoms = ["headache", "migraine", "dizziness", "numbness", "tingling", "vision", "seizure", "memory"]
+    
+    relevant_data = []
+    for scan in data.get("quick_scans", []):
+        form_data_str = str(scan.get("form_data", {})).lower()
+        if any(symptom in form_data_str for symptom in neuro_symptoms):
+            relevant_data.append({
+                "date": scan["created_at"],
+                "symptoms": scan.get("form_data", {}).get("symptoms"),
+                "severity": scan.get("form_data", {}).get("painLevel"),
+                "analysis": scan.get("analysis_result", {})
+            })
+    
+    for dive in data.get("deep_dives", []):
+        dive_str = str(dive).lower()
+        if any(symptom in dive_str for symptom in neuro_symptoms):
+            relevant_data.append({
+                "date": dive["created_at"],
+                "body_part": dive["body_part"],
+                "final_analysis": dive.get("final_analysis", {})
+            })
+    
+    # Format into string for LLM
+    pattern_text = "Neurological History:\n"
+    for item in sorted(relevant_data, key=lambda x: x["date"]):
+        pattern_text += f"- {item['date'][:10]}: {item.get('symptoms', 'Neurological symptoms')}\n"
+    
+    return pattern_text if relevant_data else "No neurological patterns found."
+
+async def extract_mental_health_patterns(data: dict) -> str:
+    """Extract mental health patterns from data"""
+    psych_keywords = ["anxiety", "depression", "stress", "mood", "sleep", "panic", "worry", "mental"]
+    
+    relevant_data = []
+    for scan in data.get("quick_scans", []):
+        form_data_str = str(scan.get("form_data", {})).lower()
+        if any(keyword in form_data_str for keyword in psych_keywords):
+            relevant_data.append({
+                "date": scan["created_at"],
+                "symptoms": scan.get("form_data", {}).get("symptoms"),
+                "analysis": scan.get("analysis_result", {})
+            })
+    
+    # Format into string for LLM
+    pattern_text = "Mental Health History:\n"
+    for item in sorted(relevant_data, key=lambda x: x["date"]):
+        pattern_text += f"- {item['date'][:10]}: {item.get('symptoms', 'Mental health concerns')}\n"
+    
+    return pattern_text if relevant_data else "No mental health patterns found."
+
+async def extract_dermatology_patterns(data: dict, photo_data: dict) -> str:
+    """Extract dermatology patterns including photo data"""
+    derm_keywords = ["rash", "skin", "itching", "lesion", "mole", "spot", "eczema", "psoriasis"]
+    
+    relevant_data = []
+    for scan in data.get("quick_scans", []):
+        form_data_str = str(scan.get("form_data", {})).lower()
+        if any(keyword in form_data_str for keyword in derm_keywords):
+            relevant_data.append({
+                "date": scan["created_at"],
+                "symptoms": scan.get("form_data", {}).get("symptoms"),
+                "body_part": scan.get("body_part"),
+                "analysis": scan.get("analysis_result", {})
+            })
+    
+    # Format into string for LLM
+    pattern_text = "Dermatological History:\n"
+    for item in sorted(relevant_data, key=lambda x: x["date"]):
+        pattern_text += f"- {item['date'][:10]}: {item.get('symptoms', 'Skin condition')} on {item.get('body_part', 'unspecified area')}\n"
+    
+    if photo_data:
+        pattern_text += f"\nPhoto documentation available: {len(photo_data)} images\n"
+    
+    return pattern_text if relevant_data else "No dermatological patterns found."
+
+async def extract_gi_patterns(data: dict) -> str:
+    """Extract GI patterns from data"""
+    gi_keywords = ["stomach", "abdominal", "nausea", "diarrhea", "constipation", "bloating", "vomiting", "bowel"]
+    
+    relevant_data = []
+    for scan in data.get("quick_scans", []):
+        form_data_str = str(scan.get("form_data", {})).lower()
+        if any(keyword in form_data_str for keyword in gi_keywords):
+            relevant_data.append({
+                "date": scan["created_at"],
+                "symptoms": scan.get("form_data", {}).get("symptoms"),
+                "severity": scan.get("form_data", {}).get("painLevel"),
+                "analysis": scan.get("analysis_result", {})
+            })
+    
+    # Format into string for LLM
+    pattern_text = "Gastrointestinal History:\n"
+    for item in sorted(relevant_data, key=lambda x: x["date"]):
+        pattern_text += f"- {item['date'][:10]}: {item.get('symptoms', 'GI symptoms')} (severity: {item.get('severity', 'unknown')}/10)\n"
+    
+    return pattern_text if relevant_data else "No GI patterns found."
+
+async def extract_endocrine_patterns(data: dict) -> str:
+    """Extract endocrine patterns from data"""
+    endo_keywords = ["fatigue", "weight", "thyroid", "diabetes", "energy", "temperature", "hormone", "metabolism"]
+    
+    relevant_data = []
+    for scan in data.get("quick_scans", []):
+        form_data_str = str(scan.get("form_data", {})).lower()
+        if any(keyword in form_data_str for keyword in endo_keywords):
+            relevant_data.append({
+                "date": scan["created_at"],
+                "symptoms": scan.get("form_data", {}).get("symptoms"),
+                "analysis": scan.get("analysis_result", {})
+            })
+    
+    # Format into string for LLM
+    pattern_text = "Endocrine/Metabolic History:\n"
+    for item in sorted(relevant_data, key=lambda x: x["date"]):
+        pattern_text += f"- {item['date'][:10]}: {item.get('symptoms', 'Endocrine symptoms')}\n"
+    
+    return pattern_text if relevant_data else "No endocrine patterns found."
+
+async def extract_pulmonary_patterns(data: dict) -> str:
+    """Extract pulmonary patterns from data"""
+    pulm_keywords = ["breathing", "cough", "wheeze", "asthma", "shortness", "chest", "lung", "respiratory"]
+    
+    relevant_data = []
+    for scan in data.get("quick_scans", []):
+        form_data_str = str(scan.get("form_data", {})).lower()
+        if any(keyword in form_data_str for keyword in pulm_keywords):
+            relevant_data.append({
+                "date": scan["created_at"],
+                "symptoms": scan.get("form_data", {}).get("symptoms"),
+                "body_part": scan.get("body_part"),
+                "analysis": scan.get("analysis_result", {})
+            })
+    
+    # Format into string for LLM
+    pattern_text = "Pulmonary/Respiratory History:\n"
+    for item in sorted(relevant_data, key=lambda x: x["date"]):
+        pattern_text += f"- {item['date'][:10]}: {item.get('symptoms', 'Respiratory symptoms')}\n"
+    
+    return pattern_text if relevant_data else "No pulmonary patterns found."
+
+async def gather_photo_data(user_id: str, config: dict):
+    """Placeholder for photo data gathering"""
+    # This would integrate with your photo storage system
+    # For now, return empty list
+    return []
