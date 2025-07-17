@@ -39,7 +39,8 @@ async def get_enhanced_llm_context(user_id: str, conversation_id: str, current_q
             .limit(5)\
             .execute()
         
-        print(f"Found {len(scans_response.data)} quick scans")
+        print(f"Quick scans query response: {scans_response}")
+        print(f"Found {len(scans_response.data) if scans_response.data else 0} quick scans")
         if scans_response.data:
             context_parts.append("\n\n=== Recent Health Scans ===")
             for scan in scans_response.data[:3]:  # Use top 3 most recent
@@ -70,17 +71,20 @@ async def get_enhanced_llm_context(user_id: str, conversation_id: str, current_q
         
         # 4. Get current conversation summary if exists
         current_summary = supabase.table("llm_context")\
-            .select("summary")\
+            .select("llm_summary")\
             .eq("user_id", user_id)\
             .eq("conversation_id", conversation_id)\
             .execute()
         
         if current_summary.data:
             context_parts.append("\n\n=== Current Conversation Context ===")
-            context_parts.append(current_summary.data[0].get('summary', '')[:500])
+            context_parts.append(current_summary.data[0].get('llm_summary', '')[:500])
         
         # Join all context parts
         full_context = "\n".join(context_parts)
+        
+        print(f"Context parts collected: {len(context_parts)} sections")
+        print(f"Full context length: {len(full_context)} characters")
         
         # Check if we need to compress
         total_tokens = count_tokens(full_context)
