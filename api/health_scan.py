@@ -13,7 +13,7 @@ from models.requests import (
 from supabase_client import supabase
 from business_logic import call_llm, make_prompt, get_llm_context as get_llm_context_biz, get_user_data
 from utils.json_parser import extract_json_from_response
-from api.chat import get_user_medical_data
+from utils.data_gathering import get_user_medical_data
 
 router = APIRouter(prefix="/api", tags=["health-scan"])
 

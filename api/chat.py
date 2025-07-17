@@ -14,22 +14,11 @@ from utils.summary_helpers import (
     create_conversational_summary, 
     create_quick_scan_summary
 )
+from utils.data_gathering import get_user_medical_data
 
 load_dotenv()
 
 router = APIRouter(prefix="/api", tags=["chat"])
-
-# Supabase helper functions
-async def get_user_medical_data(user_id: str) -> dict:
-    """Fetch user's medical data from Supabase"""
-    try:
-        response = supabase.table("medical").select("*").eq("id", user_id).execute()
-        if response.data and len(response.data) > 0:
-            return response.data[0]
-        return {"user_id": user_id, "note": "No medical data found"}
-    except Exception as e:
-        print(f"Error fetching medical data: {e}")
-        return {"user_id": user_id, "error": str(e)}
 
 async def get_llm_context(user_id: str, conversation_id: str, current_query: str = "") -> str:
     """Fetch LLM context/summary from Supabase with intelligent aggregation"""

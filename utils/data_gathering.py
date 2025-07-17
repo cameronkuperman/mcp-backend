@@ -7,17 +7,17 @@ from supabase_client import supabase
 async def get_user_medical_data(user_id: str) -> Optional[Dict]:
     """Get user's medical profile data"""
     try:
-        response = supabase.table("user_medical_profiles")\
+        response = supabase.table("medical")\
             .select("*")\
-            .eq("user_id", user_id)\
+            .eq("id", user_id)\
             .execute()
         
-        if response.data:
+        if response.data and len(response.data) > 0:
             return response.data[0]
-        return None
+        return {"user_id": user_id, "note": "No medical data found"}
     except Exception as e:
-        print(f"Error fetching medical profile: {e}")
-        return None
+        print(f"Error fetching medical data: {e}")
+        return {"user_id": user_id, "error": str(e)}
 
 async def get_health_story_data(user_id: str, date_range: Optional[Dict[str, str]] = None) -> dict:
     """Gather all relevant data for health story generation"""
