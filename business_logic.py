@@ -253,6 +253,7 @@ Based on the new information, either:
 Return ONLY valid JSON:
 {{
   "need_another_question": boolean,
+  "current_confidence": number,  // 0-100 current diagnostic confidence
   "internal_reasoning": "why or why not",
   "question": "specific question if needed" | null,
   "confidence_projection": "expected confidence after this question",
@@ -260,7 +261,9 @@ Return ONLY valid JSON:
     "possible_conditions": [...],
     "confidence_levels": {{...}}
   }}
-}}"""
+}}
+
+IMPORTANT: Always include "current_confidence" as a number 0-100 representing your current diagnostic confidence level."""
     
     elif category == "deep-dive-final":
         # Final analysis after Q&A

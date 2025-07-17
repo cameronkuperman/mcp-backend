@@ -39,8 +39,40 @@
 - Use Python 3.11 for Railway deployment (3.13 has compatibility issues)
 - Local development can use 3.13 with uv
 
+### Modular Architecture (NEW):
+```
+mcp-backend/
+├── run_oracle.py          # Main entry point - KEEP SLIM (~100 lines)
+├── api/
+│   ├── chat.py           # Chat & Oracle endpoints
+│   ├── health_scan.py    # Quick scan & Deep dive endpoints
+│   ├── health_story.py   # Health story generation
+│   ├── tracking.py       # Symptom tracking endpoints
+│   ├── population_health.py  # Population health alerts
+│   └── reports/
+│       ├── general.py    # General report endpoints
+│       ├── specialist.py # Specialist reports (cardio, neuro, etc.)
+│       ├── time_based.py # 30-day, annual summaries
+│       └── urgent.py     # Urgent triage reports
+├── models/
+│   └── requests.py       # All request/response models
+├── utils/
+│   ├── json_parser.py    # JSON extraction utilities
+│   ├── token_counter.py  # Token counting
+│   └── data_gathering.py # Data fetching functions
+└── core/
+    └── middleware.py     # CORS and other middleware
+```
+
+### CRITICAL: Modular Code Rules
+1. **NEVER add new endpoints to run_oracle.py** - Use appropriate module
+2. **Each module should be focused** - One concern per file
+3. **Use FastAPI routers** - Not direct app imports
+4. **Keep functions where they're used** - Don't create unnecessary abstractions
+5. **run_oracle.py only imports and includes routers** - No business logic
+
 ### Key Files:
-- `run_oracle.py` - Main Oracle server with all endpoints
+- `run_oracle.py` - Main entry point (imports routers only)
 - `api_routes.py` - Basic API routes (not used in production)
 - `llm_summary_tools.py` - Summary generation service
 - `business_logic.py` - Shared business logic
@@ -138,6 +170,22 @@ curl -X POST http://localhost:8000/api/deep-dive/start \
   }'
 ```
 
+## 🏗️ CODE ORGANIZATION
+
+### Modular Structure (Completed 2025-01-17):
+The codebase has been modularized from a single 4,871-line file into organized modules:
+- **api/** - Feature-based endpoint modules (chat, health_scan, tracking, etc.)
+- **api/reports/** - Report-specific endpoints (general, specialist, time_based, urgent)
+- **models/** - Pydantic request/response models
+- **utils/** - Shared utilities (JSON parsing, token counting, data gathering)
+- **core/** - Core functionality (middleware, config)
+
+**IMPORTANT**: When adding new endpoints:
+1. Add to the appropriate module based on feature area
+2. Don't add to run_oracle.py - it's now just the entry point
+3. Follow the existing pattern in the modules
+4. Update imports in run_oracle.py if adding new modules
+
 ## ⚠️ WARNINGS
 
 1. **NEVER expose environment variables in responses**
@@ -145,7 +193,8 @@ curl -X POST http://localhost:8000/api/deep-dive/start \
 3. **NEVER commit .env or files with secrets**
 4. **ALWAYS test locally before deploying**
 5. **NEVER log sensitive information**
+6. **NEVER add new endpoints to run_oracle.py** - use appropriate modules
 
 ---
-Last Updated: 2025-01-12
+Last Updated: 2025-01-17
 Remember: Security first, functionality second!

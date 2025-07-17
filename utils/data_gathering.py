@@ -1,0 +1,328 @@
+"""Data gathering utilities for reports and health stories"""
+from datetime import datetime, timezone, timedelta
+from typing import Optional, Dict, List, Any
+from supabase_client import supabase
+from api.chat import get_user_medical_data
+
+async def get_health_story_data(user_id: str, date_range: Optional[Dict[str, str]] = None) -> dict:
+    """Gather all relevant data for health story generation"""
+    
+    # Default to last 7 days if no date range provided
+    if not date_range:
+        end_date = datetime.now(timezone.utc)
+        start_date = end_date - timedelta(days=7)
+        date_range = {
+            "start": start_date.isoformat(),
+            "end": end_date.isoformat()
+        }
+    
+    # Debug: print the date range being used
+    print(f"Health story date range: {date_range['start']} to {date_range['end']}")
+    
+    data = {
+        "medical_profile": None,
+        "oracle_chats": [],
+        "quick_scans": [],
+        "deep_dives": [],
+        "symptom_tracking": []
+    }
+    
+    try:
+        # Get medical profile
+        data["medical_profile"] = await get_user_medical_data(user_id)
+        
+        # Get Oracle chat messages - need to join through conversations table
+        # First get user's conversations
+        conv_response = supabase.table("conversations")\
+            .select("id")\
+            .eq("user_id", user_id)\
+            .execute()
+        
+        conversation_ids = [conv["id"] for conv in (conv_response.data or [])]
+        
+        # Then get messages from those conversations
+        if conversation_ids:
+            chat_response = supabase.table("messages")\
+                .select("*")\
+                .in_("conversation_id", conversation_ids)\
+                .gte("created_at", date_range["start"])\
+                .lte("created_at", date_range["end"])\
+                .order("created_at", desc=False)\
+                .execute()
+            data["oracle_chats"] = chat_response.data if chat_response.data else []
+        else:
+            data["oracle_chats"] = []
+        
+        # Get Quick Scans - with string conversion for user_id
+        scan_response = supabase.table("quick_scans")\
+            .select("*")\
+            .eq("user_id", str(user_id))\
+            .execute()
+        data["quick_scans"] = scan_response.data if scan_response.data else []
+        
+        # Get Deep Dive sessions (user_id is text type)
+        dive_response = supabase.table("deep_dive_sessions")\
+            .select("*")\
+            .eq("user_id", str(user_id))\
+            .gte("created_at", date_range["start"])\
+            .lte("created_at", date_range["end"])\
+            .order("created_at", desc=False)\
+            .execute()
+        data["deep_dives"] = dive_response.data if dive_response.data else []
+        
+        # Get symptom tracking data (user_id is text type)
+        symptom_response = supabase.table("symptom_tracking")\
+            .select("*")\
+            .eq("user_id", str(user_id))\
+            .gte("occurrence_date", date_range["start"])\
+            .lte("occurrence_date", date_range["end"])\
+            .order("occurrence_date", desc=False)\
+            .execute()
+        data["symptom_tracking"] = symptom_response.data if symptom_response.data else []
+        
+    except Exception as e:
+        print(f"Error gathering health story data: {e}")
+    
+    return data
+
+async def safe_insert_report(report_record: dict) -> bool:
+    """Safely insert report, handling missing columns"""
+    try:
+        # Try full insert first
+        supabase.table("medical_reports").insert(report_record).execute()
+        return True
+    except Exception as e:
+        print(f"Full insert failed: {e}")
+        # If it fails, try without optional columns
+        essential_fields = [
+            "id", "user_id", "analysis_id", "report_type", 
+            "created_at", "report_data", "executive_summary",
+            "confidence_score", "model_used"
+        ]
+        clean_record = {k: v for k, v in report_record.items() if k in essential_fields}
+        try:
+            supabase.table("medical_reports").insert(clean_record).execute()
+            print("Insert succeeded with essential fields only")
+            return True
+        except Exception as e2:
+            print(f"Essential insert also failed: {e2}")
+            return False
+
+async def gather_report_data(user_id: str, config: dict) -> dict:
+    """Gather all data needed for report generation"""
+    data = {
+        "quick_scans": [],
+        "deep_dives": [],
+        "symptom_tracking": [],
+        "oracle_chats": []
+    }
+    
+    time_range = config.get("time_range", {})
+    
+    # Get Quick Scans
+    if config.get("data_sources", {}).get("quick_scans"):
+        scan_ids = config["data_sources"]["quick_scans"]
+        scan_response = supabase.table("quick_scans")\
+            .select("*")\
+            .in_("id", scan_ids)\
+            .execute()
+        data["quick_scans"] = scan_response.data or []
+    
+    # Get Deep Dives
+    if config.get("data_sources", {}).get("deep_dives"):
+        dive_ids = config["data_sources"]["deep_dives"]
+        dive_response = supabase.table("deep_dive_sessions")\
+            .select("*")\
+            .in_("id", dive_ids)\
+            .eq("status", "completed")\
+            .execute()
+        data["deep_dives"] = dive_response.data or []
+    
+    # Get Symptom Tracking with intelligent merge
+    tracking_response = supabase.table("symptom_tracking")\
+        .select("*")\
+        .eq("user_id", str(user_id) if user_id else "")\
+        .gte("created_at", time_range.get("start", ""))\
+        .lte("created_at", time_range.get("end", ""))\
+        .execute()
+    
+    # Merge symptom tracking with related sessions
+    for entry in (tracking_response.data or []):
+        # Find related quick scan or deep dive
+        related_session = None
+        if entry.get("quick_scan_id"):
+            related_session = next((s for s in data["quick_scans"] if s["id"] == entry["quick_scan_id"]), None)
+        
+        entry["related_session"] = related_session
+        entry["enriched_context"] = extract_session_context(related_session) if related_session else None
+        data["symptom_tracking"].append(entry)
+    
+    return data
+
+def extract_session_context(session: dict) -> dict:
+    """Extract relevant context from a session"""
+    if not session:
+        return {}
+    
+    return {
+        "primary_condition": session.get("analysis_result", {}).get("primaryCondition"),
+        "confidence": session.get("confidence_score", 0),
+        "recommendations": session.get("analysis_result", {}).get("recommendations", [])[:2],
+        "urgency": session.get("urgency_level", "low")
+    }
+
+def has_emergency_indicators(request) -> bool:
+    """Check for emergency/urgent indicators"""
+    context = request.context
+    
+    # Check explicit emergency purpose
+    if context.get("purpose") == "emergency":
+        return True
+    
+    # Check for high-urgency symptoms
+    urgent_symptoms = ["chest pain", "difficulty breathing", "severe headache", "sudden weakness"]
+    symptom_focus = context.get("symptom_focus", "").lower()
+    
+    return any(urgent in symptom_focus for urgent in urgent_symptoms)
+
+def determine_time_range(context: dict, report_type: str) -> dict:
+    """Determine appropriate time range for report"""
+    now = datetime.now(timezone.utc)
+    
+    # Use provided time frame if available
+    if context.get("time_frame"):
+        return context["time_frame"]
+    
+    # Default ranges by report type
+    if report_type == "annual_summary":
+        return {
+            "start": (now - timedelta(days=365)).isoformat(),
+            "end": now.isoformat()
+        }
+    elif report_type == "urgent_triage":
+        return {
+            "start": (now - timedelta(days=7)).isoformat(),
+            "end": now.isoformat()
+        }
+    else:
+        # Default to 30 days
+        return {
+            "start": (now - timedelta(days=30)).isoformat(),
+            "end": now.isoformat()
+        }
+
+async def load_analysis(analysis_id: str):
+    """Load analysis from database"""
+    response = supabase.table("report_analyses")\
+        .select("*")\
+        .eq("id", analysis_id)\
+        .execute()
+    
+    if not response.data:
+        raise ValueError("Analysis not found")
+    
+    return response.data[0]
+
+async def gather_comprehensive_data(user_id: str, config: dict):
+    """Gather ALL available data for time-based reports"""
+    time_range = config.get("time_range", {})
+    
+    # Quick Scans
+    scans = supabase.table("quick_scans")\
+        .select("*")\
+        .eq("user_id", user_id)\
+        .gte("created_at", time_range.get("start", "2020-01-01"))\
+        .lte("created_at", time_range.get("end", datetime.now(timezone.utc).isoformat()))\
+        .order("created_at")\
+        .execute()
+    
+    # Deep Dives
+    dives = supabase.table("deep_dive_sessions")\
+        .select("*")\
+        .eq("user_id", user_id)\
+        .eq("status", "completed")\
+        .gte("created_at", time_range.get("start", "2020-01-01"))\
+        .lte("created_at", time_range.get("end", datetime.now(timezone.utc).isoformat()))\
+        .order("created_at")\
+        .execute()
+    
+    # Symptom Tracking
+    tracking = supabase.table("symptom_tracking")\
+        .select("*")\
+        .eq("user_id", user_id)\
+        .gte("created_at", time_range.get("start", "2020-01-01"))\
+        .lte("created_at", time_range.get("end", datetime.now(timezone.utc).isoformat()))\
+        .order("created_at")\
+        .execute()
+    
+    # Long-term tracking data
+    tracking_configs = supabase.table("tracking_configurations")\
+        .select("*")\
+        .eq("user_id", user_id)\
+        .eq("status", "approved")\
+        .execute()
+    
+    tracking_data = []
+    for config_item in (tracking_configs.data or []):
+        points = supabase.table("tracking_data_points")\
+            .select("*")\
+            .eq("configuration_id", config_item["id"])\
+            .gte("recorded_at", time_range.get("start", "2020-01-01"))\
+            .lte("recorded_at", time_range.get("end", datetime.now(timezone.utc).isoformat()))\
+            .order("recorded_at")\
+            .execute()
+        
+        if points.data:
+            tracking_data.append({
+                "metric": config_item["metric_name"],
+                "data_points": points.data
+            })
+    
+    # LLM Chat Summaries
+    chats = supabase.table("oracle_chats")\
+        .select("*")\
+        .eq("user_id", user_id)\
+        .gte("created_at", time_range.get("start", "2020-01-01"))\
+        .lte("created_at", time_range.get("end", datetime.now(timezone.utc).isoformat()))\
+        .order("created_at")\
+        .execute()
+    
+    return {
+        "quick_scans": scans.data or [],
+        "deep_dives": dives.data or [],
+        "symptom_tracking": tracking.data or [],
+        "tracking_data": tracking_data,
+        "llm_summaries": chats.data or [],
+        "wearables": {}  # Placeholder for wearables integration
+    }
+
+async def extract_cardiac_patterns(data: dict) -> str:
+    """Extract cardiac-specific patterns from data"""
+    cardiac_symptoms = ["chest pain", "palpitations", "shortness of breath", "dizziness", "heart"]
+    
+    relevant_data = []
+    for scan in data.get("quick_scans", []):
+        form_data_str = str(scan.get("form_data", {})).lower()
+        if any(symptom in form_data_str for symptom in cardiac_symptoms):
+            relevant_data.append({
+                "date": scan["created_at"],
+                "symptoms": scan.get("form_data", {}).get("symptoms"),
+                "severity": scan.get("form_data", {}).get("painLevel"),
+                "analysis": scan.get("analysis_result", {})
+            })
+    
+    for dive in data.get("deep_dives", []):
+        dive_str = str(dive).lower()
+        if any(symptom in dive_str for symptom in cardiac_symptoms):
+            relevant_data.append({
+                "date": dive["created_at"],
+                "body_part": dive["body_part"],
+                "final_analysis": dive.get("final_analysis", {})
+            })
+    
+    # Format into string for LLM
+    pattern_text = "Cardiac-Related History:\n"
+    for item in sorted(relevant_data, key=lambda x: x["date"]):
+        pattern_text += f"- {item['date'][:10]}: {item.get('symptoms', 'Cardiac symptoms')}\n"
+    
+    return pattern_text if relevant_data else "No cardiac-specific patterns found."
