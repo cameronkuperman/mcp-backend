@@ -10,6 +10,8 @@ async def get_enhanced_llm_context(user_id: str, conversation_id: str, current_q
     """Build comprehensive context from summaries, quick scans, and deep dives"""
     context_parts = []
     
+    print(f"Building enhanced context for user: {user_id}")
+    
     try:
         # 1. Get LLM summaries from previous conversations
         summaries_response = supabase.table("llm_context")\
@@ -37,6 +39,7 @@ async def get_enhanced_llm_context(user_id: str, conversation_id: str, current_q
             .limit(5)\
             .execute()
         
+        print(f"Found {len(scans_response.data)} quick scans")
         if scans_response.data:
             context_parts.append("\n\n=== Recent Health Scans ===")
             for scan in scans_response.data[:3]:  # Use top 3 most recent
