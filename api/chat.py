@@ -15,6 +15,7 @@ from utils.summary_helpers import (
     create_quick_scan_summary
 )
 from utils.data_gathering import get_user_medical_data
+from utils.context_builder import get_enhanced_llm_context
 
 load_dotenv()
 
@@ -141,8 +142,8 @@ async def chat(request: ChatRequest):
     # Fetch user medical data
     user_medical_data = await get_user_medical_data(request.user_id)
     
-    # Fetch LLM context/summary with intelligent aggregation
-    llm_context = await get_llm_context(request.user_id, request.conversation_id, request.query)
+    # Fetch enhanced LLM context including summaries, quick scans, and deep dives
+    llm_context = await get_enhanced_llm_context(request.user_id, request.conversation_id, request.query)
     
     # Get conversation history
     history = await get_conversation_history(request.conversation_id)
