@@ -16,7 +16,7 @@ async def get_enhanced_llm_context(user_id: str, conversation_id: str, current_q
     try:
         # 1. Get LLM summaries from previous conversations
         summaries_response = supabase.table("llm_context")\
-            .select("llm_summary, created_at, context_type")\
+            .select("llm_summary, created_at")\
             .eq("user_id", str(user_id))\
             .order("created_at", desc=True)\
             .limit(5)\
@@ -29,8 +29,7 @@ async def get_enhanced_llm_context(user_id: str, conversation_id: str, current_q
             context_parts.append("=== Previous Health Discussions ===")
             for summary in summaries_response.data[:3]:  # Use top 3 most recent
                 date = summary['created_at'][:10] if summary.get('created_at') else 'Unknown date'
-                context_type = summary.get('context_type', 'conversation')
-                context_parts.append(f"\n[{date} - {context_type}]")
+                context_parts.append(f"\n[{date}]")
                 context_parts.append(summary.get('llm_summary', '')[:500])  # Limit each summary
         
         # 2. Get recent quick scans (last 30 days)
@@ -77,16 +76,21 @@ async def get_enhanced_llm_context(user_id: str, conversation_id: str, current_q
                 confidence = dive.get('final_confidence', 0)
                 context_parts.append(f"\n[{date} - {body_part}] Deep analysis: {condition} (confidence: {confidence}%)")
         
-        # 4. Get current conversation summary if exists
-        current_summary = supabase.table("llm_context")\
-            .select("llm_summary")\
-            .eq("user_id", str(user_id))\
-            .eq("conversation_id", str(conversation_id))\
-            .execute()
-        
-        if current_summary.data:
-            context_parts.append("\n\n=== Current Conversation Context ===")
-            context_parts.append(current_summary.data[0].get('llm_summary', '')[:500])
+        # 4. Get current conversation summary if exists (optional)
+        if conversation_id and conversation_id != "debug-conversation":
+            try:
+                current_summary = supabase.table("llm_context")\
+                    .select("llm_summary")\
+                    .eq("user_id", str(user_id))\
+                    .eq("conversation_id", str(conversation_id))\
+                    .execute()
+                
+                if current_summary.data:
+                    context_parts.append("\n\n=== Current Conversation Context ===")
+                    context_parts.append(current_summary.data[0].get('llm_summary', '')[:500])
+            except Exception as e:
+                print(f"Error fetching current conversation summary: {e}")
+                # Continue without current conversation context
         
         # Join all context parts
         full_context = "\n".join(context_parts)
@@ -103,7 +107,9 @@ async def get_enhanced_llm_context(user_id: str, conversation_id: str, current_q
         return full_context
         
     except Exception as e:
+        import traceback
         print(f"Error building enhanced context: {e}")
+        print(f"Full traceback: {traceback.format_exc()}")
         return ""
 
 async def compress_context(context: str, current_query: str, total_tokens: int) -> str:
