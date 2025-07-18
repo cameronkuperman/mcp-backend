@@ -31,8 +31,35 @@ async def health_check():
         "service": "photo-analysis",
         "database_connected": supabase is not None,
         "openrouter_configured": OPENROUTER_API_KEY is not None,
-        "storage_configured": SUPABASE_URL is not None
+        "storage_configured": SUPABASE_URL is not None,
+        "storage_bucket": STORAGE_BUCKET
     }
+
+@router.get("/debug/storage")
+async def debug_storage():
+    """Debug endpoint to test storage configuration"""
+    if not supabase:
+        return {"error": "Supabase not configured"}
+    
+    try:
+        # List buckets
+        buckets = supabase.storage.list_buckets()
+        
+        # Check if our bucket exists
+        bucket_exists = any(b['name'] == STORAGE_BUCKET for b in buckets)
+        
+        return {
+            "storage_bucket": STORAGE_BUCKET,
+            "bucket_exists": bucket_exists,
+            "available_buckets": [b['name'] for b in buckets],
+            "supabase_url": SUPABASE_URL is not None,
+            "using_service_key": SUPABASE_SERVICE_KEY is not None
+        }
+    except Exception as e:
+        return {
+            "error": str(e),
+            "storage_bucket": STORAGE_BUCKET
+        }
 
 # Add OPTIONS handler for CORS preflight
 @router.options("/{path:path}")
@@ -62,7 +89,7 @@ elif SUPABASE_URL and SUPABASE_ANON_KEY:
 # Constants
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
 ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/heic', 'image/heif', 'image/webp']
-STORAGE_BUCKET = 'medical-photos'
+STORAGE_BUCKET = os.getenv('SUPABASE_STORAGE_BUCKET', 'medical-photos')
 
 # AI Prompts
 PHOTO_CATEGORIZATION_PROMPT = """You are a medical photo categorization system. Analyze the image and categorize it into EXACTLY ONE of these categories:
@@ -435,6 +462,8 @@ async def upload_photos(
 @router.post("/analyze", response_model=PhotoAnalysisResponse)
 async def analyze_photos(request: PhotoAnalysisRequest):
     """Analyze photos using GPT-4V"""
+    print(f"Analyze request received - session_id: {request.session_id}, photo_ids: {request.photo_ids}")
+    
     if not supabase:
         raise HTTPException(status_code=500, detail="Database connection not configured")
     if not OPENROUTER_API_KEY:
@@ -444,9 +473,11 @@ async def analyze_photos(request: PhotoAnalysisRequest):
     photos_result = supabase.table('photo_uploads').select('*').in_('id', request.photo_ids).execute()
     
     if not photos_result.data:
+        print(f"No photos found for IDs: {request.photo_ids}")
         raise HTTPException(status_code=404, detail="Photos not found")
     
     photos = photos_result.data
+    print(f"Found {len(photos)} photos to analyze")
     
     # Get session
     session_result = supabase.table('photo_sessions').select('*').eq('id', request.session_id).single().execute()
@@ -458,8 +489,34 @@ async def analyze_photos(request: PhotoAnalysisRequest):
     for photo in photos:
         if photo['storage_url']:
             # Get from storage
-            download_data = supabase.storage.from_(STORAGE_BUCKET).download(photo['storage_url'])
-            base64_image = base64.b64encode(download_data).decode('utf-8')
+            try:
+                download_response = supabase.storage.from_(STORAGE_BUCKET).download(photo['storage_url'])
+                
+                # Handle different response types from Supabase
+                if hasattr(download_response, 'content'):
+                    # Response object with content attribute
+                    file_data = download_response.content
+                elif isinstance(download_response, bytes):
+                    # Direct bytes response
+                    file_data = download_response
+                elif hasattr(download_response, 'read'):
+                    # File-like object
+                    file_data = download_response.read()
+                elif isinstance(download_response, dict) and 'data' in download_response:
+                    # Dict response with data key
+                    file_data = download_response['data']
+                else:
+                    # Log the actual type for debugging
+                    print(f"Unknown download response type: {type(download_response)}")
+                    print(f"Response dir: {dir(download_response)}")
+                    # Try to get data attribute
+                    file_data = getattr(download_response, 'data', download_response)
+                
+                base64_image = base64.b64encode(file_data).decode('utf-8')
+                
+            except Exception as e:
+                print(f"Error downloading photo {photo['id']}: {str(e)}")
+                raise HTTPException(status_code=500, detail=f"Failed to retrieve photo: {str(e)}")
         else:
             # For sensitive photos, would need temporary storage solution
             raise HTTPException(status_code=400, detail="Cannot analyze unstored photos")
@@ -525,12 +582,30 @@ async def analyze_photos(request: PhotoAnalysisRequest):
             comp_contents = []
             for photo in comp_photos_result.data:
                 if photo['storage_url']:
-                    download_data = supabase.storage.from_(STORAGE_BUCKET).download(photo['storage_url'])
-                    base64_image = base64.b64encode(download_data).decode('utf-8')
-                    comp_contents.append({
-                        'type': 'image_url',
-                        'image_url': {'url': f'data:image/jpeg;base64,{base64_image}'}
-                    })
+                    try:
+                        download_response = supabase.storage.from_(STORAGE_BUCKET).download(photo['storage_url'])
+                        
+                        # Handle different response types from Supabase
+                        if hasattr(download_response, 'content'):
+                            file_data = download_response.content
+                        elif isinstance(download_response, bytes):
+                            file_data = download_response
+                        elif hasattr(download_response, 'read'):
+                            file_data = download_response.read()
+                        elif isinstance(download_response, dict) and 'data' in download_response:
+                            file_data = download_response['data']
+                        else:
+                            file_data = getattr(download_response, 'data', download_response)
+                        
+                        base64_image = base64.b64encode(file_data).decode('utf-8')
+                        comp_contents.append({
+                            'type': 'image_url',
+                            'image_url': {'url': f'data:image/jpeg;base64,{base64_image}'}
+                        })
+                    except Exception as e:
+                        print(f"Error downloading comparison photo: {str(e)}")
+                        # Continue without this comparison photo
+                        continue
             
             # Call AI for comparison
             try:
