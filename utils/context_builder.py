@@ -11,15 +11,19 @@ async def get_enhanced_llm_context(user_id: str, conversation_id: str, current_q
     context_parts = []
     
     print(f"Building enhanced context for user: {user_id}")
+    print(f"User ID type: {type(user_id)}, value: {repr(user_id)}")
     
     try:
         # 1. Get LLM summaries from previous conversations
         summaries_response = supabase.table("llm_context")\
             .select("llm_summary, created_at, context_type")\
-            .eq("user_id", user_id)\
+            .eq("user_id", str(user_id))\
             .order("created_at", desc=True)\
             .limit(5)\
             .execute()
+        
+        print(f"LLM summaries response: {summaries_response}")
+        print(f"Found {len(summaries_response.data) if summaries_response.data else 0} LLM summaries")
         
         if summaries_response.data:
             context_parts.append("=== Previous Health Discussions ===")
@@ -39,6 +43,7 @@ async def get_enhanced_llm_context(user_id: str, conversation_id: str, current_q
             .limit(5)\
             .execute()
         
+        print(f"Quick scans cutoff date: {cutoff_date}")
         print(f"Quick scans query response: {scans_response}")
         print(f"Found {len(scans_response.data) if scans_response.data else 0} quick scans")
         if scans_response.data:
@@ -60,6 +65,9 @@ async def get_enhanced_llm_context(user_id: str, conversation_id: str, current_q
             .limit(3)\
             .execute()
         
+        print(f"Deep dives query response: {dives_response}")
+        print(f"Found {len(dives_response.data) if dives_response.data else 0} deep dives")
+        
         if dives_response.data:
             context_parts.append("\n\n=== Deep Health Analyses ===")
             for dive in dives_response.data[:2]:  # Use top 2 most recent
@@ -72,8 +80,8 @@ async def get_enhanced_llm_context(user_id: str, conversation_id: str, current_q
         # 4. Get current conversation summary if exists
         current_summary = supabase.table("llm_context")\
             .select("llm_summary")\
-            .eq("user_id", user_id)\
-            .eq("conversation_id", conversation_id)\
+            .eq("user_id", str(user_id))\
+            .eq("conversation_id", str(conversation_id))\
             .execute()
         
         if current_summary.data:
