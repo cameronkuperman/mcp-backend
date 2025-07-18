@@ -1,7 +1,8 @@
 """Photo Analysis API endpoints"""
 from fastapi import APIRouter, File, UploadFile, Form, HTTPException, Depends, Query
 from fastapi.responses import JSONResponse
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Union
+from pydantic import BaseModel
 import base64
 import io
 import os
@@ -235,17 +236,39 @@ async def categorize_photo(
         raise HTTPException(status_code=500, detail=f"Categorization failed: {str(e)}")
 
 
+class CreateSessionRequest(BaseModel):
+    user_id: str
+    condition_name: str
+    description: Optional[str] = None
+
 @router.post("/sessions")
 async def create_photo_session(
-    user_id: str = Form(...),
-    condition_name: str = Form(...),
+    request: Union[CreateSessionRequest, None] = None,
+    user_id: Optional[str] = Form(None),
+    condition_name: Optional[str] = Form(None),
     description: Optional[str] = Form(None)
 ):
-    """Create a new photo session"""
+    """Create a new photo session - accepts both JSON and form data"""
     if not supabase:
         raise HTTPException(status_code=500, detail="Database connection not configured")
     
+    # Handle both JSON and form data
+    if request:
+        # JSON request
+        user_id = request.user_id
+        condition_name = request.condition_name
+        description = request.description
+    
+    # Validate input
+    if not user_id:
+        raise HTTPException(status_code=422, detail="user_id is required")
+    if not condition_name:
+        raise HTTPException(status_code=422, detail="condition_name is required")
+    
     try:
+        # Debug logging
+        print(f"Creating session for user: {user_id}, condition: {condition_name}")
+        
         session_result = supabase.table('photo_sessions').insert({
             'user_id': user_id,
             'condition_name': condition_name,
@@ -253,7 +276,8 @@ async def create_photo_session(
         }).execute()
         
         if not session_result.data:
-            raise HTTPException(status_code=500, detail="Failed to create session")
+            print(f"Session creation failed - no data returned")
+            raise HTTPException(status_code=500, detail="Failed to create session - no data returned")
         
         return {
             'session_id': session_result.data[0]['id'],
