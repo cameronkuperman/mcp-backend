@@ -56,7 +56,7 @@ def is_duplicate_question(new_question: str, previous_questions: list) -> bool:
 def should_complete_deep_dive(session_data: dict) -> bool:
     """Decide if deep dive should complete based on smart logic"""
     question_count = session_data.get('question_count', 0)
-    confidence = session_data.get('confidence_score', 0)
+    confidence = session_data.get('final_confidence', 0)
     
     # Complete if any of these conditions:
     return (
@@ -146,7 +146,6 @@ async def quick_scan_endpoint(request: QuickScanRequest):
                     "body_part": request.body_part,
                     "form_data": request.form_data,
                     "analysis_result": analysis_result,
-                    "confidence_score": analysis_result.get("confidence", 0),
                     "urgency_level": analysis_result.get("urgency", "low"),
                     "created_at": datetime.now(timezone.utc).isoformat()
                 }
@@ -288,7 +287,6 @@ async def start_deep_dive(request: DeepDiveStartRequest):
             "previous_answers": [],  # Track all answers
             "question_count": 1,
             "current_step": 1,
-            "confidence_score": 0,
             "max_questions_reached": False,
             "internal_state": question_data.get("internal_analysis", {}),
             "status": "active",
@@ -445,7 +443,7 @@ async def continue_deep_dive(request: DeepDiveContinueRequest):
         
         # Update session with current confidence and question count
         session_data_for_completion = {
-            "confidence_score": current_confidence,
+            "final_confidence": current_confidence,
             "question_count": question_count
         }
         
@@ -493,7 +491,6 @@ async def continue_deep_dive(request: DeepDiveContinueRequest):
                     "previous_questions": previous_questions,
                     "previous_answers": previous_answers,
                     "question_count": len(previous_questions),
-                    "confidence_score": current_confidence,
                     "max_questions_reached": len(previous_questions) >= DEEP_DIVE_CONFIG["max_questions"]
                 }).eq("id", request.session_id).execute()
             except Exception as e:
@@ -1198,7 +1195,7 @@ async def quick_scan_ask_more(request: QuickScanAskMoreRequest):
         
         # Get current confidence from analysis result
         analysis_result = scan.get("analysis_result", {})
-        current_confidence = analysis_result.get("confidence", scan.get("confidence_score", 0))
+        current_confidence = analysis_result.get("confidence", 0)
         
         if current_confidence >= request.target_confidence:
             return {
