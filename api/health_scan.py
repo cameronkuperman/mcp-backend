@@ -287,7 +287,6 @@ async def start_deep_dive(request: DeepDiveStartRequest):
             "previous_answers": [],  # Track all answers
             "question_count": 1,
             "current_step": 1,
-            "max_questions_reached": False,
             "internal_state": question_data.get("internal_analysis", {}),
             "status": "active",
             "created_at": datetime.now(timezone.utc).isoformat()
@@ -491,7 +490,6 @@ async def continue_deep_dive(request: DeepDiveContinueRequest):
                     "previous_questions": previous_questions,
                     "previous_answers": previous_answers,
                     "question_count": len(previous_questions),
-                    "max_questions_reached": len(previous_questions) >= DEEP_DIVE_CONFIG["max_questions"]
                 }).eq("id", request.session_id).execute()
             except Exception as e:
                 print(f"Error storing last question: {e}")
