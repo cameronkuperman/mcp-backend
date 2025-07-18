@@ -10,6 +10,7 @@ from api.chat import router as chat_router
 from api.health_scan import router as health_scan_router
 from api.health_story import router as health_story_router
 from api.tracking import router as tracking_router
+
 from api.population_health import router as population_health_router
 from api.reports.general import router as general_reports_router
 from api.reports.specialist import router as specialist_reports_router
