@@ -807,10 +807,10 @@ PATIENT DATA:
 - Medical History: {json.dumps(medical_data) if medical_data else "Not available"}
 
 QUESTIONS ALREADY ASKED:
-{chr(10).join([f"Q{i+1}: {q.get('question', 'N/A')}\nA: {q.get('answer', 'N/A')}" for i, q in enumerate(questions_asked)])}
+{chr(10).join([f"Q{i+1}: {q.get('question', 'N/A')}{chr(10)}A: {q.get('answer', 'N/A')}" for i, q in enumerate(questions_asked)])}
 
 ADDITIONAL QUESTIONS ASKED:
-{chr(10).join([f"Q{i+1}: {q.get('question', 'N/A')}\nA: {q.get('answer', 'N/A')}" for i, q in enumerate(additional_questions)])}
+{chr(10).join([f"Q{i+1}: {q.get('question', 'N/A')}{chr(10)}A: {q.get('answer', 'N/A')}" for i, q in enumerate(additional_questions)])}
 
 CURRENT DIFFERENTIAL DIAGNOSES:
 {json.dumps(final_analysis.get('differentials', []))}

@@ -5,7 +5,9 @@
       "Bash(uv sync:*)",
       "Bash(cp:*)",
       "Bash(ls:*)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(grep:*)",
+      "Bash(python:*)"
     ],
     "deny": []
   }
