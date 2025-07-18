@@ -331,7 +331,15 @@ async def upload_photos(
         raise HTTPException(status_code=400, detail="Maximum 5 photos per upload")
     
     # Create or get session
-    if not session_id:
+    # Check if session_id is a temporary one or doesn't exist in DB
+    session_exists = False
+    if session_id and not session_id.startswith('temp-'):
+        # Verify session exists in database
+        existing_session = supabase.table('photo_sessions').select('id').eq('id', session_id).single().execute()
+        session_exists = existing_session.data is not None
+    
+    if not session_exists:
+        # Need to create a new session
         if not condition_name:
             raise HTTPException(status_code=400, detail="condition_name required when creating new session")
         
@@ -481,6 +489,9 @@ async def analyze_photos(request: PhotoAnalysisRequest):
     
     # Get session
     session_result = supabase.table('photo_sessions').select('*').eq('id', request.session_id).single().execute()
+    if not session_result.data:
+        print(f"Session {request.session_id} not found")
+        raise HTTPException(status_code=404, detail="Session not found")
     session = session_result.data
     
     # Build photo content for AI
@@ -512,6 +523,14 @@ async def analyze_photos(request: PhotoAnalysisRequest):
                     # Try to get data attribute
                     file_data = getattr(download_response, 'data', download_response)
                 
+                if not isinstance(file_data, bytes):
+                    print(f"Error: file_data is not bytes, got {type(file_data)}")
+                    # Try to convert to bytes if possible
+                    if hasattr(file_data, 'encode'):
+                        file_data = file_data.encode()
+                    else:
+                        raise TypeError(f"Cannot convert {type(file_data)} to bytes")
+                
                 base64_image = base64.b64encode(file_data).decode('utf-8')
                 
             except Exception as e:
@@ -521,9 +540,11 @@ async def analyze_photos(request: PhotoAnalysisRequest):
             # For sensitive photos, would need temporary storage solution
             raise HTTPException(status_code=400, detail="Cannot analyze unstored photos")
         
+        # Get proper mime type from file metadata or default to jpeg
+        mime_type = photo.get('file_metadata', {}).get('mime_type', 'image/jpeg')
         photo_contents.append({
             'type': 'image_url',
-            'image_url': {'url': f'data:image/jpeg;base64,{base64_image}'}
+            'image_url': {'url': f'data:{mime_type};base64,{base64_image}'}
         })
     
     # Build analysis prompt
@@ -597,7 +618,15 @@ async def analyze_photos(request: PhotoAnalysisRequest):
                         else:
                             file_data = getattr(download_response, 'data', download_response)
                         
-                        base64_image = base64.b64encode(file_data).decode('utf-8')
+                        if not isinstance(file_data, bytes):
+                    print(f"Error: file_data is not bytes, got {type(file_data)}")
+                    # Try to convert to bytes if possible
+                    if hasattr(file_data, 'encode'):
+                        file_data = file_data.encode()
+                    else:
+                        raise TypeError(f"Cannot convert {type(file_data)} to bytes")
+                
+                base64_image = base64.b64encode(file_data).decode('utf-8')
                         comp_contents.append({
                             'type': 'image_url',
                             'image_url': {'url': f'data:image/jpeg;base64,{base64_image}'}
