@@ -1,5 +1,5 @@
 """Photo Analysis API endpoints"""
-from fastapi import APIRouter, File, UploadFile, Form, HTTPException, Depends
+from fastapi import APIRouter, File, UploadFile, Form, HTTPException, Depends, Query
 from fastapi.responses import JSONResponse
 from typing import List, Optional, Dict, Any
 import base64
@@ -32,6 +32,16 @@ async def health_check():
         "openrouter_configured": OPENROUTER_API_KEY is not None,
         "storage_configured": SUPABASE_URL is not None
     }
+
+# Add OPTIONS handler for CORS preflight
+@router.options("/{path:path}")
+async def handle_options():
+    """Handle OPTIONS requests for CORS preflight"""
+    return JSONResponse(content={}, headers={
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+        "Access-Control-Allow-Headers": "*"
+    })
 
 # Initialize Supabase client
 SUPABASE_URL = os.getenv("SUPABASE_URL")
@@ -526,9 +536,9 @@ async def analyze_photos(request: PhotoAnalysisRequest):
 
 @router.get("/sessions")
 async def get_photo_sessions(
-    user_id: str,
-    limit: int = 20,
-    offset: int = 0
+    user_id: str = Query(..., description="User ID"),
+    limit: int = Query(20, description="Number of sessions to return"),
+    offset: int = Query(0, description="Offset for pagination")
 ):
     """Get user's photo sessions"""
     if not supabase:
