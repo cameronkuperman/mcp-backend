@@ -261,37 +261,25 @@ class CreateSessionRequest(BaseModel):
     description: Optional[str] = None
 
 @router.post("/sessions")
-async def create_photo_session(
-    request: Union[CreateSessionRequest, None] = None,
-    user_id: Optional[str] = Form(None),
-    condition_name: Optional[str] = Form(None),
-    description: Optional[str] = Form(None)
-):
-    """Create a new photo session - accepts both JSON and form data"""
+async def create_photo_session(request: CreateSessionRequest):
+    """Create a new photo session"""
     if not supabase:
         raise HTTPException(status_code=500, detail="Database connection not configured")
     
-    # Handle both JSON and form data
-    if request:
-        # JSON request
-        user_id = request.user_id
-        condition_name = request.condition_name
-        description = request.description
+    # Debug logging
+    print(f"Session creation request: user_id={request.user_id}, condition={request.condition_name}")
     
-    # Validate input
-    if not user_id:
+    # Validate input (model already validates required fields)
+    if not request.user_id:
         raise HTTPException(status_code=422, detail="user_id is required")
-    if not condition_name:
+    if not request.condition_name:
         raise HTTPException(status_code=422, detail="condition_name is required")
     
     try:
-        # Debug logging
-        print(f"Creating session for user: {user_id}, condition: {condition_name}")
-        
         session_result = supabase.table('photo_sessions').insert({
-            'user_id': user_id,
-            'condition_name': condition_name,
-            'description': description
+            'user_id': request.user_id,
+            'condition_name': request.condition_name,
+            'description': request.description
         }).execute()
         
         if not session_result.data:
@@ -300,7 +288,7 @@ async def create_photo_session(
         
         return {
             'session_id': session_result.data[0]['id'],
-            'condition_name': condition_name,
+            'condition_name': request.condition_name,
             'created_at': session_result.data[0]['created_at']
         }
     except Exception as e:
