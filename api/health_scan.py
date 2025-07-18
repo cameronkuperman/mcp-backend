@@ -283,13 +283,11 @@ async def start_deep_dive(request: DeepDiveStartRequest):
             "form_data": request.form_data,
             "model_used": model,
             "questions": [],  # PostgreSQL array, not dict
-            "previous_questions": [question_data.get("question", "")],  # Track all questions
-            "previous_answers": [],  # Track all answers
-            "question_count": 1,
             "current_step": 1,
             "internal_state": question_data.get("internal_analysis", {}),
             "status": "active",
-            "created_at": datetime.now(timezone.utc).isoformat()
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "last_question": question_data.get("question", "")
         }
         
         # Always save session to database (for both authenticated and anonymous users)
@@ -353,11 +351,10 @@ async def continue_deep_dive(request: DeepDiveContinueRequest):
         questions = session.get("questions", [])
         questions.append(qa_entry)
         
-        # Update previous questions and answers tracking
-        previous_questions = session.get("previous_questions", [])
-        previous_answers = session.get("previous_answers", [])
-        if session.get("last_question"):
-            previous_answers.append(request.answer)  # Add answer to previous answers
+        # Track questions through the questions array
+        previous_questions = [q.get("question", "") for q in questions if q.get("question")]
+        if session.get("last_question") and session.get("last_question") not in previous_questions:
+            previous_questions.append(session.get("last_question"))
         
         # Prepare session data for prompt
         session_data = {
@@ -479,17 +476,12 @@ async def continue_deep_dive(request: DeepDiveContinueRequest):
                     # Try to generate alternative question
                     new_question = f"Besides what we've discussed, are there any other symptoms or concerns about your {session.get('body_part', 'condition')}?"
             
-            # Add new question to tracking
-            previous_questions.append(new_question)
             
             # Store the question for next iteration
             try:
                 supabase.table("deep_dive_sessions").update({
                     "last_question": new_question,
-                    "current_confidence": current_confidence,
-                    "previous_questions": previous_questions,
-                    "previous_answers": previous_answers,
-                    "question_count": len(previous_questions),
+                    "final_confidence": current_confidence
                 }).eq("id", request.session_id).execute()
             except Exception as e:
                 print(f"Error storing last question: {e}")
@@ -861,9 +853,8 @@ async def deep_dive_ask_more(request: DeepDiveAskMoreRequest):
             user_id = request.user_id or session.get("user_id")
             medical_data = await get_user_medical_data(user_id)
         
-        # Get all previous questions
-        previous_questions = session.get("previous_questions", [])
-        all_previous_questions = previous_questions + [q.get("question", "") for q in questions_asked]
+        # Get all previous questions from the questions array
+        all_previous_questions = [q.get("question", "") for q in questions_asked if q.get("question")]
         
         # Check total questions against global max
         total_questions = len(all_previous_questions)
