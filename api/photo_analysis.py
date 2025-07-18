@@ -619,14 +619,14 @@ async def analyze_photos(request: PhotoAnalysisRequest):
                             file_data = getattr(download_response, 'data', download_response)
                         
                         if not isinstance(file_data, bytes):
-                    print(f"Error: file_data is not bytes, got {type(file_data)}")
-                    # Try to convert to bytes if possible
-                    if hasattr(file_data, 'encode'):
-                        file_data = file_data.encode()
-                    else:
-                        raise TypeError(f"Cannot convert {type(file_data)} to bytes")
-                
-                base64_image = base64.b64encode(file_data).decode('utf-8')
+                            print(f"Error: file_data is not bytes, got {type(file_data)}")
+                            # Try to convert to bytes if possible
+                            if hasattr(file_data, 'encode'):
+                                file_data = file_data.encode()
+                            else:
+                                raise TypeError(f"Cannot convert {type(file_data)} to bytes")
+                        
+                        base64_image = base64.b64encode(file_data).decode('utf-8')
                         comp_contents.append({
                             'type': 'image_url',
                             'image_url': {'url': f'data:image/jpeg;base64,{base64_image}'}
