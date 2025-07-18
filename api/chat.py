@@ -280,6 +280,39 @@ async def health_check():
     """Simple health check endpoint"""
     return {"status": "healthy", "timestamp": datetime.now(timezone.utc).isoformat()}
 
+@router.get("/debug-context/{user_id}")
+async def debug_context(user_id: str):
+    """Debug endpoint to test context building"""
+    try:
+        # Get enhanced context
+        context = await get_enhanced_llm_context(user_id, "debug-conversation", "debug query")
+        
+        # Also get raw data for comparison
+        summaries = supabase.table("llm_context").select("*").eq("user_id", str(user_id)).limit(5).execute()
+        scans = supabase.table("quick_scans").select("*").eq("user_id", str(user_id)).limit(5).execute()
+        dives = supabase.table("deep_dive_sessions").select("*").eq("user_id", str(user_id)).limit(5).execute()
+        
+        return {
+            "user_id": user_id,
+            "user_id_type": str(type(user_id)),
+            "enhanced_context": context,
+            "context_length": len(context),
+            "raw_data": {
+                "llm_summaries_count": len(summaries.data) if summaries.data else 0,
+                "quick_scans_count": len(scans.data) if scans.data else 0,
+                "deep_dives_count": len(dives.data) if dives.data else 0,
+                "llm_summaries": summaries.data[:2] if summaries.data else [],
+                "quick_scans": scans.data[:2] if scans.data else [],
+                "deep_dives": dives.data[:2] if dives.data else []
+            }
+        }
+    except Exception as e:
+        return {
+            "error": str(e),
+            "user_id": user_id,
+            "user_id_type": str(type(user_id))
+        }
+
 @router.post("/generate_summary")
 async def generate_summary(request: GenerateSummaryRequest):
     """Generate AI summary for llm_context table from conversation or scan"""
