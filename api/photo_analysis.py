@@ -22,14 +22,31 @@ from utils.json_parser import extract_json_from_text
 
 router = APIRouter(prefix="/api/photo-analysis", tags=["photo-analysis"])
 
+@router.get("/health")
+async def health_check():
+    """Health check endpoint for photo analysis"""
+    return {
+        "status": "ok",
+        "service": "photo-analysis",
+        "database_connected": supabase is not None,
+        "openrouter_configured": OPENROUTER_API_KEY is not None,
+        "storage_configured": SUPABASE_URL is not None
+    }
+
 # Initialize Supabase client
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY")
-SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY") or os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 
-# Use service key for server-side operations
-supabase = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
+# Initialize Supabase client only if credentials are available
+supabase = None
+if SUPABASE_URL and SUPABASE_SERVICE_KEY:
+    supabase = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
+elif SUPABASE_URL and SUPABASE_ANON_KEY:
+    # Fallback to anon key if service key not available
+    supabase = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
+    print("Warning: Using ANON key for photo analysis. Some operations may be limited.")
 
 # Constants
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
@@ -164,6 +181,9 @@ async def categorize_photo(
     session_id: Optional[str] = Form(None)
 ):
     """Categorize a photo using Mistral model"""
+    if not OPENROUTER_API_KEY:
+        raise HTTPException(status_code=500, detail="OpenRouter API key not configured")
+    
     # Validate file
     await validate_photo_upload(photo)
     
@@ -190,7 +210,7 @@ async def categorize_photo(
         categorization = extract_json_from_text(content)
         
         # Add session context if provided
-        if session_id:
+        if session_id and supabase:
             session = await supabase.table('photo_sessions').select('*').eq('id', session_id).single().execute()
             if session.data:
                 photo_count = await supabase.table('photo_uploads').select('id').eq('session_id', session_id).execute()
@@ -214,6 +234,10 @@ async def upload_photos(
     user_id: str = Form(...)
 ):
     """Upload and process multiple photos"""
+    if not supabase:
+        raise HTTPException(status_code=500, detail="Database connection not configured")
+    if not OPENROUTER_API_KEY:
+        raise HTTPException(status_code=500, detail="OpenRouter API key not configured")
     if len(photos) > 5:
         raise HTTPException(status_code=400, detail="Maximum 5 photos per upload")
     
@@ -349,6 +373,11 @@ async def upload_photos(
 @router.post("/analyze", response_model=PhotoAnalysisResponse)
 async def analyze_photos(request: PhotoAnalysisRequest):
     """Analyze photos using GPT-4V"""
+    if not supabase:
+        raise HTTPException(status_code=500, detail="Database connection not configured")
+    if not OPENROUTER_API_KEY:
+        raise HTTPException(status_code=500, detail="OpenRouter API key not configured")
+    
     # Get photos
     photos_result = await supabase.table('photo_uploads').select('*').in_('id', request.photo_ids).execute()
     
@@ -502,6 +531,9 @@ async def get_photo_sessions(
     offset: int = 0
 ):
     """Get user's photo sessions"""
+    if not supabase:
+        raise HTTPException(status_code=500, detail="Database connection not configured")
+    
     # Get sessions
     sessions_result = await supabase.table('photo_sessions').select('*').eq('user_id', user_id).order('created_at', desc=True).range(offset, offset + limit - 1).execute()
     
@@ -559,6 +591,9 @@ async def get_photo_sessions(
 @router.get("/session/{session_id}")
 async def get_photo_session_detail(session_id: str):
     """Get detailed session information"""
+    if not supabase:
+        raise HTTPException(status_code=500, detail="Database connection not configured")
+    
     # Get session
     session_result = await supabase.table('photo_sessions').select('*').eq('id', session_id).single().execute()
     
@@ -611,6 +646,9 @@ async def get_photo_session_detail(session_id: str):
 @router.delete("/session/{session_id}")
 async def delete_photo_session(session_id: str):
     """Soft delete a photo session"""
+    if not supabase:
+        raise HTTPException(status_code=500, detail="Database connection not configured")
+    
     # Update session
     await supabase.table('photo_sessions').update({
         'deleted_at': datetime.now().isoformat()
@@ -630,6 +668,9 @@ async def approve_tracking_suggestions(
     metric_configs: List[Dict[str, Any]]
 ):
     """Approve and create tracking configurations from photo analysis"""
+    if not supabase:
+        raise HTTPException(status_code=500, detail="Database connection not configured")
+    
     # Get analysis
     analysis_result = await supabase.table('photo_analyses').select('*').eq('id', analysis_id).single().execute()
     
