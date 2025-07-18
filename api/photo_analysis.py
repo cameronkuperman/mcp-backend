@@ -235,6 +235,34 @@ async def categorize_photo(
         raise HTTPException(status_code=500, detail=f"Categorization failed: {str(e)}")
 
 
+@router.post("/sessions")
+async def create_photo_session(
+    user_id: str = Form(...),
+    condition_name: str = Form(...),
+    description: Optional[str] = Form(None)
+):
+    """Create a new photo session"""
+    if not supabase:
+        raise HTTPException(status_code=500, detail="Database connection not configured")
+    
+    try:
+        session_result = supabase.table('photo_sessions').insert({
+            'user_id': user_id,
+            'condition_name': condition_name,
+            'description': description
+        }).execute()
+        
+        if not session_result.data:
+            raise HTTPException(status_code=500, detail="Failed to create session")
+        
+        return {
+            'session_id': session_result.data[0]['id'],
+            'condition_name': condition_name,
+            'created_at': session_result.data[0]['created_at']
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Session creation failed: {str(e)}")
+
 @router.post("/upload", response_model=PhotoUploadResponse)
 async def upload_photos(
     photos: List[UploadFile] = File(...),
