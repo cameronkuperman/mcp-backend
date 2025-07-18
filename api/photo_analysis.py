@@ -61,15 +61,7 @@ async def debug_storage():
             "storage_bucket": STORAGE_BUCKET
         }
 
-# Add OPTIONS handler for CORS preflight
-@router.options("/{path:path}")
-async def handle_options():
-    """Handle OPTIONS requests for CORS preflight"""
-    return JSONResponse(content={}, headers={
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-        "Access-Control-Allow-Headers": "*"
-    })
+# OPTIONS handling is done by CORS middleware, no need for manual handler
 
 # Initialize Supabase client
 SUPABASE_URL = os.getenv("SUPABASE_URL")
@@ -442,11 +434,15 @@ async def upload_photos(
         # Get preview URL if stored
         preview_url = None
         if stored:
-            preview_data = supabase.storage.from_(STORAGE_BUCKET).create_signed_url(
-                storage_url,
-                3600  # 1 hour expiry
-            )
-            preview_url = preview_data['signedURL']
+            try:
+                preview_data = supabase.storage.from_(STORAGE_BUCKET).create_signed_url(
+                    storage_url,
+                    3600  # 1 hour expiry
+                )
+                preview_url = preview_data.get('signedURL') or preview_data.get('signedUrl')
+            except Exception as e:
+                print(f"Error creating preview URL: {str(e)}")
+                preview_url = None
         
         uploaded_photos.append({
             'id': photo_id,
@@ -725,11 +721,15 @@ async def get_photo_sessions(
         if photo_count > 0:
             first_photo = supabase.table('photo_uploads').select('storage_url').eq('session_id', session['id']).eq('category', 'medical_normal').limit(1).execute()
             if first_photo.data and first_photo.data[0]['storage_url']:
-                thumb_data = supabase.storage.from_(STORAGE_BUCKET).create_signed_url(
-                    first_photo.data[0]['storage_url'],
-                    3600
-                )
-                thumbnail_url = thumb_data['signedURL']
+                try:
+                    thumb_data = supabase.storage.from_(STORAGE_BUCKET).create_signed_url(
+                        first_photo.data[0]['storage_url'],
+                        3600
+                    )
+                    thumbnail_url = thumb_data.get('signedURL') or thumb_data.get('signedUrl')
+                except Exception as e:
+                    print(f"Error creating thumbnail URL: {str(e)}")
+                    thumbnail_url = None
         
         sessions.append({
             'id': session['id'],
@@ -781,11 +781,15 @@ async def get_photo_session_detail(session_id: str):
         }
         
         if photo['storage_url']:
-            preview_data = supabase.storage.from_(STORAGE_BUCKET).create_signed_url(
-                photo['storage_url'],
-                3600
-            )
-            photo_data['preview_url'] = preview_data['signedURL']
+            try:
+                preview_data = supabase.storage.from_(STORAGE_BUCKET).create_signed_url(
+                    photo['storage_url'],
+                    3600
+                )
+                photo_data['preview_url'] = preview_data.get('signedURL') or preview_data.get('signedUrl')
+            except Exception as e:
+                print(f"Error creating preview URL for session detail: {str(e)}")
+                photo_data['preview_url'] = None
         
         photos.append(photo_data)
     
