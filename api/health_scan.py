@@ -630,7 +630,7 @@ PATIENT CASE DATA:
 - Medical History: {json.dumps(medical_data) if medical_data else "Not available"}
 
 DIAGNOSTIC Q&A SESSION:
-{chr(10).join([f"Q{q['question_number']}: {q.get('question', 'N/A')}\nA{q['question_number']}: {q.get('answer', 'N/A')}" for q in original_questions])}
+{chr(10).join([f"Q{q['question_number']}: {q.get('question', 'N/A')}{chr(10)}A{q['question_number']}: {q.get('answer', 'N/A')}" for q in original_questions])}
 
 Previous Analysis State: {json.dumps(internal_state)}
 
