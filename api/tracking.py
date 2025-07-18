@@ -181,6 +181,8 @@ async def configure_tracking(request: TrackingConfigureRequest):
         
     except Exception as e:
         print(f"Error configuring tracking: {e}")
+        print(f"Request data: suggestion_id={request.suggestion_id}, user_id={request.user_id}")
+        print(f"Suggestion data found: {len(response.data) if 'response' in locals() else 'No response'}")
         return {"error": str(e), "status": "error"}
 
 @router.post("/approve/{suggestion_id}")
@@ -279,6 +281,7 @@ async def add_tracking_data_point(request: TrackingDataPointRequest):
         
     except Exception as e:
         print(f"Error adding data point: {e}")
+        print(f"Request data: configuration_id={request.configuration_id}, user_id={request.user_id}, value={request.value}")
         return {"error": str(e), "status": "error"}
 
 @router.get("/dashboard")
