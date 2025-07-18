@@ -221,9 +221,9 @@ async def categorize_photo(
         
         # Add session context if provided
         if session_id and supabase:
-            session = await supabase.table('photo_sessions').select('*').eq('id', session_id).single().execute()
+            session = supabase.table('photo_sessions').select('*').eq('id', session_id).single().execute()
             if session.data:
-                photo_count = await supabase.table('photo_uploads').select('id').eq('session_id', session_id).execute()
+                photo_count = supabase.table('photo_uploads').select('id').eq('session_id', session_id).execute()
                 categorization['session_context'] = {
                     'is_sensitive_session': session.data.get('is_sensitive', False),
                     'previous_photos': len(photo_count.data) if photo_count.data else 0
@@ -256,7 +256,7 @@ async def upload_photos(
         if not condition_name:
             raise HTTPException(status_code=400, detail="condition_name required when creating new session")
         
-        session_result = await supabase.table('photo_sessions').insert({
+        session_result = supabase.table('photo_sessions').insert({
             'user_id': user_id,
             'condition_name': condition_name,
             'description': description
@@ -323,7 +323,7 @@ async def upload_photos(
                 
         elif category == 'medical_sensitive':
             # Mark session as sensitive
-            await supabase.table('photo_sessions').update({
+            supabase.table('photo_sessions').update({
                 'is_sensitive': True
             }).eq('id', session_id).execute()
             
@@ -340,7 +340,7 @@ async def upload_photos(
             raise HTTPException(status_code=400, detail='Inappropriate content detected')
         
         # Save upload record
-        upload_record = await supabase.table('photo_uploads').insert({
+        upload_record = supabase.table('photo_uploads').insert({
             'id': photo_id,
             'session_id': session_id,
             'category': category,
@@ -369,7 +369,7 @@ async def upload_photos(
         })
     
     # Update session last_photo_at
-    await supabase.table('photo_sessions').update({
+    supabase.table('photo_sessions').update({
         'last_photo_at': datetime.now().isoformat()
     }).eq('id', session_id).execute()
     
@@ -389,7 +389,7 @@ async def analyze_photos(request: PhotoAnalysisRequest):
         raise HTTPException(status_code=500, detail="OpenRouter API key not configured")
     
     # Get photos
-    photos_result = await supabase.table('photo_uploads').select('*').in_('id', request.photo_ids).execute()
+    photos_result = supabase.table('photo_uploads').select('*').in_('id', request.photo_ids).execute()
     
     if not photos_result.data:
         raise HTTPException(status_code=404, detail="Photos not found")
@@ -397,7 +397,7 @@ async def analyze_photos(request: PhotoAnalysisRequest):
     photos = photos_result.data
     
     # Get session
-    session_result = await supabase.table('photo_sessions').select('*').eq('id', request.session_id).single().execute()
+    session_result = supabase.table('photo_sessions').select('*').eq('id', request.session_id).single().execute()
     session = session_result.data
     
     # Build photo content for AI
@@ -466,7 +466,7 @@ async def analyze_photos(request: PhotoAnalysisRequest):
     comparison = None
     if request.comparison_photo_ids and len(request.comparison_photo_ids) > 0:
         # Get comparison photos
-        comp_photos_result = await supabase.table('photo_uploads').select('*').in_('id', request.comparison_photo_ids).execute()
+        comp_photos_result = supabase.table('photo_uploads').select('*').in_('id', request.comparison_photo_ids).execute()
         
         if comp_photos_result.data:
             # Build comparison prompt
@@ -505,7 +505,7 @@ async def analyze_photos(request: PhotoAnalysisRequest):
                 print(f"Comparison failed: {str(e)}")
     
     # Save analysis
-    analysis_record = await supabase.table('photo_analyses').insert({
+    analysis_record = supabase.table('photo_analyses').insert({
         'session_id': request.session_id,
         'photo_ids': request.photo_ids,
         'analysis_data': analysis,
@@ -520,7 +520,7 @@ async def analyze_photos(request: PhotoAnalysisRequest):
     # Generate tracking suggestions if applicable
     if analysis.get('trackable_metrics') and not request.temporary_analysis:
         for metric in analysis['trackable_metrics']:
-            await supabase.table('photo_tracking_suggestions').insert({
+            supabase.table('photo_tracking_suggestions').insert({
                 'session_id': request.session_id,
                 'analysis_id': analysis_id,
                 'metric_suggestions': [metric]
@@ -545,29 +545,29 @@ async def get_photo_sessions(
         raise HTTPException(status_code=500, detail="Database connection not configured")
     
     # Get sessions
-    sessions_result = await supabase.table('photo_sessions').select('*').eq('user_id', user_id).order('created_at', desc=True).range(offset, offset + limit - 1).execute()
+    sessions_result = supabase.table('photo_sessions').select('*').eq('user_id', user_id).order('created_at.desc').range(offset, offset + limit - 1).execute()
     
     sessions = []
     for session in sessions_result.data:
         # Get photo count
-        photo_count_result = await supabase.table('photo_uploads').select('id').eq('session_id', session['id']).execute()
+        photo_count_result = supabase.table('photo_uploads').select('id').eq('session_id', session['id']).execute()
         photo_count = len(photo_count_result.data) if photo_count_result.data else 0
         
         # Get analysis count
-        analysis_count_result = await supabase.table('photo_analyses').select('id').eq('session_id', session['id']).execute()
+        analysis_count_result = supabase.table('photo_analyses').select('id').eq('session_id', session['id']).execute()
         analysis_count = len(analysis_count_result.data) if analysis_count_result.data else 0
         
         # Get latest analysis summary
         latest_analysis = None
         if analysis_count > 0:
-            latest_result = await supabase.table('photo_analyses').select('analysis_data').eq('session_id', session['id']).order('created_at', desc=True).limit(1).execute()
+            latest_result = supabase.table('photo_analyses').select('analysis_data').eq('session_id', session['id']).order('created_at.desc').limit(1).execute()
             if latest_result.data and latest_result.data[0]['analysis_data']:
                 latest_analysis = latest_result.data[0]['analysis_data'].get('primary_assessment')
         
         # Get thumbnail
         thumbnail_url = None
         if photo_count > 0:
-            first_photo = await supabase.table('photo_uploads').select('storage_url').eq('session_id', session['id']).eq('category', 'medical_normal').limit(1).execute()
+            first_photo = supabase.table('photo_uploads').select('storage_url').eq('session_id', session['id']).eq('category', 'medical_normal').limit(1).execute()
             if first_photo.data and first_photo.data[0]['storage_url']:
                 thumb_data = supabase.storage.from_(STORAGE_BUCKET).create_signed_url(
                     first_photo.data[0]['storage_url'],
@@ -588,7 +588,7 @@ async def get_photo_sessions(
         })
     
     # Get total count
-    total_result = await supabase.table('photo_sessions').select('id', count='exact').eq('user_id', user_id).execute()
+    total_result = supabase.table('photo_sessions').select('id', count='exact').eq('user_id', user_id).execute()
     total = total_result.count
     
     return {
@@ -605,7 +605,7 @@ async def get_photo_session_detail(session_id: str):
         raise HTTPException(status_code=500, detail="Database connection not configured")
     
     # Get session
-    session_result = await supabase.table('photo_sessions').select('*').eq('id', session_id).single().execute()
+    session_result = supabase.table('photo_sessions').select('*').eq('id', session_id).single().execute()
     
     if not session_result.data:
         raise HTTPException(status_code=404, detail="Session not found")
@@ -613,7 +613,7 @@ async def get_photo_session_detail(session_id: str):
     session = session_result.data
     
     # Get photos
-    photos_result = await supabase.table('photo_uploads').select('*').eq('session_id', session_id).order('uploaded_at').execute()
+    photos_result = supabase.table('photo_uploads').select('*').eq('session_id', session_id).order('uploaded_at').execute()
     
     photos = []
     for photo in photos_result.data:
@@ -634,7 +634,7 @@ async def get_photo_session_detail(session_id: str):
         photos.append(photo_data)
     
     # Get analyses
-    analyses_result = await supabase.table('photo_analyses').select('*').eq('session_id', session_id).order('created_at', desc=True).execute()
+    analyses_result = supabase.table('photo_analyses').select('*').eq('session_id', session_id).order('created_at.desc').execute()
     
     analyses = []
     for analysis in analyses_result.data:
@@ -660,12 +660,12 @@ async def delete_photo_session(session_id: str):
         raise HTTPException(status_code=500, detail="Database connection not configured")
     
     # Update session
-    await supabase.table('photo_sessions').update({
+    supabase.table('photo_sessions').update({
         'deleted_at': datetime.now().isoformat()
     }).eq('id', session_id).execute()
     
     # Mark photos as deleted
-    await supabase.table('photo_uploads').update({
+    supabase.table('photo_uploads').update({
         'deleted_at': datetime.now().isoformat()
     }).eq('session_id', session_id).execute()
     
@@ -682,7 +682,7 @@ async def approve_tracking_suggestions(
         raise HTTPException(status_code=500, detail="Database connection not configured")
     
     # Get analysis
-    analysis_result = await supabase.table('photo_analyses').select('*').eq('id', analysis_id).single().execute()
+    analysis_result = supabase.table('photo_analyses').select('*').eq('id', analysis_id).single().execute()
     
     if not analysis_result.data:
         raise HTTPException(status_code=404, detail="Analysis not found")
@@ -694,7 +694,7 @@ async def approve_tracking_suggestions(
     
     for config in metric_configs:
         # Create tracking configuration
-        tracking_result = await supabase.table('photo_tracking_configurations').insert({
+        tracking_result = supabase.table('photo_tracking_configurations').insert({
             'user_id': analysis['user_id'],
             'session_id': analysis['session_id'],
             'metric_name': config['metric_name'],
@@ -713,7 +713,7 @@ async def approve_tracking_suggestions(
         
         # Add initial data point if provided
         if 'initial_value' in config:
-            await supabase.table('photo_tracking_data').insert({
+            supabase.table('photo_tracking_data').insert({
                 'configuration_id': tracking_result.data[0]['id'],
                 'value': config['initial_value'],
                 'analysis_id': analysis_id
