@@ -37,6 +37,17 @@ class DeepDiveCompleteRequest(BaseModel):
     session_id: str
     final_answer: Optional[str] = None
 
+class DeepDiveThinkHarderRequest(BaseModel):
+    session_id: str
+    user_id: Optional[str] = None
+    model: str = "openai/o4-mini-high"  # o4-mini with high reasoning effort - cost-efficient with strong performance
+
+class DeepDiveAskMoreRequest(BaseModel):
+    session_id: str
+    user_id: Optional[str] = None
+    target_confidence: int = 95
+    max_questions: int = 5
+
 # Health Story Model
 class HealthStoryRequest(BaseModel):
     user_id: str
@@ -125,3 +136,39 @@ class TrackingDataPointRequest(BaseModel):
     value: float
     notes: Optional[str] = None
     recorded_at: Optional[str] = None  # ISO timestamp, defaults to now
+
+# Photo Analysis Models
+class PhotoCategorizeResponse(BaseModel):
+    category: str
+    confidence: float
+    subcategory: Optional[str] = None
+    session_context: Optional[Dict[str, Any]] = None
+
+class PhotoUploadResponse(BaseModel):
+    session_id: str
+    uploaded_photos: List[Dict[str, Any]]
+    requires_action: Optional[Dict[str, Any]] = None
+
+class PhotoAnalysisRequest(BaseModel):
+    session_id: str
+    photo_ids: List[str]
+    context: Optional[str] = None
+    comparison_photo_ids: Optional[List[str]] = None
+    temporary_analysis: bool = False
+
+class PhotoAnalysisResponse(BaseModel):
+    analysis_id: str
+    analysis: Dict[str, Any]
+    comparison: Optional[Dict[str, Any]] = None
+    expires_at: Optional[str] = None
+
+class PhotoSessionResponse(BaseModel):
+    id: str
+    condition_name: str
+    created_at: str
+    last_photo_at: Optional[str] = None
+    photo_count: int
+    analysis_count: int
+    is_sensitive: bool
+    latest_summary: Optional[str] = None
+    thumbnail_url: Optional[str] = None

@@ -1,6 +1,6 @@
 """General Report API endpoints"""
 from fastapi import APIRouter
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import json
 import uuid
 
@@ -24,6 +24,111 @@ from utils.data_gathering import (
 )
 
 router = APIRouter(prefix="/api/report", tags=["reports-general"])
+
+@router.get("/list/{user_id}")
+async def list_user_reports(user_id: str):
+    """List all reports for a user"""
+    try:
+        # Get reports from last 90 days by default
+        cutoff_date = (datetime.now(timezone.utc) - timedelta(days=90)).isoformat()
+        
+        response = supabase.table("medical_reports")\
+            .select("*")\
+            .eq("user_id", user_id)\
+            .gte("created_at", cutoff_date)\
+            .order("created_at", desc=True)\
+            .execute()
+        
+        reports = response.data or []
+        
+        # Ensure report_data is properly formatted
+        for report in reports:
+            # report_data is already a dict from JSONB, no need to parse
+            if report.get("report_data") and isinstance(report["report_data"], dict):
+                # Ensure all expected fields exist
+                report_data = report["report_data"]
+                if "executive_summary" not in report_data:
+                    report_data["executive_summary"] = {
+                        "one_page_summary": report.get("executive_summary", "No summary available"),
+                        "chief_complaints": [],
+                        "key_findings": [],
+                        "urgency_indicators": [],
+                        "action_items": []
+                    }
+            else:
+                # Create minimal structure if report_data is missing
+                report["report_data"] = {
+                    "executive_summary": {
+                        "one_page_summary": report.get("executive_summary", "Report data unavailable"),
+                        "chief_complaints": [],
+                        "key_findings": ["Report data needs to be regenerated"],
+                        "urgency_indicators": [],
+                        "action_items": ["Contact support if this persists"]
+                    }
+                }
+        
+        return {
+            "reports": reports,
+            "count": len(reports),
+            "status": "success"
+        }
+        
+    except Exception as e:
+        print(f"Error listing reports: {e}")
+        return {"error": str(e), "reports": [], "status": "error"}
+
+@router.get("/{report_id}")
+async def get_report_by_id(report_id: str):
+    """Get a specific report by ID"""
+    try:
+        response = supabase.table("medical_reports")\
+            .select("*")\
+            .eq("id", report_id)\
+            .execute()
+        
+        if not response.data:
+            return {"error": "Report not found", "status": "error"}
+        
+        report = response.data[0]
+        
+        # Ensure report_data is properly formatted
+        if report.get("report_data") and isinstance(report["report_data"], dict):
+            # Ensure all expected fields exist
+            report_data = report["report_data"]
+            if "executive_summary" not in report_data:
+                report_data["executive_summary"] = {
+                    "one_page_summary": report.get("executive_summary", "No summary available"),
+                    "chief_complaints": [],
+                    "key_findings": [],
+                    "urgency_indicators": [],
+                    "action_items": []
+                }
+        else:
+            # Create minimal structure if report_data is missing
+            report["report_data"] = {
+                "executive_summary": {
+                    "one_page_summary": report.get("executive_summary", "Report data unavailable"),
+                    "chief_complaints": [],
+                    "key_findings": ["Report data needs to be regenerated"],
+                    "urgency_indicators": [],
+                    "action_items": ["Contact support if this persists"]
+                }
+            }
+        
+        # Update access tracking
+        supabase.table("medical_reports")\
+            .update({"last_accessed": datetime.now(timezone.utc).isoformat()})\
+            .eq("id", report_id)\
+            .execute()
+        
+        return {
+            "report": report,
+            "status": "success"
+        }
+        
+    except Exception as e:
+        print(f"Error getting report: {e}")
+        return {"error": str(e), "status": "error"}
 
 @router.post("/analyze")
 async def analyze_report_type(request: ReportAnalyzeRequest):

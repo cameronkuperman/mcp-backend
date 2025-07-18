@@ -184,38 +184,58 @@ IMPORTANT: Return ONLY valid JSON matching the AnalysisResult interface. No addi
         # Extract form data if passed in user_data
         form_data = user_data.get('form_data', {}) if isinstance(user_data, dict) else {}
         body_part = part_selected or user_data.get('body_part', 'General')
+        medical_data = user_data.get('medical_data', {}) if isinstance(user_data, dict) else {}
         
-        return f"""You are conducting an in-depth medical analysis. Your goal is to ask the MOST diagnostically valuable question.
+        return f"""You are an experienced physician conducting a focused diagnostic interview. A patient has presented with concerning symptoms. Your role is to ask the MOST diagnostically valuable question that will maximally reduce uncertainty.
 
-## Input
-- Selected Body Region: {body_part} (IMPORTANT: This is a GENERAL AREA selection from clicking on a 3D model)
-- Symptoms: {query}
-- All form data: {json.dumps(form_data) if form_data else 'Not provided'}
-- Previous Context from llm_context table: {llm_context if llm_context else 'None - new user or anonymous'}
+## PATIENT PRESENTATION
+- Chief Complaint Location: {body_part}
+- Presenting Symptoms: {query}
+- Intake Form Data: {json.dumps(form_data) if form_data else 'Not provided'}
+- Medical History: {str(medical_data)[:200] + '...' if medical_data else 'Not available'}
+- Previous Visits: {llm_context if llm_context else 'New patient'}
 
-## Your Task
-1. Analyze the symptoms to identify 3-5 possible conditions
-2. Identify the SINGLE question that would best differentiate between these conditions
-3. The question must be:
-   - Specific and clear
-   - Answerable by the patient
-   - Diagnostically decisive
+## CLINICAL REASONING TASK
+As an expert diagnostician, you must:
+1. Generate a differential diagnosis with 3-5 most likely conditions based on presentation
+2. Calculate diagnostic uncertainty for each condition
+3. Identify the SINGLE most leveraged question that will:
+   - Maximally distinguish between your top differentials
+   - Rule in/out the most serious conditions first
+   - Clarify any potential red flags or emergency conditions
+   - Be specific, clear, and answerable by the patient
 
-## Output Format
+## QUESTION STRATEGY
+Your question should follow the principle of maximum information gain. Consider:
+- Pathognomonic symptoms (highly specific to one condition)
+- Time course and progression patterns
+- Aggravating/alleviating factors
+- Associated symptoms that narrow the differential
+- Response to prior treatments
+- Red flag symptoms requiring urgent evaluation
+
+## OUTPUT FORMAT
 Return ONLY valid JSON:
 {{
   "internal_analysis": {{
-    "possible_conditions": [
-      {{"condition": "Medical Name (layman's term)", "probability": 0-100, "key_indicators": []}},
+    "differential_diagnosis": [
+      {{
+        "condition": "Medical diagnosis (patient-friendly term)",
+        "probability": 0-100,
+        "key_indicators": ["supporting symptoms/signs"],
+        "key_negatives": ["what would rule this out"]
+      }}
     ],
-    "critical_unknowns": ["what we need to know"],
-    "safety_concerns": ["any red flags to clarify"]
+    "diagnostic_uncertainty": "What key information would most reduce uncertainty",
+    "red_flags_to_assess": ["urgent symptoms to rule out immediately"]
   }},
-  "question": "Your specific question here?",
-  "question_type": "differential|safety|severity|timeline"
+  "question": "Your single most diagnostically valuable question here?",
+  "question_type": "differential|red_flags|temporal|associated_symptoms|treatment_response",
+  "expected_information_gain": "high|medium|low",
+  "targets_conditions": ["which conditions this question helps differentiate"]
 }}
 
-Remember: Ask only ONE question. Make it count."""
+Remember: You get ONE question. Make it the most clinically valuable question possible."""
     
     elif category == "deep-dive-continue":
         # For continuing deep dive with previous Q&A
@@ -227,76 +247,113 @@ Remember: Ask only ONE question. Make it count."""
         if medical_data and medical_data not in [{}, None]:
             medical_context = f"\n- Medical History: {str(medical_data)[:200]}..."
         
-        return f"""You are continuing a deep dive medical analysis.
+        return f"""You are an experienced physician continuing a diagnostic interview. The patient has just provided new information. You must now update your clinical reasoning and decide if you need additional information.
 
-## Previous Q&A
+## CLINICAL HISTORY SO FAR
 {json.dumps(session_data.get('questions', []))}
 
-## Current Analysis State
+## CURRENT DIAGNOSTIC THINKING
 {json.dumps(session_data.get('internal_state', {}))}{medical_context}
 
-## New Answer
+## PATIENT'S NEW RESPONSE
 {query}
 
-## Your Task
-Based on the new information, either:
-1. Ask ONE more clarifying question (if needed)
-2. Indicate you have enough information
+## CLINICAL DECISION POINT
+Based on this new information, you must:
+1. Update your differential diagnosis with Bayesian reasoning
+2. Calculate your current diagnostic confidence (0-100%)
+3. Decide if another highly leveraged question would significantly improve diagnostic certainty
 
-## Decision Criteria for 3rd Question
-- Is confidence spread < 20% between top conditions?
-- Are there unresolved safety concerns?
-- Is pain/severity high (≥7) with confidence <75%?
-- Do we need age/demographic specific information?
+## CRITERIA FOR ADDITIONAL QUESTIONS
+Ask another question ONLY if:
+- Diagnostic confidence is <85% for primary diagnosis
+- Multiple conditions have similar probability (within 20%)
+- Critical red flags remain unassessed
+- The next question would provide high information gain
+- You haven't exceeded reasonable question limits (typically 2-3 questions)
 
-## Output Format
+## QUESTION SELECTION PRINCIPLES
+If another question is needed, it should:
+- Target the highest remaining diagnostic uncertainty
+- Distinguish between your top 2-3 differentials
+- Assess any uninvestigated red flags
+- Be highly specific and non-redundant
+- Lead directly to actionable clinical decisions
+
+## OUTPUT FORMAT
 Return ONLY valid JSON:
 {{
   "need_another_question": boolean,
-  "current_confidence": number,  // 0-100 current diagnostic confidence
-  "internal_reasoning": "why or why not",
-  "question": "specific question if needed" | null,
-  "confidence_projection": "expected confidence after this question",
+  "current_confidence": number,  // 0-100 your diagnostic confidence
+  "clinical_reasoning": "Your clinical thought process and why you do/don't need another question",
+  "question": "Your next most valuable diagnostic question" | null,
+  "question_rationale": "What specific diagnostic uncertainty this addresses" | null,
   "updated_analysis": {{
-    "possible_conditions": [...],
-    "confidence_levels": {{...}}
-  }}
+    "differential_diagnosis": [
+      {{
+        "condition": "Diagnosis (patient term)",
+        "probability": number,
+        "supporting_evidence": ["from history"],
+        "against_evidence": ["contradicting factors"]
+      }}
+    ],
+    "diagnostic_confidence": number,
+    "remaining_uncertainties": ["what's still unclear"],
+    "red_flags_assessed": boolean
+  }},
+  "expected_confidence_after_question": number | null
 }}
 
-IMPORTANT: Always include "current_confidence" as a number 0-100 representing your current diagnostic confidence level."""
+Remember: Each question should substantially advance the diagnostic process. Quality over quantity."""
     
     elif category == "deep-dive-final":
         # Final analysis after Q&A
         session_data = user_data.get('session_data', {}) if isinstance(user_data, dict) else {}
         medical_data = session_data.get('medical_data', {})
         
-        return f"""Generate final Deep Dive analysis based on complete Q&A session.
+        return f"""You are completing a comprehensive diagnostic assessment. Based on the full clinical interview, provide your final diagnostic impression and treatment recommendations.
 
-## Complete Q&A History
+## COMPLETE CLINICAL INTERVIEW
 {json.dumps(session_data.get('questions', []))}
 
-## Form Data
+## INITIAL PRESENTATION
 {json.dumps(session_data.get('form_data', {}))}
 
-## Medical History
+## MEDICAL HISTORY
 {str(medical_data)[:200] + '...' if medical_data else 'Not available'}
 
-## Previous Context from llm_context table
-{llm_context if llm_context else 'None - new user or anonymous'}
+## PREVIOUS ENCOUNTERS
+{llm_context if llm_context else 'New patient'}
 
-## Output Format
-You MUST return a JSON object matching the AnalysisResult interface (same as Quick Scan):
+## CLINICAL SYNTHESIS TASK
+As the attending physician, you must now:
+1. Synthesize all information into a coherent clinical picture
+2. Provide your primary diagnosis with confidence level
+3. List differential diagnoses in order of probability
+4. Identify any red flags requiring immediate attention
+5. Recommend specific next steps for the patient
+
+## DIAGNOSTIC REASONING
+Apply clinical reasoning principles:
+- Occam's razor (simplest explanation fitting all symptoms)
+- Consider prevalence (common things are common)
+- Don't miss serious but treatable conditions
+- Account for all reported symptoms
+- Consider patient's specific risk factors
+
+## OUTPUT FORMAT
+You MUST return a JSON object with this exact structure:
 {{
-  "confidence": number,           // 0-100
-  "primaryCondition": "Medical Name (layman's term)",
+  "confidence": number,           // 0-100 your diagnostic certainty
+  "primaryCondition": "Medical diagnosis (patient-friendly term)",
   "likelihood": "Very likely" | "Likely" | "Possible",
-  "symptoms": string[],
-  "recommendations": string[],    // 3-5 immediate actions
+  "symptoms": string[],          // All symptoms identified during interview
+  "recommendations": string[],    // 3-5 specific, actionable next steps
   "urgency": 'low' | 'medium' | 'high',
   "differentials": [
-    {{"condition": "Medical Name (layman's term)", "probability": number}}
+    {{"condition": "Alternative diagnosis (patient term)", "probability": number}}
   ],
-  "redFlags": string[],
+  "redFlags": string[],          // Any symptoms requiring immediate evaluation
   "selfCare": string[],
   "timeline": string,
   "followUp": string,

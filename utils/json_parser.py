@@ -53,3 +53,6 @@ def extract_json_from_response(content: str) -> Optional[dict]:
         }
     
     return None
+
+# Alias for consistency
+extract_json_from_text = extract_json_from_response
