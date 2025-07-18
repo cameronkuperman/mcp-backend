@@ -48,6 +48,17 @@ class DeepDiveAskMoreRequest(BaseModel):
     target_confidence: int = 95
     max_questions: int = 5
 
+class QuickScanThinkHarderRequest(BaseModel):
+    scan_id: str
+    user_id: Optional[str] = None
+    model: str = "openai/gpt-4o"  # Default to GPT-4 for enhanced analysis
+
+class QuickScanAskMoreRequest(BaseModel):
+    scan_id: str
+    user_id: Optional[str] = None
+    target_confidence: int = 90
+    max_questions: int = 3  # Quick scan should have fewer questions
+
 # Health Story Model
 class HealthStoryRequest(BaseModel):
     user_id: str

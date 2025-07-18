@@ -10,7 +10,9 @@ from models.requests import (
     DeepDiveContinueRequest, 
     DeepDiveCompleteRequest,
     DeepDiveThinkHarderRequest,
-    DeepDiveAskMoreRequest
+    DeepDiveAskMoreRequest,
+    QuickScanThinkHarderRequest,
+    QuickScanAskMoreRequest
 )
 from supabase_client import supabase
 from business_logic import call_llm, make_prompt, get_llm_context as get_llm_context_biz, get_user_data
@@ -18,6 +20,50 @@ from utils.json_parser import extract_json_from_response
 from utils.data_gathering import get_user_medical_data
 
 router = APIRouter(prefix="/api", tags=["health-scan"])
+
+# Deep Dive Configuration
+DEEP_DIVE_CONFIG = {
+    "max_questions": 7,  # Limit to 7 questions max
+    "target_confidence": 90,  # Target 90% confidence
+    "min_confidence_for_completion": 85,  # Can complete at 85% if max questions reached
+    "min_questions": 2,  # Minimum questions before completion
+}
+
+def is_duplicate_question(new_question: str, previous_questions: list) -> bool:
+    """Prevent asking the same question twice"""
+    import difflib
+    
+    if not previous_questions:
+        return False
+    
+    # Normalize the new question
+    new_q_normalized = new_question.lower().strip()
+    
+    for prev_q in previous_questions:
+        # Check similarity (80% threshold)
+        similarity = difflib.SequenceMatcher(
+            None, 
+            new_q_normalized, 
+            prev_q.lower().strip()
+        ).ratio()
+        
+        if similarity > 0.8:  # 80% similar = duplicate
+            print(f"Duplicate question detected: {similarity:.2%} similar to previous question")
+            return True
+    
+    return False
+
+def should_complete_deep_dive(session_data: dict) -> bool:
+    """Decide if deep dive should complete based on smart logic"""
+    question_count = session_data.get('question_count', 0)
+    confidence = session_data.get('confidence_score', 0)
+    
+    # Complete if any of these conditions:
+    return (
+        confidence >= DEEP_DIVE_CONFIG["target_confidence"] or  # Target confidence reached
+        question_count >= DEEP_DIVE_CONFIG["max_questions"] or  # Max questions reached
+        (question_count >= 5 and confidence >= DEEP_DIVE_CONFIG["min_confidence_for_completion"])  # Good enough fallback
+    )
 
 @router.post("/quick-scan")
 async def quick_scan_endpoint(request: QuickScanRequest):
@@ -238,7 +284,12 @@ async def start_deep_dive(request: DeepDiveStartRequest):
             "form_data": request.form_data,
             "model_used": model,
             "questions": [],  # PostgreSQL array, not dict
+            "previous_questions": [question_data.get("question", "")],  # Track all questions
+            "previous_answers": [],  # Track all answers
+            "question_count": 1,
             "current_step": 1,
+            "confidence_score": 0,
+            "max_questions_reached": False,
             "internal_state": question_data.get("internal_analysis", {}),
             "status": "active",
             "created_at": datetime.now(timezone.utc).isoformat()
@@ -304,6 +355,12 @@ async def continue_deep_dive(request: DeepDiveContinueRequest):
         
         questions = session.get("questions", [])
         questions.append(qa_entry)
+        
+        # Update previous questions and answers tracking
+        previous_questions = session.get("previous_questions", [])
+        previous_answers = session.get("previous_answers", [])
+        if session.get("last_question"):
+            previous_answers.append(request.answer)  # Add answer to previous answers
         
         # Prepare session data for prompt
         session_data = {
@@ -382,47 +439,77 @@ async def continue_deep_dive(request: DeepDiveContinueRequest):
         
         # Get current confidence level
         current_confidence = decision_data.get("current_confidence", 0)
+        question_count = len(previous_questions)
         
-        # Define thresholds
-        CONFIDENCE_THRESHOLD = 90  # Target confidence level
-        MIN_QUESTIONS = 2  # Minimum questions before allowing completion
-        MAX_QUESTIONS = 10  # Maximum questions to prevent infinite loops
+        print(f"Deep Dive Progress: Question {question_count}, Confidence: {current_confidence}%, Target: {DEEP_DIVE_CONFIG['target_confidence']}%")
         
-        print(f"Deep Dive Progress: Question {request.question_number}, Confidence: {current_confidence}%, Target: {CONFIDENCE_THRESHOLD}%")
+        # Update session with current confidence and question count
+        session_data_for_completion = {
+            "confidence_score": current_confidence,
+            "question_count": question_count
+        }
         
-        # Check if we need another question based on confidence
-        need_more_questions = (
-            current_confidence < CONFIDENCE_THRESHOLD and 
-            request.question_number < MAX_QUESTIONS
-        )
-        
-        # Always ask at least MIN_QUESTIONS
-        if request.question_number < MIN_QUESTIONS:
-            need_more_questions = True
+        # Check if we should complete using smart logic
+        should_complete = should_complete_deep_dive(session_data_for_completion)
         
         # Check if LLM also thinks we need another question
         llm_wants_more = decision_data.get("need_another_question", False)
         
-        if need_more_questions or llm_wants_more:
+        # Force completion if we've reached max questions
+        if question_count >= DEEP_DIVE_CONFIG["max_questions"]:
+            should_complete = True
+            print(f"Max questions ({DEEP_DIVE_CONFIG['max_questions']}) reached - forcing completion")
+        
+        # Need at least minimum questions
+        if question_count < DEEP_DIVE_CONFIG["min_questions"]:
+            should_complete = False
+        
+        if not should_complete and (llm_wants_more or current_confidence < DEEP_DIVE_CONFIG["target_confidence"]):
+            new_question = decision_data.get("question", "")
+            
+            # Check for duplicate question
+            if is_duplicate_question(new_question, previous_questions):
+                print(f"Duplicate question detected - forcing completion")
+                # If we've asked enough questions and got a duplicate, complete
+                if question_count >= 3:
+                    return {
+                        "ready_for_analysis": True,
+                        "questions_completed": question_count,
+                        "status": "success",
+                        "reason": "duplicate_question_detected"
+                    }
+                else:
+                    # Try to generate alternative question
+                    new_question = f"Besides what we've discussed, are there any other symptoms or concerns about your {session.get('body_part', 'condition')}?"
+            
+            # Add new question to tracking
+            previous_questions.append(new_question)
+            
             # Store the question for next iteration
             try:
                 supabase.table("deep_dive_sessions").update({
-                    "last_question": decision_data.get("question", ""),
-                    "current_confidence": current_confidence
+                    "last_question": new_question,
+                    "current_confidence": current_confidence,
+                    "previous_questions": previous_questions,
+                    "previous_answers": previous_answers,
+                    "question_count": len(previous_questions),
+                    "confidence_score": current_confidence,
+                    "max_questions_reached": len(previous_questions) >= DEEP_DIVE_CONFIG["max_questions"]
                 }).eq("id", request.session_id).execute()
             except Exception as e:
                 print(f"Error storing last question: {e}")
             
             # Check if we're approaching max questions
-            is_final_question = request.question_number >= (MAX_QUESTIONS - 1)
+            is_final_question = len(previous_questions) >= (DEEP_DIVE_CONFIG["max_questions"] - 1)
             
             return {
-                "question": decision_data.get("question", ""),
-                "question_number": request.question_number + 1,
+                "question": new_question,
+                "question_number": len(previous_questions),
                 "is_final_question": is_final_question,
                 "confidence_projection": decision_data.get("confidence_projection", ""),
                 "current_confidence": current_confidence,
-                "confidence_threshold": CONFIDENCE_THRESHOLD,
+                "confidence_threshold": DEEP_DIVE_CONFIG["target_confidence"],
+                "questions_remaining": max(0, DEEP_DIVE_CONFIG["max_questions"] - len(previous_questions)),
                 "status": "success"
             }
         else:
@@ -779,16 +866,34 @@ async def deep_dive_ask_more(request: DeepDiveAskMoreRequest):
             user_id = request.user_id or session.get("user_id")
             medical_data = await get_user_medical_data(user_id)
         
+        # Get all previous questions
+        previous_questions = session.get("previous_questions", [])
+        all_previous_questions = previous_questions + [q.get("question", "") for q in questions_asked]
+        
+        # Check total questions against global max
+        total_questions = len(all_previous_questions)
+        if total_questions >= DEEP_DIVE_CONFIG["max_questions"]:
+            return {
+                "status": "success", 
+                "message": f"Maximum of {DEEP_DIVE_CONFIG['max_questions']} total questions reached",
+                "current_confidence": current_confidence,
+                "total_questions_asked": total_questions
+            }
+        
         # Check how many additional questions have already been asked
         additional_questions = session.get("additional_questions", [])
-        questions_remaining = request.max_questions - len(additional_questions)
+        questions_remaining = min(
+            request.max_questions - len(additional_questions),
+            DEEP_DIVE_CONFIG["max_questions"] - total_questions
+        )
         
         if questions_remaining <= 0:
             return {
                 "status": "success", 
-                "message": f"Maximum of {request.max_questions} additional questions reached",
+                "message": f"Maximum questions limit reached",
                 "current_confidence": current_confidence,
-                "questions_asked": len(additional_questions)
+                "questions_asked": len(additional_questions),
+                "total_questions": total_questions
             }
         
         # Create prompt for generating highly leveraged question
@@ -879,6 +984,17 @@ Return JSON with this structure:
             questions_remaining
         )
         
+        # Check for duplicate question
+        if is_duplicate_question(question_data.get("question", ""), all_previous_questions):
+            print(f"Duplicate question detected in ask-more - trying alternate")
+            # Generate a more specific alternate question
+            question_data = {
+                "question": f"What specific aspect of your {body_part} condition concerns you most that we haven't discussed?",
+                "question_category": "patient_concerns",
+                "reasoning": "Patient perspective can reveal overlooked symptoms",
+                "expected_confidence_gain": 8
+            }
+        
         # Prepare response
         response = {
             "status": "success",
@@ -914,4 +1030,324 @@ Return JSON with this structure:
         
     except Exception as e:
         print(f"Error in deep dive ask more: {e}")
+        return {"error": str(e), "status": "error"}
+
+@router.post("/quick-scan/think-harder")
+async def quick_scan_think_harder(request: QuickScanThinkHarderRequest):
+    """Enhanced analysis for Quick Scan results using premium model"""
+    try:
+        # Get quick scan data
+        scan_id = request.scan_id
+        if not scan_id:
+            return {"error": "scan_id is required", "status": "error"}
+        
+        # Fetch quick scan from database
+        scan_response = supabase.table("quick_scans").select("*").eq("id", scan_id).execute()
+        
+        if not scan_response.data:
+            return {"error": "Quick scan not found", "status": "error"}
+        
+        scan = scan_response.data[0]
+        
+        # Get user medical data if available
+        medical_data = {}
+        llm_context = ""
+        if scan.get("user_id"):
+            medical_data = await get_user_medical_data(scan["user_id"])
+            llm_context = await get_llm_context_biz(scan["user_id"])
+        
+        # Create enhanced analysis prompt
+        enhanced_prompt = f"""You are an expert physician providing a deeper, more thorough analysis of a patient's symptoms.
+
+Initial Quick Scan Analysis:
+{json.dumps(scan.get("analysis", {}), indent=2)}
+
+Body Part: {scan.get("body_part", "")}
+Symptoms: {json.dumps(scan.get("form_data", {}), indent=2)}
+
+Medical History:
+{json.dumps(medical_data, indent=2) if medical_data and "error" not in medical_data else "No medical history available"}
+
+Provide an enhanced analysis with:
+1. More detailed differential diagnosis
+2. Specific red flags to watch for
+3. Recommended diagnostic tests
+4. Treatment options to discuss with healthcare provider
+5. Timeline expectations
+6. When to seek immediate care
+
+Format as JSON with these fields:
+{{
+    "primary_diagnosis": {{
+        "condition": "Most likely condition",
+        "confidence": 85,  // percentage
+        "supporting_evidence": ["evidence1", "evidence2"],
+        "contradicting_factors": ["factor1", "factor2"] 
+    }},
+    "differential_diagnoses": [
+        {{
+            "condition": "Alternative condition",
+            "likelihood": 20,  // percentage
+            "key_differentiators": ["what would make this more likely"]
+        }}
+    ],
+    "red_flags": [
+        {{
+            "symptom": "Specific symptom to watch for",
+            "urgency": "immediate|24hrs|routine",
+            "action": "What to do if this occurs"
+        }}
+    ],
+    "diagnostic_recommendations": [
+        {{
+            "test": "Test name",
+            "purpose": "What it will reveal",
+            "priority": "high|medium|low"
+        }}
+    ],
+    "treatment_considerations": [
+        {{
+            "approach": "Treatment option",
+            "benefits": ["benefit1", "benefit2"],
+            "considerations": ["consider1", "consider2"]
+        }}
+    ],
+    "timeline": {{
+        "expected_improvement": "Timeline if treatment works",
+        "reassessment_needed": "When to follow up if no improvement",
+        "natural_course": "What happens without treatment"
+    }},
+    "immediate_care_criteria": ["Go to ER if...", "Call doctor immediately if..."],
+    "confidence": 90,  // Overall confidence in this enhanced analysis
+    "clinical_pearls": ["Key insights that might be missed"]
+}}"""
+
+        # Use premium model for enhanced analysis
+        model = request.model  # Default to GPT-4 from request model
+        
+        # Call LLM
+        llm_response = await call_llm(
+            messages=[
+                {"role": "system", "content": enhanced_prompt},
+                {"role": "user", "content": "Provide enhanced analysis based on the symptoms and initial assessment"}
+            ],
+            model=model,
+            user_id=scan.get("user_id"),
+            temperature=0.2,  # Lower temperature for consistency
+            max_tokens=2000
+        )
+        
+        # Parse response
+        try:
+            enhanced_analysis = extract_json_from_response(llm_response.get("content", llm_response.get("raw_content", "")))
+            
+            if not enhanced_analysis:
+                enhanced_analysis = {
+                    "error": "Failed to parse enhanced analysis",
+                    "raw_response": llm_response.get("raw_content", "")
+                }
+        except Exception as e:
+            print(f"Parse error in quick scan think harder: {e}")
+            enhanced_analysis = {
+                "error": str(e),
+                "raw_response": llm_response.get("raw_content", "")
+            }
+        
+        # Calculate confidence improvement
+        original_confidence = scan.get("confidence", 0)
+        enhanced_confidence = enhanced_analysis.get("confidence", original_confidence)
+        confidence_improvement = enhanced_confidence - original_confidence
+        
+        # Update quick scan with enhanced analysis
+        try:
+            supabase.table("quick_scans").update({
+                "enhanced_analysis": enhanced_analysis,
+                "enhanced_confidence": enhanced_confidence,
+                "enhanced_model": model,
+                "enhanced_at": datetime.now(timezone.utc).isoformat()
+            }).eq("id", scan_id).execute()
+        except Exception as db_error:
+            print(f"Error updating quick scan: {db_error}")
+        
+        return {
+            "status": "success",
+            "enhanced_analysis": enhanced_analysis,
+            "original_confidence": original_confidence,
+            "enhanced_confidence": enhanced_confidence,
+            "confidence_improvement": confidence_improvement,
+            "model_used": model,
+            "scan_id": scan_id,
+            "usage": llm_response.get("usage", {})
+        }
+        
+    except Exception as e:
+        print(f"Error in quick scan think harder: {e}")
+        return {"error": str(e), "status": "error"}
+
+@router.post("/quick-scan/ask-more")
+async def quick_scan_ask_more(request: QuickScanAskMoreRequest):
+    """Generate follow-up questions for Quick Scan to improve confidence"""
+    try:
+        # Get quick scan data
+        scan_response = supabase.table("quick_scans").select("*").eq("id", request.scan_id).execute()
+        
+        if not scan_response.data:
+            return {"error": "Quick scan not found", "status": "error"}
+        
+        scan = scan_response.data[0]
+        
+        # Get current confidence from analysis result
+        analysis_result = scan.get("analysis_result", {})
+        current_confidence = analysis_result.get("confidence", scan.get("confidence_score", 0))
+        
+        if current_confidence >= request.target_confidence:
+            return {
+                "status": "success",
+                "message": f"Target confidence of {request.target_confidence}% already achieved",
+                "current_confidence": current_confidence,
+                "questions_needed": 0
+            }
+        
+        # Get existing follow-up questions if any
+        follow_up_questions = scan.get("follow_up_questions", [])
+        questions_asked = len(follow_up_questions)
+        
+        if questions_asked >= request.max_questions:
+            return {
+                "status": "success",
+                "message": f"Maximum of {request.max_questions} follow-up questions reached",
+                "current_confidence": current_confidence,
+                "questions_asked": questions_asked
+            }
+        
+        # Get medical data if available
+        medical_data = {}
+        if request.user_id or scan.get("user_id"):
+            user_id = request.user_id or scan.get("user_id")
+            medical_data = await get_user_medical_data(user_id)
+        
+        # Extract all previous questions to avoid duplicates
+        previous_questions = []
+        if "questions" in scan.get("form_data", {}):
+            previous_questions.append(scan["form_data"]["questions"])
+        previous_questions.extend([q.get("question", "") for q in follow_up_questions])
+        
+        # Create prompt for targeted follow-up question
+        follow_up_prompt = f"""You are a physician generating a follow-up question to improve diagnostic confidence for a Quick Scan result.
+
+CURRENT ANALYSIS:
+{json.dumps(analysis_result, indent=2)}
+
+Current Confidence: {current_confidence}%
+Target Confidence: {request.target_confidence}%
+Confidence Gap: {request.target_confidence - current_confidence}%
+
+PATIENT DATA:
+- Body Part: {scan.get("body_part", "")}
+- Initial Symptoms: {json.dumps(scan.get("form_data", {}), indent=2)}
+- Medical History: {json.dumps(medical_data) if medical_data else "Not available"}
+
+PREVIOUS FOLLOW-UP QUESTIONS:
+{chr(10).join([f"Q{i+1}: {q.get('question', 'N/A')}" for i, q in enumerate(follow_up_questions)])}
+
+Generate ONE highly targeted question that will:
+1. Address the biggest uncertainty in the current diagnosis
+2. Help distinguish between the top differential diagnoses
+3. Identify any missed red flags
+4. Be specific and easy for the patient to answer
+
+The question should NOT repeat any previous questions.
+
+Return JSON:
+{{
+    "question": "Your specific follow-up question",
+    "focus_area": "differential_diagnosis|severity_assessment|timeline_clarification|red_flags|associated_symptoms",
+    "reasoning": "Why this question will improve confidence",
+    "expected_confidence_gain": 15  // Realistic estimate (10-25)
+}}"""
+
+        # Call LLM
+        llm_response = await call_llm(
+            messages=[
+                {"role": "system", "content": follow_up_prompt},
+                {"role": "user", "content": "Generate the most valuable follow-up question"}
+            ],
+            model="deepseek/deepseek-chat",
+            user_id=request.user_id or scan.get("user_id"),
+            temperature=0.7,
+            max_tokens=500
+        )
+        
+        # Parse response
+        try:
+            question_data = extract_json_from_response(llm_response.get("content", llm_response.get("raw_content", "")))
+            
+            if not question_data or not question_data.get("question"):
+                # Fallback question
+                question_data = {
+                    "question": f"How long have you been experiencing these {scan.get('body_part', 'symptoms')} symptoms, and have they gotten better or worse?",
+                    "focus_area": "timeline_clarification",
+                    "reasoning": "Understanding symptom progression helps narrow the diagnosis",
+                    "expected_confidence_gain": 15
+                }
+        except Exception as e:
+            print(f"Parse error in quick scan ask more: {e}")
+            question_data = {
+                "question": "Have you tried any treatments or medications, and if so, did they help?",
+                "focus_area": "treatment_response",
+                "reasoning": "Treatment response can confirm or exclude certain conditions",
+                "expected_confidence_gain": 12
+            }
+        
+        # Check for duplicate question
+        if is_duplicate_question(question_data.get("question", ""), previous_questions):
+            print(f"Duplicate question detected in quick scan ask-more")
+            # Generate alternate question
+            question_data = {
+                "question": f"Are there any other symptoms or details about your {scan.get('body_part', 'condition')} that might be important?",
+                "focus_area": "associated_symptoms",
+                "reasoning": "Additional details may reveal overlooked aspects",
+                "expected_confidence_gain": 10
+            }
+        
+        # Calculate estimated questions to reach target
+        avg_confidence_gain = 15
+        confidence_gap = request.target_confidence - current_confidence
+        estimated_questions = min(
+            max(1, int(confidence_gap / avg_confidence_gain)),
+            request.max_questions - questions_asked
+        )
+        
+        # Store the new question
+        try:
+            follow_up_questions.append({
+                "question": question_data.get("question"),
+                "focus_area": question_data.get("focus_area"),
+                "generated_at": datetime.now(timezone.utc).isoformat(),
+                "status": "pending"
+            })
+            
+            supabase.table("quick_scans").update({
+                "follow_up_questions": follow_up_questions,
+                "ask_more_active": True
+            }).eq("id", request.scan_id).execute()
+        except Exception as db_error:
+            print(f"Error updating quick scan with follow-up question: {db_error}")
+        
+        return {
+            "status": "success",
+            "question": question_data.get("question"),
+            "question_number": questions_asked + 1,
+            "focus_area": question_data.get("focus_area"),
+            "current_confidence": current_confidence,
+            "target_confidence": request.target_confidence,
+            "confidence_gap": confidence_gap,
+            "estimated_questions_remaining": estimated_questions,
+            "max_questions_remaining": request.max_questions - questions_asked - 1,
+            "reasoning": question_data.get("reasoning"),
+            "expected_confidence_gain": question_data.get("expected_confidence_gain", 15)
+        }
+        
+    except Exception as e:
+        print(f"Error in quick scan ask more: {e}")
         return {"error": str(e), "status": "error"}
