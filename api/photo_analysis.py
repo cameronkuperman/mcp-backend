@@ -552,10 +552,23 @@ async def analyze_photos(request: PhotoAnalysisRequest):
         )
         
         content = response['choices'][0]['message']['content']
+        print(f"AI response content: {content[:500]}...")  # Log first 500 chars
         analysis = extract_json_from_text(content)
+        print(f"Extracted analysis: {analysis}")
+        
+        # Ensure all expected fields exist as arrays
+        if not isinstance(analysis.get('visual_observations'), list):
+            analysis['visual_observations'] = [str(analysis.get('visual_observations', 'No observations'))]
+        if not isinstance(analysis.get('differential_diagnosis'), list):
+            analysis['differential_diagnosis'] = [str(analysis.get('differential_diagnosis', 'No differential diagnosis'))]
+        if not isinstance(analysis.get('recommendations'), list):
+            analysis['recommendations'] = [str(analysis.get('recommendations', 'Consult a healthcare provider'))]
+        if not isinstance(analysis.get('red_flags'), list):
+            analysis['red_flags'] = []
+        if not isinstance(analysis.get('trackable_metrics'), list):
+            analysis['trackable_metrics'] = []
         
     except Exception as e:
-        # Fallback to deepseek-r1:nitro
         try:
             response = await call_openrouter(
                 model='deepseek/deepseek-r1:nitro',
@@ -572,6 +585,18 @@ async def analyze_photos(request: PhotoAnalysisRequest):
             
             content = response['choices'][0]['message']['content']
             analysis = extract_json_from_text(content)
+            
+            # Ensure all expected fields exist as arrays (same as above)
+            if not isinstance(analysis.get('visual_observations'), list):
+                analysis['visual_observations'] = [str(analysis.get('visual_observations', 'No observations'))]
+            if not isinstance(analysis.get('differential_diagnosis'), list):
+                analysis['differential_diagnosis'] = [str(analysis.get('differential_diagnosis', 'No differential diagnosis'))]
+            if not isinstance(analysis.get('recommendations'), list):
+                analysis['recommendations'] = [str(analysis.get('recommendations', 'Consult a healthcare provider'))]
+            if not isinstance(analysis.get('red_flags'), list):
+                analysis['red_flags'] = []
+            if not isinstance(analysis.get('trackable_metrics'), list):
+                analysis['trackable_metrics'] = []
             
         except Exception as e2:
             raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e2)}")
