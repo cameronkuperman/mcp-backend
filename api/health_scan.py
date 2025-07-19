@@ -24,7 +24,7 @@ router = APIRouter(prefix="/api", tags=["health-scan"])
 # Deep Dive Configuration
 DEEP_DIVE_CONFIG = {
     "max_questions": 7,  # Limit to 7 questions max
-    "target_confidence": 90,  # Target 90% confidence
+    "target_confidence": 83,  # Target 83% confidence
     "min_confidence_for_completion": 85,  # Can complete at 85% if max questions reached
     "min_questions": 2,  # Minimum questions before completion
 }
