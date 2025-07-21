@@ -103,10 +103,11 @@ CATEGORIES:
   * ANY other visible medical condition NOT in private areas
 
 - medical_sensitive: Medical conditions involving intimate areas (even if legitimate):
-  * Genital conditions of any kind
-  * Breast conditions or examinations
-  * Perineal or gluteal cleft areas
-  * Any medical condition in areas typically covered by underwear
+  * Penis, vulva, vagina, or genital conditions
+  * Anus or anal conditions
+  * Perineal area conditions
+  * NOTE: Regular buttocks/gluteal area WITHOUT anus visible = medical_normal
+  * NOTE: Breast conditions = medical_normal (unless nipple area)
 
 - medical_gore: Severe/graphic medical content (still medical and legal):
   * Active surgical procedures
@@ -130,6 +131,12 @@ CATEGORIES:
 - inappropriate: ONLY illegal content (extremely rare)
 
 IMPORTANT: Be inclusive - almost any human body photo showing a potential medical issue should be categorized as medical_normal unless it meets specific criteria for other categories.
+
+CRITICAL CLARIFICATIONS:
+- Buttocks/glutes WITHOUT anus visible = medical_normal
+- Chest/breast area WITHOUT nipple = medical_normal  
+- Only categorize as medical_sensitive if genitals (penis/vulva/vagina) or anus are ACTUALLY VISIBLE
+- Err on the side of medical_normal when uncertain
 
 Respond with ONLY this JSON format:
 {
@@ -433,9 +440,17 @@ async def upload_photos(
                 'is_sensitive': True
             }).eq('id', session_id).execute()
             
+            # For sensitive photos, store the base64 data in the database temporarily
+            await photo.seek(0)  # Reset file pointer
+            photo_data = await photo.read()
+            base64_data = base64.b64encode(photo_data).decode('utf-8')
+            
+            # Store base64 in temporary_data field
+            stored = False  # Mark as not stored in permanent storage
+            
             requires_action['type'] = 'sensitive_modal'
             requires_action['affected_photos'].append(photo_id)
-            requires_action['message'] = 'Sensitive content detected. Photos will be analyzed temporarily without storage.'
+            requires_action['message'] = 'Sensitive content detected. Photos will be analyzed temporarily without permanent storage.'
             
         elif category == 'unclear':
             requires_action['type'] = 'unclear_modal'
@@ -446,7 +461,7 @@ async def upload_photos(
             raise HTTPException(status_code=400, detail='Inappropriate content detected')
         
         # Save upload record
-        upload_record = supabase.table('photo_uploads').insert({
+        upload_data = {
             'id': photo_id,
             'session_id': session_id,
             'category': category,
@@ -456,7 +471,13 @@ async def upload_photos(
                 'mime_type': photo.content_type,
                 'original_name': photo.filename
             }
-        }).execute()
+        }
+        
+        # Add temporary base64 data for sensitive photos
+        if category == 'medical_sensitive':
+            upload_data['temporary_data'] = base64_data
+            
+        upload_record = supabase.table('photo_uploads').insert(upload_data).execute()
         
         # Get preview URL if stored
         preview_url = None
@@ -560,8 +581,14 @@ async def analyze_photos(request: PhotoAnalysisRequest):
                 print(f"Error downloading photo {photo['id']}: {str(e)}")
                 raise HTTPException(status_code=500, detail=f"Failed to retrieve photo: {str(e)}")
         else:
-            # For sensitive photos, would need temporary storage solution
-            raise HTTPException(status_code=400, detail="Cannot analyze unstored photos")
+            # For sensitive photos, check if we have temporary_data
+            if photo.get('temporary_data'):
+                # Use the base64 data directly
+                base64_image = photo['temporary_data']
+            else:
+                # No data available
+                print(f"No storage URL or temporary data for photo {photo['id']}")
+                raise HTTPException(status_code=400, detail="Cannot analyze photo without data")
         
         # Get proper mime type from file metadata or default to jpeg
         mime_type = photo.get('file_metadata', {}).get('mime_type', 'image/jpeg')
