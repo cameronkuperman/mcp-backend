@@ -87,76 +87,257 @@ STORAGE_BUCKET = os.getenv('SUPABASE_STORAGE_BUCKET', 'medical-photos')
 PHOTO_CATEGORIZATION_PROMPT = """You are a medical photo categorization system. Analyze the image and categorize it into EXACTLY ONE of these categories:
 
 CATEGORIES:
-- medical_normal: Any legitimate medical condition (skin conditions, wounds, rashes, burns, infections, swelling, etc.) that is NOT in intimate/private areas
-- medical_sensitive: Medical conditions involving genitalia, breasts, or intimate areas (even if legitimate medical concern)
-- medical_gore: Severe trauma, surgical sites, deep wounds, exposed tissue/bone (still medical and legal)
-- unclear: Photo too blurry, dark, or unclear to make medical assessment
-- non_medical: Objects, food, pets, landscapes, or anything not related to human medical conditions
-- inappropriate: ONLY illegal content, NOT medical gore or sensitive medical areas
+- medical_normal: ANY legitimate medical condition that is NOT in intimate/private areas, including:
+  * Dermatological: rashes, acne, eczema, psoriasis, moles, skin cancer, hives, burns
+  * Orthopedic: visible fractures, joint deformities, swelling, sprains, dislocations
+  * Soft tissue: muscle tears, bruising, hematomas, cellulitis, abscesses
+  * Vascular: varicose veins, spider veins, venous insufficiency signs
+  * Wounds: cuts, lacerations, abrasions, ulcers, surgical incisions (healed)
+  * Inflammatory: arthritis, bursitis, tendinitis visible signs
+  * Infectious: visible infections, fungal conditions, bacterial skin infections
+  * Allergic: reactions, contact dermatitis, urticaria
+  * Systemic disease signs: jaundice, cyanosis, edema, lymphadenopathy
+  * Eye conditions: conjunctivitis, styes, periorbital issues
+  * Nail conditions: fungal infections, ingrown nails, nail trauma
+  * Hair/scalp: alopecia, scalp conditions, folliculitis
+  * ANY other visible medical condition NOT in private areas
 
-IMPORTANT RULES:
-1. Medical gore (surgery, trauma) is LEGAL and should be categorized as medical_gore, NOT inappropriate
-2. Genitalia with medical conditions = medical_sensitive, NOT inappropriate
-3. Only categorize as inappropriate if content is clearly illegal (CSAM, etc.)
-4. When in doubt between categories, prefer medical categories over non-medical
+- medical_sensitive: Medical conditions involving intimate areas (even if legitimate):
+  * Genital conditions of any kind
+  * Breast conditions or examinations
+  * Perineal or gluteal cleft areas
+  * Any medical condition in areas typically covered by underwear
+
+- medical_gore: Severe/graphic medical content (still medical and legal):
+  * Active surgical procedures
+  * Deep wounds with exposed tissue/bone/tendons
+  * Severe trauma or accidents
+  * Major burns (3rd/4th degree)
+  * Amputations or severe deformities
+  * Compound fractures with bone exposure
+
+- unclear: Photo quality prevents medical assessment:
+  * Too blurry to identify condition
+  * Too dark or overexposed
+  * Too far away to see medical detail
+  * Obscured by clothing/objects
+
+- non_medical: Clearly not medical:
+  * Objects, food, pets, landscapes
+  * Normal body parts without any condition
+  * Non-medical selfies or photos
+
+- inappropriate: ONLY illegal content (extremely rare)
+
+IMPORTANT: Be inclusive - almost any human body photo showing a potential medical issue should be categorized as medical_normal unless it meets specific criteria for other categories.
 
 Respond with ONLY this JSON format:
 {
   "category": "category_name",
   "confidence": 0.95,
-  "subcategory": "optional_specific_condition"
+  "subcategory": "specific_condition_type (e.g., 'dermatological_rash', 'orthopedic_fracture', 'vascular_varicose')"
 }"""
 
-PHOTO_ANALYSIS_PROMPT = """You are an expert medical AI analyzing photos for health concerns. Provide:
+PHOTO_ANALYSIS_PROMPT = """You are an expert medical AI with advanced visual analysis capabilities for ALL types of medical conditions and injuries. Think step-by-step through your analysis using the following comprehensive framework:
 
-1. PRIMARY ASSESSMENT: Most likely condition based on visual evidence
-2. CONFIDENCE: Your confidence level (0-100%)
-3. VISUAL OBSERVATIONS: What you specifically see (color, texture, size, patterns)
-4. DIFFERENTIAL DIAGNOSIS: Other possible conditions
-5. PROGRESSION INDICATORS: If comparing photos, note specific changes
-6. RECOMMENDATIONS: Clear next steps
-7. RED FLAGS: Any urgent concerns requiring immediate medical attention
-8. TRACKABLE METRICS: Measurable aspects that can be tracked over time
+STEP 1 - DETAILED VISUAL EXAMINATION:
+- Systematically examine the entire image for any medical abnormalities
+- For skin conditions: Note color, texture, borders, symmetry, size
+- For musculoskeletal injuries: Look for swelling, deformity, bruising, asymmetry
+- For wounds/trauma: Assess depth, tissue involvement, bleeding, foreign bodies
+- For joints/limbs: Check alignment, swelling, range of motion indicators
+- Identify any shadows, lighting artifacts, or image quality issues
 
-Format your response as JSON:
+STEP 2 - INJURY/CONDITION TYPE RECOGNITION:
+- DERMATOLOGICAL: Rashes, lesions, infections, tumors, allergic reactions
+- ORTHOPEDIC: Fractures (visible deformity, abnormal angles), dislocations, sprains
+- SOFT TISSUE: Muscle tears, ligament damage, tendon ruptures (gaps, bunching)
+- TRAUMATIC: Lacerations, contusions, abrasions, burns, puncture wounds
+- VASCULAR: Hematomas, varicose veins, vascular malformations
+- INFLAMMATORY: Joint effusions, bursitis, cellulitis, abscess formation
+- OTHER: Any other visible medical abnormality
+
+STEP 3 - SPECIFIC INJURY ANALYSIS:
+For suspected fractures:
+- Look for deformity, abnormal angulation, shortening
+- Check for open vs closed (skin integrity)
+- Note swelling patterns suggesting specific fracture types
+
+For muscle/tendon injuries:
+- Identify muscle bunching (torn pec, biceps)
+- Look for gaps indicating complete tears
+- Assess bruising patterns and swelling distribution
+
+For joint injuries:
+- Evaluate joint alignment and symmetry
+- Look for effusion or hemarthrosis signs
+- Check for instability indicators
+
+STEP 4 - DIFFERENTIAL DIAGNOSIS REASONING:
+- List all possible conditions matching the visual evidence
+- Consider both common and rare possibilities
+- For trauma: mechanism of injury clues from visual pattern
+- Don't assume - consider all possibilities from the image
+
+STEP 5 - RISK ASSESSMENT:
+- Evaluate for emergent conditions (compartment syndrome, neurovascular compromise)
+- Check for signs of infection or systemic involvement
+- Identify features requiring immediate medical attention
+- Consider functional impairment indicators
+
+STEP 6 - TRACKING AND MONITORING:
+- Identify measurable features (swelling dimensions, bruise progression)
+- Suggest optimal photo angles for specific injuries
+- Recommend tracking frequency based on injury type and severity
+
+Provide your analysis in this JSON format:
 {
-  "primary_assessment": "string",
-  "confidence": number,
-  "visual_observations": ["string"],
-  "differential_diagnosis": ["string"],
-  "recommendations": ["string"],
-  "red_flags": ["string"],
+  "injury_type": "dermatological|orthopedic|soft_tissue|traumatic|vascular|inflammatory|other",
+  "primary_assessment": "Most likely diagnosis with detailed reasoning",
+  "confidence": number (0-100),
+  "visual_observations": [
+    "Detailed observation 1 with specific measurements",
+    "Detailed observation 2 (e.g., 'ankle swelling measuring approximately 3cm')",
+    "Detailed observation 3 (e.g., 'visible deformity suggesting fracture')"
+  ],
+  "anatomical_findings": {
+    "location": "specific body part and side",
+    "affected_structures": ["list of potentially affected anatomical structures"],
+    "comparison_to_normal": "how it differs from expected normal appearance"
+  },
+  "differential_diagnosis": [
+    "Alternative diagnosis 1 - probability % - key supporting features",
+    "Alternative diagnosis 2 - probability % - key supporting features",
+    "Alternative diagnosis 3 - probability % - key supporting features"
+  ],
+  "injury_severity": {
+    "grade": "mild|moderate|severe",
+    "functional_impact": "expected impact on daily activities",
+    "healing_timeline": "expected recovery duration"
+  },
+  "clinical_reasoning": "Step-by-step explanation of your diagnostic reasoning process",
+  "recommendations": [
+    "Immediate action (e.g., 'Apply RICE protocol for ankle sprain')",
+    "Medical evaluation timing (e.g., 'See orthopedist within 24 hours')",
+    "Specific imaging needed (e.g., 'X-ray to rule out fracture')",
+    "Activity modifications"
+  ],
+  "red_flags": [
+    "Urgent concern 1 - specific visual evidence",
+    "Signs requiring immediate emergency care"
+  ],
   "trackable_metrics": [
     {
-      "metric_name": "string",
+      "metric_name": "Swelling circumference",
       "current_value": number,
-      "unit": "string",
-      "suggested_tracking": "daily|weekly|monthly"
+      "unit": "cm",
+      "measurement_method": "measure at widest point",
+      "suggested_tracking": "daily|weekly",
+      "expected_change": "gradual reduction over 7-10 days"
     }
-  ]
+  ],
+  "home_care_guidance": [
+    "Specific care instructions based on injury type",
+    "Warning signs to watch for"
+  ],
+  "image_quality_notes": "Any limitations in analysis due to image quality",
+  "follow_up_imaging": "Specific recommendations for better photos if needed"
 }
 
-Be specific, professional, and helpful. If you can measure or estimate sizes, do so."""
+Apply maximum analytical rigor. Consider edge cases. Be thorough but concise."""
 
-PHOTO_COMPARISON_PROMPT = """Compare these medical photos taken at different times. Analyze:
+PHOTO_COMPARISON_PROMPT = """You are performing a detailed temporal comparison of medical photos. Apply systematic analysis:
 
-1. SIZE CHANGES: Measure or estimate size differences
-2. COLOR CHANGES: Note any color evolution
-3. TEXTURE CHANGES: Surface characteristics
-4. OVERALL TREND: Is it improving, worsening, or stable?
-5. SPECIFIC OBSERVATIONS: Notable changes
+COMPARISON FRAMEWORK:
+
+1. QUANTITATIVE MEASUREMENTS:
+- Calculate exact or estimated size changes (use % change)
+- Measure border expansion/contraction in mm if possible
+- Count new lesions or features if applicable
+- Note changes in elevation or depth
+
+2. QUALITATIVE CHANGES:
+- Color evolution (use standardized color descriptions)
+- Texture modifications (smooth to rough, flat to raised, etc.)
+- Border characteristics (regular to irregular, defined to diffuse)
+- Surface changes (dry to moist, intact to broken, etc.)
+
+3. PATTERN ANALYSIS:
+- Distribution changes (localized to spreading, symmetric to asymmetric)
+- Morphological evolution (shape changes, new satellite lesions)
+- Signs of healing vs progression
+- Evidence of treatment response
+
+4. CLINICAL INTERPRETATION:
+- Rate of change (rapid, moderate, slow)
+- Direction of change (improvement, stable, deterioration)
+- Expected vs unexpected changes
+- Prognostic implications
+
+5. PHOTOGRAPHIC CONSIDERATIONS:
+- Account for lighting differences
+- Note angle or distance variations
+- Identify any artifacts affecting comparison
 
 Format as JSON:
 {
   "days_between": number,
-  "changes": {
-    "size": { "from": number, "to": number, "unit": "string", "change": number },
-    "color": { "description": "string" },
-    "texture": { "description": "string" }
+  "quantitative_changes": {
+    "size": {
+      "from": number,
+      "to": number,
+      "unit": "mm or cm",
+      "percent_change": number,
+      "measurement_confidence": "high|medium|low"
+    },
+    "count": {
+      "lesions_before": number,
+      "lesions_after": number,
+      "new_features": ["description of new features"]
+    },
+    "area": {
+      "affected_area_change": "expanded|reduced|stable",
+      "estimated_coverage": "% of visible area"
+    }
   },
-  "trend": "improving|worsening|stable",
-  "ai_summary": "string"
-}"""
+  "qualitative_changes": {
+    "color": {
+      "from": "specific color description",
+      "to": "specific color description",
+      "clinical_significance": "what this change indicates"
+    },
+    "texture": {
+      "from": "texture description",
+      "to": "texture description",
+      "surface_changes": ["specific changes observed"]
+    },
+    "borders": {
+      "definition": "more defined|less defined|unchanged",
+      "regularity": "more regular|more irregular|unchanged",
+      "description": "detailed border analysis"
+    }
+  },
+  "clinical_interpretation": {
+    "trend": "improving|worsening|stable|mixed",
+    "rate_of_change": "rapid|moderate|slow",
+    "treatment_response": "responding well|partial response|no response|unclear",
+    "healing_indicators": ["specific signs of healing if present"],
+    "concerning_changes": ["worrying developments if any"]
+  },
+  "comparison_quality": {
+    "lighting_consistent": boolean,
+    "angle_consistent": boolean,
+    "quality_notes": "factors affecting comparison accuracy"
+  },
+  "recommendations": [
+    "specific follow-up action 1",
+    "monitoring frequency suggestion",
+    "when to seek immediate care if applicable"
+  ],
+  "detailed_summary": "Comprehensive paragraph explaining all changes and their clinical meaning"
+}
+
+Apply rigorous comparative analysis. Be precise with measurements and changes."""
 
 
 async def file_to_base64(file: UploadFile) -> str:
@@ -539,7 +720,7 @@ async def analyze_photos(request: PhotoAnalysisRequest):
     # Call O4-mini for analysis
     try:
         response = await call_openrouter(
-            model='openai/o4-mini:nitro',
+            model='google/gemini-2.5-pro',
             messages=[{
                 'role': 'user',
                 'content': [
@@ -547,14 +728,33 @@ async def analyze_photos(request: PhotoAnalysisRequest):
                     *photo_contents
                 ]
             }],
-            max_tokens=1000,
-            temperature=0.3
+            max_tokens=2000,
+            temperature=0.1
         )
         
         content = response['choices'][0]['message']['content']
         print(f"AI response content: {content[:500]}...")  # Log first 500 chars
         analysis = extract_json_from_text(content)
         print(f"Extracted analysis: {analysis}")
+        
+        # Handle backward compatibility - remove new fields not expected by existing system
+        if 'injury_type' in analysis:
+            del analysis['injury_type']
+        if 'anatomical_findings' in analysis:
+            del analysis['anatomical_findings']
+        if 'injury_severity' in analysis:
+            del analysis['injury_severity']
+        if 'clinical_reasoning' in analysis:
+            del analysis['clinical_reasoning']
+        if 'home_care_guidance' in analysis:
+            # Merge home care guidance into recommendations if present
+            if isinstance(analysis.get('home_care_guidance'), list):
+                analysis['recommendations'] = analysis.get('recommendations', []) + analysis['home_care_guidance']
+            del analysis['home_care_guidance']
+        if 'image_quality_notes' in analysis:
+            del analysis['image_quality_notes']
+        if 'follow_up_imaging' in analysis:
+            del analysis['follow_up_imaging']
         
         # Ensure all expected fields exist as arrays
         if not isinstance(analysis.get('visual_observations'), list):
@@ -571,7 +771,7 @@ async def analyze_photos(request: PhotoAnalysisRequest):
     except Exception as e:
         try:
             response = await call_openrouter(
-                model='deepseek/deepseek-r1:nitro',
+                model='google/gemini-2.0-flash-exp:free',
                 messages=[{
                     'role': 'user',
                     'content': [
@@ -579,12 +779,31 @@ async def analyze_photos(request: PhotoAnalysisRequest):
                         *photo_contents
                     ]
                 }],
-                max_tokens=1000,
-                temperature=0.3
+                max_tokens=2000,
+                temperature=0.1
             )
             
             content = response['choices'][0]['message']['content']
             analysis = extract_json_from_text(content)
+            
+            # Handle backward compatibility - remove new fields not expected by existing system
+            if 'injury_type' in analysis:
+                del analysis['injury_type']
+            if 'anatomical_findings' in analysis:
+                del analysis['anatomical_findings']
+            if 'injury_severity' in analysis:
+                del analysis['injury_severity']
+            if 'clinical_reasoning' in analysis:
+                del analysis['clinical_reasoning']
+            if 'home_care_guidance' in analysis:
+                # Merge home care guidance into recommendations if present
+                if isinstance(analysis.get('home_care_guidance'), list):
+                    analysis['recommendations'] = analysis.get('recommendations', []) + analysis['home_care_guidance']
+                del analysis['home_care_guidance']
+            if 'image_quality_notes' in analysis:
+                del analysis['image_quality_notes']
+            if 'follow_up_imaging' in analysis:
+                del analysis['follow_up_imaging']
             
             # Ensure all expected fields exist as arrays (same as above)
             if not isinstance(analysis.get('visual_observations'), list):
@@ -648,7 +867,7 @@ async def analyze_photos(request: PhotoAnalysisRequest):
             # Call AI for comparison
             try:
                 comp_response = await call_openrouter(
-                    model='openai/o4-mini:nitro',
+                    model='google/gemini-2.5-pro',
                     messages=[{
                         'role': 'user',
                         'content': [
@@ -658,12 +877,27 @@ async def analyze_photos(request: PhotoAnalysisRequest):
                             *comp_contents
                         ]
                     }],
-                    max_tokens=500,
-                    temperature=0.3
+                    max_tokens=1000,
+                    temperature=0.1
                 )
                 
                 comp_content = comp_response['choices'][0]['message']['content']
                 comparison = extract_json_from_text(comp_content)
+                
+                # Handle backward compatibility for comparison - simplify to expected format
+                if comparison:
+                    # Map new detailed format to simpler expected format
+                    simplified_comparison = {
+                        'days_between': comparison.get('days_between', 0),
+                        'changes': {
+                            'size': comparison.get('quantitative_changes', {}).get('size', {}),
+                            'color': {'description': comparison.get('qualitative_changes', {}).get('color', {}).get('from', '') + ' to ' + comparison.get('qualitative_changes', {}).get('color', {}).get('to', '')},
+                            'texture': {'description': comparison.get('qualitative_changes', {}).get('texture', {}).get('from', '') + ' to ' + comparison.get('qualitative_changes', {}).get('texture', {}).get('to', '')}
+                        },
+                        'trend': comparison.get('clinical_interpretation', {}).get('trend', 'stable'),
+                        'ai_summary': comparison.get('detailed_summary', 'Comparison analysis completed')
+                    }
+                    comparison = simplified_comparison
                 
             except Exception as e:
                 # Comparison is optional, so just log error
@@ -674,7 +908,7 @@ async def analyze_photos(request: PhotoAnalysisRequest):
         'session_id': request.session_id,
         'photo_ids': request.photo_ids,
         'analysis_data': analysis,
-        'model_used': 'openai/o4-mini:nitro',
+        'model_used': 'google/gemini-2.5-pro',
         'confidence_score': analysis.get('confidence', 0),
         'is_sensitive': session.get('is_sensitive', False) or request.temporary_analysis,
         'expires_at': (datetime.now() + timedelta(hours=24)).isoformat() if request.temporary_analysis else None
