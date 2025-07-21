@@ -203,7 +203,7 @@ async def generate_health_story(request: HealthStoryRequest):
         # Call LLM
         llm_response = await call_llm(
             messages=messages,
-            model="moonshotai/kimi-k2:free",  # Using Kimi K2 for article generation
+            model="moonshotai/kimi-k2",  # Using Kimi K2 paid tier for article generation
             user_id=request.user_id,
             temperature=0.7,
             max_tokens=1024
