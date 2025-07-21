@@ -26,8 +26,8 @@ router = APIRouter(prefix="/api", tags=["health-scan"])
 # Deep Dive Configuration
 DEEP_DIVE_CONFIG = {
     "max_questions": 7,  # Limit to 7 questions max
-    "target_confidence": 83,  # Target 83% confidence
-    "min_confidence_for_completion": 85,  # Can complete at 85% if max questions reached
+    "target_confidence": 80,  # Target 80% confidence
+    "min_confidence_for_completion": 80,  # Can complete at 80% if max questions reached
     "min_questions": 2,  # Minimum questions before completion
 }
 
@@ -214,23 +214,23 @@ async def start_deep_dive(request: DeepDiveStartRequest):
             "medical_data": medical_data if medical_data and "error" not in medical_data else None
         }
         
-        # Use Gemini 2.5 Pro for deep dive
-        model = request.model or "google/gemini-2.5-pro"
+        # Use DeepSeek R1 for asking questions (better at generating diagnostic questions)
+        model = request.model or "tngtech/deepseek-r1t-chimera:free"
         
         # Add model validation and fallback
         WORKING_MODELS = [
-            "google/gemini-2.5-pro",  # Primary model for deep dive
-            "tngtech/deepseek-r1t-chimera:free",  # Fallback option
+            "tngtech/deepseek-r1t-chimera:free",  # Primary model for deep dive questions
+            "google/gemini-2.5-pro",  # Fallback option
             "deepseek/deepseek-chat",
             "meta-llama/llama-3.2-3b-instruct:free",
             "google/gemini-2.0-flash-exp:free",
             "microsoft/phi-3-mini-128k-instruct:free"
         ]
         
-        # If specified model not in list, use Gemini 2.5 Pro
+        # If specified model not in list, use DeepSeek R1
         if model not in WORKING_MODELS:
-            print(f"Model {model} not in working list, using Gemini 2.5 Pro")
-            model = "google/gemini-2.5-pro"
+            print(f"Model {model} not in working list, using DeepSeek R1")
+            model = "tngtech/deepseek-r1t-chimera:free"
         
         # Generate initial question
         query = request.form_data.get("symptoms", "Health analysis requested")
@@ -601,7 +601,7 @@ async def complete_deep_dive(request: DeepDiveCompleteRequest):
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": "Generate comprehensive final analysis based on all Q&A"}
             ],
-            model=session.get("model_used", "google/gemini-2.5-pro"),  # Default to Gemini 2.5 Pro
+            model="google/gemini-2.5-pro",  # Always use Gemini 2.5 Pro for final analysis
             user_id=session.get("user_id"),
             temperature=0.3,
             max_tokens=2048

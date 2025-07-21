@@ -51,7 +51,7 @@ class DeepDiveAskMoreRequest(BaseModel):
 class QuickScanThinkHarderRequest(BaseModel):
     scan_id: str
     user_id: Optional[str] = None
-    model: str = "openai/gpt-4o"  # Default to GPT-4 for enhanced analysis
+    model: str = "openai/o4-mini"  # Default to GPT-4 for enhanced analysis
 
 class QuickScanO4MiniRequest(BaseModel):
     scan_id: str

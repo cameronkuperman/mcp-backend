@@ -266,7 +266,7 @@ Based on this new information, you must:
 
 ## CRITERIA FOR ADDITIONAL QUESTIONS
 Ask another question ONLY if:
-- Diagnostic confidence is <85% for primary diagnosis
+- Diagnostic confidence is <80% for primary diagnosis
 - Multiple conditions have similar probability (within 20%)
 - Critical red flags remain unassessed
 - The next question would provide high information gain
