@@ -212,22 +212,23 @@ async def start_deep_dive(request: DeepDiveStartRequest):
             "medical_data": medical_data if medical_data and "error" not in medical_data else None
         }
         
-        # Use chimera model for deep dive (like Oracle chat which works great!)
-        model = request.model or "tngtech/deepseek-r1t-chimera:free"
+        # Use Gemini 2.5 Pro for deep dive
+        model = request.model or "google/gemini-2.5-pro"
         
         # Add model validation and fallback
         WORKING_MODELS = [
-            "tngtech/deepseek-r1t-chimera:free",  # Best for deep dive!
+            "google/gemini-2.5-pro",  # Primary model for deep dive
+            "tngtech/deepseek-r1t-chimera:free",  # Fallback option
             "deepseek/deepseek-chat",
             "meta-llama/llama-3.2-3b-instruct:free",
             "google/gemini-2.0-flash-exp:free",
             "microsoft/phi-3-mini-128k-instruct:free"
         ]
         
-        # If specified model not in list, use chimera
+        # If specified model not in list, use Gemini 2.5 Pro
         if model not in WORKING_MODELS:
-            print(f"Model {model} not in working list, using chimera")
-            model = "tngtech/deepseek-r1t-chimera:free"
+            print(f"Model {model} not in working list, using Gemini 2.5 Pro")
+            model = "google/gemini-2.5-pro"
         
         # Generate initial question
         query = request.form_data.get("symptoms", "Health analysis requested")
@@ -392,7 +393,7 @@ async def continue_deep_dive(request: DeepDiveContinueRequest):
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": "Process answer and decide next step"}
             ],
-            model=session.get("model_used", "tngtech/deepseek-r1t-chimera:free"),  # Use chimera like Oracle
+            model=session.get("model_used", "google/gemini-2.5-pro"),  # Default to Gemini 2.5 Pro
             user_id=session.get("user_id"),
             temperature=0.3,
             max_tokens=1024
@@ -567,7 +568,7 @@ async def complete_deep_dive(request: DeepDiveCompleteRequest):
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": "Generate comprehensive final analysis based on all Q&A"}
             ],
-            model=session.get("model_used", "tngtech/deepseek-r1t-chimera:free"),  # Use chimera like Oracle
+            model=session.get("model_used", "google/gemini-2.5-pro"),  # Default to Gemini 2.5 Pro
             user_id=session.get("user_id"),
             temperature=0.3,
             max_tokens=2048
