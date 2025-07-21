@@ -173,18 +173,18 @@ async def generate_health_story(request: HealthStoryRequest):
         - Keep it intriguing but slightly more grounded than the title
 
         Content Guidelines:
-        - Write 2-3 paragraphs with engaging narrative flow
-        - Weave health conditions and medical terms naturally into the story
-        - Include specific percentages and metrics within descriptive sentences
-        - Balance creativity with medical accuracy
-        - Reference conditions properly (e.g., "tension headaches", "sleep efficiency") but keep it readable
-        - Write in second person with warmth and slight narrative flair
+        - Write 2-3 paragraphs with mostly clear, informative tone
+        - Use medical terminology naturally within flowing sentences
+        - Include percentages and confidence levels smoothly in the narrative
+        - Add just a touch of descriptive language (about 1% creative touches)
+        - Structure content logically while maintaining readability
+        - Write in second person with warmth and very subtle narrative elements
 
         Style Examples:
-        - "The tension headaches that visited you 4 times this week seem to prefer the morning hours"
-        - "Your sleep has undergone a transformation, with efficiency climbing to 85% and deep sleep phases extending by 23%"
-        - "There's a strong connection between your stress levels and symptom intensity, with a correlation of 0.78"
-        - "Your heart is finding a calmer rhythm, settling from 72 to a more peaceful 68 beats per minute"
+        - "Your week revealed a clear pattern: muscle strains appearing across your left pectoralis major (75% confidence) and left biceps (78% confidence)"
+        - "Sleep efficiency climbed to 85%, with deep sleep phases extending by 23%—a notable shift that correlates with symptom improvement"
+        - "The connection between your stress levels and physical symptoms has become undeniable, with a correlation of 0.78"
+        - "Your cardiovascular system is adapting well, with resting heart rate settling from 72 to 68 bpm"
 
         Do NOT:
         - Mention app features, scans, or technical terms
