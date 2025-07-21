@@ -59,7 +59,8 @@ class QuickScanO4MiniRequest(BaseModel):
     model: str = "openai/o4-mini"  # Regular o4-mini for balanced cost/performance
 
 class QuickScanUltraThinkRequest(BaseModel):
-    scan_id: str
+    scan_id: Optional[str] = None  # For quick scans
+    deep_dive_id: Optional[str] = None  # For deep dives
     user_id: Optional[str] = None
     model: str = "x-ai/grok-4"  # Grok 4 for maximum reasoning
 

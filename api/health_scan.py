@@ -1360,25 +1360,45 @@ CRITICAL: Output ONLY valid JSON with no text before or after:
 
 @router.post("/quick-scan/ultra-think")
 async def quick_scan_ultra_think(request: QuickScanUltraThinkRequest):
-    """Maximum reasoning analysis using Grok 4 for complex cases"""
+    """Maximum reasoning analysis using Grok 4 for complex cases - handles both Quick Scan and Deep Dive"""
     try:
-        # Get quick scan data
-        scan_id = request.scan_id
-        if not scan_id:
-            return {"error": "scan_id is required", "status": "error"}
+        # Determine which type of scan we're dealing with
+        scan_data = None
+        scan_type = None
         
-        # Fetch quick scan from database
-        scan_response = supabase.table("quick_scans").select("*").eq("id", scan_id).execute()
+        # Try quick scan first
+        if request.scan_id:
+            scan_response = supabase.table("quick_scans").select("*").eq("id", request.scan_id).execute()
+            if scan_response.data:
+                scan_data = scan_response.data[0]
+                scan_type = "quick_scan"
         
-        if not scan_response.data:
-            return {"error": "Quick scan not found", "status": "error"}
+        # Try deep dive if no quick scan found or if deep_dive_id provided
+        if not scan_data and (request.deep_dive_id or request.scan_id):
+            dive_id = request.deep_dive_id or request.scan_id  # Frontend may send deep dive ID as scan_id
+            dive_response = supabase.table("deep_dive_sessions").select("*").eq("id", dive_id).execute()
+            if dive_response.data:
+                scan_data = dive_response.data[0]
+                scan_type = "deep_dive"
         
-        scan = scan_response.data[0]
+        if not scan_data:
+            return {"error": "No scan or deep dive found with provided ID", "status": "error"}
         
-        # Get all previous analyses
-        original_analysis = scan.get("analysis_result", {})
-        o4_mini_analysis = scan.get("o4_mini_analysis", {})
-        enhanced_analysis = scan.get("enhanced_analysis", {})  # From regular think-harder
+        scan = scan_data
+        
+        # Get all previous analyses based on scan type
+        if scan_type == "quick_scan":
+            original_analysis = scan.get("analysis_result", {})
+            o4_mini_analysis = scan.get("o4_mini_analysis", {})
+            enhanced_analysis = scan.get("enhanced_analysis", {})
+            form_data = scan.get("form_data", {})
+            body_part = scan.get("body_part", "")
+        else:  # deep_dive
+            original_analysis = scan.get("final_analysis", {})
+            o4_mini_analysis = {}  # Deep dives don't have o4-mini analysis
+            enhanced_analysis = scan.get("enhanced_analysis", {})
+            form_data = scan.get("form_data", {})
+            body_part = scan.get("body_part", "")
         
         # Get user medical data if available
         medical_data = {}
@@ -1393,9 +1413,9 @@ async def quick_scan_ultra_think(request: QuickScanUltraThinkRequest):
 COMPREHENSIVE CASE DATA:
 
 Initial Symptoms:
-{json.dumps(scan.get("form_data", {}), indent=2)}
+{json.dumps(form_data, indent=2)}
 
-Body Part: {scan.get("body_part", "")}
+Body Part: {body_part}
 
 Medical History:
 {json.dumps(medical_data, indent=2) if medical_data and "error" not in medical_data else "No history available"}
@@ -1509,16 +1529,21 @@ CRITICAL: Output ONLY valid JSON:
         o4_mini_confidence = o4_mini_analysis.get("confidence", original_confidence) if o4_mini_analysis else original_confidence
         ultra_confidence = ultra_analysis.get("confidence", o4_mini_confidence)
         
-        # Update quick scan with ultra analysis
+        # Update the appropriate table with ultra analysis
         try:
-            supabase.table("quick_scans").update({
+            update_data = {
                 "ultra_analysis": ultra_analysis,
                 "ultra_confidence": ultra_confidence,
                 "ultra_model": request.model,
                 "ultra_at": datetime.now(timezone.utc).isoformat()
-            }).eq("id", scan_id).execute()
+            }
+            
+            if scan_type == "quick_scan":
+                supabase.table("quick_scans").update(update_data).eq("id", request.scan_id).execute()
+            else:  # deep_dive
+                supabase.table("deep_dive_sessions").update(update_data).eq("id", request.deep_dive_id or request.scan_id).execute()
         except Exception as db_error:
-            print(f"Error updating quick scan with ultra analysis: {db_error}")
+            print(f"Error updating {scan_type} with ultra analysis: {db_error}")
         
         return {
             "status": "success",
@@ -1534,7 +1559,9 @@ CRITICAL: Output ONLY valid JSON:
             "processing_message": "Grokked your symptoms",
             "complexity_score": ultra_analysis.get("complexity_score", 0),
             "critical_insights": ultra_analysis.get("critical_insights", []),
-            "scan_id": scan_id,
+            "scan_id": request.scan_id if scan_type == "quick_scan" else None,
+            "deep_dive_id": (request.deep_dive_id or request.scan_id) if scan_type == "deep_dive" else None,
+            "scan_type": scan_type,
             "usage": llm_response.get("usage", {})
         }
         

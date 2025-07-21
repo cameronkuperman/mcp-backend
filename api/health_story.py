@@ -147,44 +147,50 @@ async def generate_health_story(request: HealthStoryRequest):
         else:
             context = "\n\n".join(context_parts)
         
-        # Generate health story
-        system_prompt = """You are analyzing health patterns and trends from user data to create a narrative health story.
+        # Generate health story with creative title
+        system_prompt = """You are a creative health journalist analyzing patterns and trends to create an engaging narrative health story with a compelling title.
 
-        Write 2-3 paragraphs in a flowing, narrative style that:
-        - Identifies patterns and correlations in the health data
-        - Uses specific percentages and metrics when available
-        - Connects symptoms to lifestyle factors
-        - Highlights improvements and positive changes
-        - Acknowledges ongoing concerns without alarm
-        - Focuses on trends over time
+        CRITICAL: You MUST return a JSON object with this exact structure:
+        {
+            "title": "Creative, engaging title that captures the main health theme",
+            "subtitle": "Brief tagline that complements the title",
+            "content": "2-3 paragraphs of narrative content"
+        }
 
-        Style Guidelines:
-        - Write in second person ("Your health journey...")
-        - Use natural, flowing language without technical jargon
-        - Avoid mentioning specific tools, scans, or app features
-        - Present insights as observations about their health patterns
-        - Include specific metrics (percentages, timeframes, correlations)
-        - Connect different health aspects (sleep, pain, exercise, etc.)
+        Title Guidelines:
+        - Be beautifully creative and literary (e.g., "Whispers in the Morning Fog", "The Symphony of Silent Hours")
+        - Use poetic language, metaphors, and evocative imagery
+        - Create titles that feel like chapter names in a novel
+        - Keep it under 8 words
+        - Make it artistic yet mysteriously informative
+        - Let creativity lead while hinting at the health theme
+        
+        Subtitle Guidelines:
+        - Complement the poetic title with a clearer health connection
+        - Use elegant language that bridges the artistic and informative
+        - Keep it intriguing but slightly more grounded than the title
+
+        Content Guidelines:
+        - Write 2-3 paragraphs with engaging narrative touches
+        - Use clear language with occasional vivid descriptions
+        - Include specific percentages and metrics naturally in the flow
+        - Tell a story but stay grounded in the data
+        - Add descriptive flourishes that enhance understanding
+        - Write in second person with warmth and insight
+
+        Style Examples:
+        - Instead of "Your headaches increased": "Morning headaches have been weaving a troubling pattern through your week"
+        - Instead of "Sleep improved 23%": "Your nights have transformed, granting you 23% more restorative deep sleep"
+        - Instead of "Stress correlates with symptoms": "Your body seems to translate stress into a familiar language of aches"
 
         Do NOT:
-        - Mention "quick scan", "deep dive", "oracle", or any app features
-        - Use medical terminology without explanation
-        - Give direct medical advice
-        - Use alarmist language
-        - Reference the data sources directly
+        - Mention app features, scans, or technical terms
+        - Use excessive medical jargon
+        - Be overly dramatic or flowery
+        - Give medical advice
+        - Overuse metaphors or abstract language
         
-        Transform the data into insights like:
-        - "Your morning headaches show a pattern..."
-        - "The chest discomfort you've been experiencing..."
-        - "Your sleep quality has improved by X%..."
-        - "Pain levels tend to spike when..."
-        
-        Example style:
-        Your health journey continues to show positive momentum. This week has been marked by significant improvements in your sleep quality, with an average increase of 23% in deep sleep phases compared to last week. This improvement correlates strongly with the reduction in evening screen time you've implemented.
-
-        The persistent morning headaches you've been experiencing appear to be linked to a combination of factors: dehydration, elevated stress levels on weekdays, and potentially your sleeping position. The pattern analysis shows that headaches are 78% more likely on days following less than 6 hours of sleep.
-
-        Your body's response to the new exercise routine has been overwhelmingly positive. Heart rate variability has improved by 15%, and your resting heart rate has decreased by 4 bpm over the past month. These are strong indicators of improving cardiovascular health."""
+        Remember: Keep it engaging but grounded. The goal is a clear, warm narrative that makes health insights accessible and interesting."""
         
         messages = [
             {"role": "system", "content": system_prompt},
@@ -194,13 +200,36 @@ async def generate_health_story(request: HealthStoryRequest):
         # Call LLM
         llm_response = await call_llm(
             messages=messages,
-            model="moonshotai/kimi-k2",  # Using Kimi K2 for article generation
+            model="moonshotai/kimi-k2:free",  # Using Kimi K2 for article generation
             user_id=request.user_id,
             temperature=0.7,
             max_tokens=1024
         )
         
-        story_text = llm_response.get("content", "Unable to generate health story at this time.")
+        # Parse the JSON response to get title and content
+        story_response = llm_response.get("content", {})
+        
+        # Handle both JSON and string responses
+        if isinstance(story_response, str):
+            # Try to parse as JSON
+            try:
+                story_data = json.loads(story_response)
+                story_title = story_data.get("title", "Your Health Patterns This Week")
+                story_subtitle = story_data.get("subtitle", "An analysis of your wellness trends")
+                story_content = story_data.get("content", "Unable to generate health story at this time.")
+            except:
+                # Fallback if not JSON
+                story_title = "Your Health Patterns This Week"
+                story_subtitle = "An analysis of your wellness trends"
+                story_content = story_response
+        elif isinstance(story_response, dict):
+            story_title = story_response.get("title", "Your Health Patterns This Week")
+            story_subtitle = story_response.get("subtitle", "An analysis of your wellness trends")
+            story_content = story_response.get("content", "Unable to generate health story at this time.")
+        else:
+            story_title = "Your Health Patterns This Week"
+            story_subtitle = "An analysis of your wellness trends"
+            story_content = "Unable to generate health story at this time."
         
         # Generate response
         story_id = str(uuid.uuid4())
@@ -208,11 +237,12 @@ async def generate_health_story(request: HealthStoryRequest):
         
         # Save to database (create health_stories table if needed)
         try:
-            story_data = {
+            story_db_data = {
                 "id": story_id,
                 "user_id": request.user_id,
-                "header": "Current Analysis",
-                "story_text": story_text,
+                "title": story_title,
+                "subtitle": story_subtitle,
+                "story_text": story_content,
                 "date_range": request.date_range,
                 "data_sources": {
                     "quick_scans": len(health_data["quick_scans"]),
@@ -227,7 +257,7 @@ async def generate_health_story(request: HealthStoryRequest):
             
             # Try to insert, handle table not existing
             try:
-                supabase.table("health_stories").insert(story_data).execute()
+                supabase.table("health_stories").insert(story_db_data).execute()
             except Exception as db_error:
                 print(f"Health stories table may not exist: {db_error}")
                 # Continue without saving
@@ -237,9 +267,10 @@ async def generate_health_story(request: HealthStoryRequest):
         
         return {
             "story_id": story_id,
-            "header": "Current Analysis",
+            "title": story_title,
+            "subtitle": story_subtitle,
             "date": generated_date.strftime('%B %d, %Y'),
-            "content": story_text,
+            "content": story_content,
             "data_sources": {
                 "quick_scans": len(health_data["quick_scans"]),
                 "deep_dives": len(health_data["deep_dives"]),
