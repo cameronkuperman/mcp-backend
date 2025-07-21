@@ -492,7 +492,11 @@ async def continue_deep_dive(request: DeepDiveContinueRequest):
         if question_count < DEEP_DIVE_CONFIG["min_questions"]:
             should_complete = False
         
-        if not should_complete and (llm_wants_more or current_confidence < DEEP_DIVE_CONFIG["target_confidence"]):
+        # Continue asking questions if we haven't hit completion criteria AND either:
+        # - LLM wants more questions, OR
+        # - We're below target confidence
+        # This allows completion at 80% but doesn't require it
+        if not should_complete and llm_wants_more:
             new_question = decision_data.get("question", "")
             
             # Check for duplicate question

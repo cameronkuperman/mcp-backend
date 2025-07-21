@@ -265,12 +265,13 @@ Based on this new information, you must:
 3. Decide if another highly leveraged question would significantly improve diagnostic certainty
 
 ## CRITERIA FOR ADDITIONAL QUESTIONS
-Ask another question ONLY if:
+Ask another question ONLY if ALL of these are true:
 - Diagnostic confidence is <80% for primary diagnosis
-- Multiple conditions have similar probability (within 20%)
-- Critical red flags remain unassessed
-- The next question would provide high information gain
-- You haven't exceeded reasonable question limits (typically 2-3 questions)
+- You believe another question would meaningfully increase confidence
+- Critical information is still missing
+- You haven't asked more than 5 questions total
+
+IMPORTANT: Once you reach 80% confidence, you should usually stop asking questions unless there's a critical red flag to assess. The goal is diagnostic sufficiency, not perfection.
 
 ## QUESTION SELECTION PRINCIPLES
 If another question is needed, it should:
