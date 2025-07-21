@@ -26,7 +26,7 @@ class DeepDiveStartRequest(BaseModel):
     body_part: str
     form_data: Dict[str, Any]
     user_id: Optional[str] = None
-    model: Optional[str] = None  # Will default to deepseek/deepseek-chat
+    model: Optional[str] = None  # Will default to google/gemini-2.5-pro
 
 class DeepDiveContinueRequest(BaseModel):
     session_id: str

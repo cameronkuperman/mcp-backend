@@ -766,7 +766,7 @@ Return a JSON response with this exact structure:
     "differentials": [
         {{
             "condition": "Alternative condition name",
-            "likelihood": "percentage or descriptor",
+            "probability": 20,  // percentage as number (0-100)
             "reasoning": "Why this is considered"
         }}
     ],
@@ -1107,7 +1107,7 @@ Format as JSON with these fields:
     "differential_diagnoses": [
         {{
             "condition": "Alternative condition",
-            "likelihood": 20,  // percentage
+            "probability": 20,  // percentage as number (0-100)
             "key_differentiators": ["what would make this more likely"]
         }}
     ],
@@ -1275,7 +1275,7 @@ CRITICAL: Output ONLY valid JSON with no text before or after:
     "differential_refinement": [
         {{
             "condition": "Alternative diagnosis",
-            "likelihood": 20,
+            "probability": 20,  // percentage as number (0-100)
             "distinguishing_features": ["What would make this more likely"]
         }}
     ],
