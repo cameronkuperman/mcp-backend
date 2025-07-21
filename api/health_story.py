@@ -158,12 +158,14 @@ async def generate_health_story(request: HealthStoryRequest):
         }
 
         Title Guidelines:
-        - Be beautifully creative and literary (e.g., "Whispers in the Morning Fog", "The Symphony of Silent Hours")
-        - Use poetic language, metaphors, and evocative imagery
-        - Create titles that feel like chapter names in a novel
+        - Be creative and engaging while clearly tied to the week's health story
+        - Use compelling language that reflects the actual health patterns
+        - Create titles that are intriguing but immediately understandable
         - Keep it under 8 words
-        - Make it artistic yet mysteriously informative
-        - Let creativity lead while hinting at the health theme
+        - Examples: If headaches are the focus: "Breaking the Morning Headache Pattern"
+                    If sleep improved: "Your Sleep Recovery Story"
+                    If pain decreased: "The Week Pain Took a Break"
+        - Balance creativity with clarity - readers should know what it's about
         
         Subtitle Guidelines:
         - Complement the poetic title with a clearer health connection
