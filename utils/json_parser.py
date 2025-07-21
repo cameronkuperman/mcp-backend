@@ -17,12 +17,12 @@ def extract_json_from_response(content: str) -> Optional[dict]:
     
     # Strategy 3: Find JSON in code blocks FIRST (most common from LLMs)
     try:
-        # Look for ```json blocks
-        json_block = re.search(r'```(?:json)?\s*(\{.*?\})\s*```', content, re.DOTALL)
+        # Look for ```json blocks (handle multiline properly)
+        json_block = re.search(r'```(?:json)?\s*(\{[^`]*\})\s*```', content, re.DOTALL)
         if json_block:
             return json.loads(json_block.group(1))
-    except:
-        pass
+    except Exception as e:
+        print(f"Error parsing JSON from code block: {e}")
     
     # Strategy 4: Find JSON in text (handle nested objects)
     try:
@@ -30,16 +30,33 @@ def extract_json_from_response(content: str) -> Optional[dict]:
         start = content.find('{')
         if start != -1:
             depth = 0
+            in_string = False
+            escape = False
+            
             for i in range(start, len(content)):
-                if content[i] == '{':
-                    depth += 1
-                elif content[i] == '}':
-                    depth -= 1
-                    if depth == 0:
-                        json_str = content[start:i+1]
-                        return json.loads(json_str)
-    except:
-        pass
+                char = content[i]
+                
+                # Handle string boundaries
+                if char == '"' and not escape:
+                    in_string = not in_string
+                elif char == '\\':
+                    escape = not escape
+                else:
+                    escape = False
+                
+                # Only count brackets outside of strings
+                if not in_string:
+                    if char == '{':
+                        depth += 1
+                    elif char == '}':
+                        depth -= 1
+                        if depth == 0:
+                            json_str = content[start:i+1]
+                            # Clean up common issues
+                            json_str = json_str.strip()
+                            return json.loads(json_str)
+    except Exception as e:
+        print(f"Error parsing JSON from text: {e}")
     
     # Strategy 5: Create fallback response for deep dive
     if "question" in content.lower() or "?" in content:

@@ -169,7 +169,9 @@ Format your response as JSON:
   ]
 }
 
-Be thorough and consider all medical possibilities. Use your advanced reasoning to provide accurate analysis."""
+Be thorough and consider all medical possibilities. Use your advanced reasoning to provide accurate analysis.
+
+CRITICAL: Output ONLY valid JSON with no text before or after. Do not include markdown formatting or code blocks."""
 
 PHOTO_COMPARISON_PROMPT = """Compare these medical photos taken at different times. Analyze:
 
@@ -191,7 +193,9 @@ Format as JSON:
   },
   "trend": "improving|worsening|stable",
   "ai_summary": "string"
-}"""
+}
+
+CRITICAL: Output ONLY valid JSON with no text before or after. Do not include markdown formatting or code blocks."""
 
 
 async def file_to_base64(file: UploadFile) -> str:
