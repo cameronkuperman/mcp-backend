@@ -12,6 +12,8 @@ from models.requests import (
     DeepDiveThinkHarderRequest,
     DeepDiveAskMoreRequest,
     QuickScanThinkHarderRequest,
+    QuickScanO4MiniRequest,
+    QuickScanUltraThinkRequest,
     QuickScanAskMoreRequest
 )
 from supabase_client import supabase
@@ -257,13 +259,26 @@ async def start_deep_dive(request: DeepDiveStartRequest):
             # First try our robust parser
             question_data = extract_json_from_response(llm_response.get("content", llm_response.get("raw_content", "")))
             
-            if not question_data:
-                # Fallback: Create a generic first question
+            # Validate the question data
+            if not question_data or not isinstance(question_data.get("question"), str) or len(question_data.get("question", "")) < 10:
+                # Invalid or missing question
+                print(f"Invalid question data received: {question_data}")
                 question_data = {
                     "question": f"Can you describe the {request.body_part} pain in more detail? Is it sharp, dull, burning, or aching?",
                     "question_type": "symptom_characterization",
-                    "internal_analysis": {"fallback": True}
+                    "internal_analysis": {"fallback": True, "original": question_data}
                 }
+            
+            # Additional validation - ensure question doesn't contain formatting instructions
+            question_text = question_data.get("question", "")
+            if any(word in question_text.lower() for word in ["json", "format", "response", "ensure", "```"]):
+                print(f"Question contains formatting instructions: {question_text}")
+                question_data = {
+                    "question": f"Can you describe the {request.body_part} symptoms in more detail? When did they start and what makes them better or worse?",
+                    "question_type": "symptom_characterization",
+                    "internal_analysis": {"fallback": True, "formatting_detected": True}
+                }
+                
         except Exception as e:
             print(f"Parse error in deep dive start: {e}")
             # Use fallback question
@@ -403,6 +418,7 @@ async def continue_deep_dive(request: DeepDiveContinueRequest):
         try:
             decision_data = extract_json_from_response(llm_response.get("content", llm_response.get("raw_content", "")))
             
+            # Validate decision data
             if not decision_data:
                 # Create fallback decision
                 decision_data = {
@@ -412,6 +428,23 @@ async def continue_deep_dive(request: DeepDiveContinueRequest):
                     "confidence_projection": "Gathering more information",
                     "updated_analysis": session.get("internal_state", {})
                 }
+            
+            # If there's a question, validate it
+            if decision_data.get("question"):
+                question_text = str(decision_data.get("question", ""))
+                # Check for formatting instructions
+                if any(word in question_text.lower() for word in ["json", "format", "response", "ensure", "```"]) or len(question_text) < 10:
+                    print(f"Invalid question detected in continue: {question_text}")
+                    # Generate contextual fallback question based on question number
+                    fallback_questions = [
+                        "Have you noticed if the symptoms change throughout the day or with certain activities?",
+                        "Are there any other symptoms you've experienced, even if they seem unrelated?",
+                        "Have you tried any treatments or medications, and did they help?",
+                        "Is there a family history of similar conditions?",
+                        "How is this affecting your daily activities and quality of life?"
+                    ]
+                    decision_data["question"] = fallback_questions[min(request.question_number - 1, len(fallback_questions) - 1)]
+                    
         except Exception as e:
             print(f"Parse error in deep dive continue: {e}")
             decision_data = {
@@ -1169,6 +1202,344 @@ Format as JSON with these fields:
         
     except Exception as e:
         print(f"Error in quick scan think harder: {e}")
+        return {"error": str(e), "status": "error"}
+
+@router.post("/quick-scan/think-harder-o4")
+async def quick_scan_think_harder_o4(request: QuickScanO4MiniRequest):
+    """Enhanced analysis using o4-mini for balanced reasoning and cost"""
+    try:
+        # Get quick scan data
+        scan_id = request.scan_id
+        if not scan_id:
+            return {"error": "scan_id is required", "status": "error"}
+        
+        # Fetch quick scan from database
+        scan_response = supabase.table("quick_scans").select("*").eq("id", scan_id).execute()
+        
+        if not scan_response.data:
+            return {"error": "Quick scan not found", "status": "error"}
+        
+        scan = scan_response.data[0]
+        
+        # Check if we already have o4-mini analysis
+        if scan.get("o4_mini_analysis"):
+            return {
+                "status": "success",
+                "message": "o4-mini analysis already exists",
+                "o4_mini_analysis": scan["o4_mini_analysis"],
+                "original_confidence": scan.get("confidence", 0),
+                "o4_mini_confidence": scan.get("o4_mini_confidence", 0),
+                "model_used": scan.get("o4_mini_model", "openai/o4-mini")
+            }
+        
+        # Get user medical data if available
+        medical_data = {}
+        llm_context = ""
+        if scan.get("user_id"):
+            medical_data = await get_user_medical_data(scan["user_id"])
+            llm_context = await get_llm_context_biz(scan["user_id"])
+        
+        # Create o4-mini specific prompt
+        o4_mini_prompt = f"""You are o4-mini, providing enhanced medical analysis with efficient reasoning.
+
+INITIAL ANALYSIS:
+{json.dumps(scan.get("analysis_result", {}), indent=2)}
+
+PATIENT DATA:
+- Body Part: {scan.get("body_part", "")}
+- Symptoms: {json.dumps(scan.get("form_data", {}), indent=2)}
+- Medical History: {json.dumps(medical_data, indent=2) if medical_data and "error" not in medical_data else "No history available"}
+
+YOUR TASK:
+Provide deeper analysis by:
+1. Identifying overlooked patterns in the symptoms
+2. Considering less common differential diagnoses
+3. Suggesting specific diagnostic tests or evaluations
+4. Providing more precise timeline expectations
+
+Focus on practical, actionable insights that add value beyond the initial analysis.
+
+CRITICAL: Output ONLY valid JSON with no text before or after:
+{{
+    "enhanced_diagnosis": {{
+        "primary": "More specific diagnosis based on pattern analysis",
+        "confidence": 85,
+        "key_pattern": "The critical symptom pattern that clarifies the diagnosis"
+    }},
+    "overlooked_considerations": [
+        {{
+            "factor": "Overlooked symptom or pattern",
+            "significance": "Why this matters"
+        }}
+    ],
+    "differential_refinement": [
+        {{
+            "condition": "Alternative diagnosis",
+            "likelihood": 20,
+            "distinguishing_features": ["What would make this more likely"]
+        }}
+    ],
+    "specific_recommendations": [
+        {{
+            "action": "Specific test or evaluation",
+            "rationale": "Why this is needed",
+            "urgency": "immediate|within_days|routine"
+        }}
+    ],
+    "timeline_expectations": {{
+        "with_treatment": "Expected improvement timeline",
+        "without_treatment": "Natural course",
+        "red_flag_timeline": "When to worry if not improving"
+    }},
+    "confidence": 88,
+    "reasoning_summary": "Brief summary of key reasoning that led to enhanced diagnosis"
+}}"""
+
+        # Call o4-mini
+        llm_response = await call_llm(
+            messages=[
+                {"role": "system", "content": o4_mini_prompt},
+                {"role": "user", "content": "Provide enhanced analysis with focused reasoning"}
+            ],
+            model=request.model,  # "openai/o4-mini"
+            user_id=scan.get("user_id"),
+            temperature=0.1,  # Very low temperature for consistency
+            max_tokens=1500
+        )
+        
+        # Parse response
+        try:
+            o4_mini_analysis = extract_json_from_response(llm_response.get("content", llm_response.get("raw_content", "")))
+            
+            if not o4_mini_analysis:
+                o4_mini_analysis = {
+                    "error": "Failed to parse o4-mini analysis",
+                    "raw_response": llm_response.get("raw_content", "")
+                }
+        except Exception as e:
+            print(f"Parse error in o4-mini analysis: {e}")
+            o4_mini_analysis = {
+                "error": str(e),
+                "raw_response": llm_response.get("raw_content", "")
+            }
+        
+        # Calculate confidence improvement
+        original_confidence = scan.get("confidence", 0)
+        o4_mini_confidence = o4_mini_analysis.get("confidence", original_confidence)
+        confidence_improvement = o4_mini_confidence - original_confidence
+        
+        # Update quick scan with o4-mini analysis
+        try:
+            supabase.table("quick_scans").update({
+                "o4_mini_analysis": o4_mini_analysis,
+                "o4_mini_confidence": o4_mini_confidence,
+                "o4_mini_model": request.model,
+                "o4_mini_at": datetime.now(timezone.utc).isoformat()
+            }).eq("id", scan_id).execute()
+        except Exception as db_error:
+            print(f"Error updating quick scan with o4-mini analysis: {db_error}")
+        
+        return {
+            "status": "success",
+            "analysis_tier": "enhanced",
+            "o4_mini_analysis": o4_mini_analysis,
+            "original_confidence": original_confidence,
+            "o4_mini_confidence": o4_mini_confidence,
+            "confidence_improvement": confidence_improvement,
+            "model_used": request.model,
+            "processing_message": "o4-mini-ized",
+            "next_tier_available": True,
+            "next_tier_preview": "Ultra Think with Grok can explore rare conditions and complex symptom interactions",
+            "scan_id": scan_id,
+            "usage": llm_response.get("usage", {})
+        }
+        
+    except Exception as e:
+        print(f"Error in quick scan o4-mini analysis: {e}")
+        return {"error": str(e), "status": "error"}
+
+@router.post("/quick-scan/ultra-think")
+async def quick_scan_ultra_think(request: QuickScanUltraThinkRequest):
+    """Maximum reasoning analysis using Grok 4 for complex cases"""
+    try:
+        # Get quick scan data
+        scan_id = request.scan_id
+        if not scan_id:
+            return {"error": "scan_id is required", "status": "error"}
+        
+        # Fetch quick scan from database
+        scan_response = supabase.table("quick_scans").select("*").eq("id", scan_id).execute()
+        
+        if not scan_response.data:
+            return {"error": "Quick scan not found", "status": "error"}
+        
+        scan = scan_response.data[0]
+        
+        # Get all previous analyses
+        original_analysis = scan.get("analysis_result", {})
+        o4_mini_analysis = scan.get("o4_mini_analysis", {})
+        enhanced_analysis = scan.get("enhanced_analysis", {})  # From regular think-harder
+        
+        # Get user medical data if available
+        medical_data = {}
+        llm_context = ""
+        if scan.get("user_id"):
+            medical_data = await get_user_medical_data(scan["user_id"])
+            llm_context = await get_llm_context_biz(scan["user_id"])
+        
+        # Create Grok 4 ultra reasoning prompt
+        ultra_prompt = f"""You are Grok 4, applying maximum reasoning capability to solve a complex medical case.
+
+COMPREHENSIVE CASE DATA:
+
+Initial Symptoms:
+{json.dumps(scan.get("form_data", {}), indent=2)}
+
+Body Part: {scan.get("body_part", "")}
+
+Medical History:
+{json.dumps(medical_data, indent=2) if medical_data and "error" not in medical_data else "No history available"}
+
+PREVIOUS ANALYSES:
+1. Initial Analysis (Gemini 2.5 Pro):
+{json.dumps(original_analysis, indent=2)}
+
+2. o4-mini Enhanced Analysis:
+{json.dumps(o4_mini_analysis, indent=2) if o4_mini_analysis else "Not performed"}
+
+3. Standard Enhanced Analysis:
+{json.dumps(enhanced_analysis, indent=2) if enhanced_analysis else "Not performed"}
+
+ULTRA REASONING TASK:
+Apply your maximum reasoning capability to:
+
+1. DEEP PATTERN ANALYSIS
+   - Identify subtle symptom clusters that suggest rare conditions
+   - Analyze temporal relationships between symptoms
+   - Consider genetic/familial predispositions
+
+2. ADVANCED DIFFERENTIAL DIAGNOSIS
+   - Include rare conditions (zebras) that fit the pattern
+   - Calculate relative probabilities using Bayesian reasoning
+   - Consider mimics and masqueraders
+
+3. SYSTEMIC CONNECTIONS
+   - How might this connect to other body systems?
+   - What cascade effects should we consider?
+   - Are there underlying metabolic/hormonal factors?
+
+4. DIAGNOSTIC STRATEGY
+   - What's the most efficient path to definitive diagnosis?
+   - Which tests rule in/out the most conditions?
+   - Cost-benefit analysis of different approaches
+
+5. TREATMENT IMPLICATIONS
+   - How does the diagnosis affect treatment urgency?
+   - What are the risks of delayed diagnosis?
+   - Prevention strategies for complications
+
+CRITICAL: Output ONLY valid JSON:
+{{
+    "ultra_diagnosis": {{
+        "primary": "Most likely diagnosis with nuanced understanding",
+        "confidence": 95,
+        "reasoning_chain": [
+            "Step 1: Key observation...",
+            "Step 2: This pattern suggests...",
+            "Step 3: Ruling out X because..."
+        ]
+    }},
+    "rare_considerations": [
+        {{
+            "condition": "Rare condition name",
+            "probability": 5,
+            "key_markers": ["Specific signs that suggest this"],
+            "diagnostic_test": "Definitive test to confirm/exclude"
+        }}
+    ],
+    "systemic_analysis": {{
+        "primary_system": "Main affected system",
+        "secondary_effects": ["Other systems potentially involved"],
+        "underlying_factors": ["Possible root causes"]
+    }},
+    "diagnostic_strategy": {{
+        "immediate_tests": ["Test 1 - rules out X", "Test 2 - confirms Y"],
+        "staged_approach": ["If initial tests negative, then..."],
+        "cost_efficient_path": "Recommended sequence to minimize cost/invasiveness"
+    }},
+    "critical_insights": [
+        "Insight that changes management approach",
+        "Finding that wasn't obvious in previous analyses"
+    ],
+    "confidence": 96,
+    "complexity_score": 8.5,  // 1-10 scale of case complexity
+    "recommendation_change": "How this analysis changes the recommended approach"
+}}"""
+
+        # Call Grok 4
+        llm_response = await call_llm(
+            messages=[
+                {"role": "system", "content": ultra_prompt},
+                {"role": "user", "content": "Apply maximum reasoning to provide definitive analysis"}
+            ],
+            model=request.model,  # "x-ai/grok-beta"
+            user_id=scan.get("user_id"),
+            temperature=0.1,
+            max_tokens=2500
+        )
+        
+        # Parse response
+        try:
+            ultra_analysis = extract_json_from_response(llm_response.get("content", llm_response.get("raw_content", "")))
+            
+            if not ultra_analysis:
+                ultra_analysis = {
+                    "error": "Failed to parse ultra analysis",
+                    "raw_response": llm_response.get("raw_content", "")
+                }
+        except Exception as e:
+            print(f"Parse error in ultra analysis: {e}")
+            ultra_analysis = {
+                "error": str(e),
+                "raw_response": llm_response.get("raw_content", "")
+            }
+        
+        # Calculate cumulative confidence progression
+        original_confidence = original_analysis.get("confidence", 0)
+        o4_mini_confidence = o4_mini_analysis.get("confidence", original_confidence) if o4_mini_analysis else original_confidence
+        ultra_confidence = ultra_analysis.get("confidence", o4_mini_confidence)
+        
+        # Update quick scan with ultra analysis
+        try:
+            supabase.table("quick_scans").update({
+                "ultra_analysis": ultra_analysis,
+                "ultra_confidence": ultra_confidence,
+                "ultra_model": request.model,
+                "ultra_at": datetime.now(timezone.utc).isoformat()
+            }).eq("id", scan_id).execute()
+        except Exception as db_error:
+            print(f"Error updating quick scan with ultra analysis: {db_error}")
+        
+        return {
+            "status": "success",
+            "analysis_tier": "ultra",
+            "ultra_analysis": ultra_analysis,
+            "confidence_progression": {
+                "original": original_confidence,
+                "o4_mini": o4_mini_confidence,
+                "ultra": ultra_confidence
+            },
+            "total_confidence_gain": ultra_confidence - original_confidence,
+            "model_used": request.model,
+            "processing_message": "Grokked your symptoms",
+            "complexity_score": ultra_analysis.get("complexity_score", 0),
+            "critical_insights": ultra_analysis.get("critical_insights", []),
+            "scan_id": scan_id,
+            "usage": llm_response.get("usage", {})
+        }
+        
+    except Exception as e:
+        print(f"Error in quick scan ultra think: {e}")
         return {"error": str(e), "status": "error"}
 
 @router.post("/quick-scan/ask-more")

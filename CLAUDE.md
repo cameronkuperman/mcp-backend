@@ -21,17 +21,20 @@
 - ❌ `deepseek/deepseek-r1` - Same broken model
 
 ### ALWAYS USE THESE WORKING MODELS:
-1. ✅ `tngtech/deepseek-r1t-chimera:free` - BEST for Deep Dive & Oracle Chat
-2. ✅ `deepseek/deepseek-chat` - Good for Quick Scan
-3. ✅ `meta-llama/llama-3.2-3b-instruct:free` - Fast and reliable
-4. ✅ `google/gemini-2.0-flash-exp:free` - Good for large contexts
-5. ✅ `microsoft/phi-3-mini-128k-instruct:free` - Lightweight
+1. ✅ `deepseek/deepseek-chat` - DeepSeek V3 - DEFAULT for Quick Scan
+2. ✅ `google/gemini-2.5-pro` - BEST for Deep Dive & Photo Analysis
+3. ✅ `openai/o4-mini` - Think Harder tier 2 (balanced cost/performance)
+4. ✅ `x-ai/grok-4` - Ultra Think & Deep Dive Think Harder (maximum reasoning)
+5. ✅ `tngtech/deepseek-r1t-chimera:free` - Fallback option
+6. ✅ `google/gemini-2.0-flash-exp:free` - Good for large contexts
 
 ### MODEL USAGE BY ENDPOINT:
-- **Oracle Chat**: Uses chimera (working great!)
-- **Deep Dive**: Uses chimera (same as Oracle)
-- **Quick Scan**: Uses deepseek-chat
-- **Summaries**: Uses deepseek-chat
+- **Quick Scan**: Uses `deepseek/deepseek-chat` (DeepSeek V3)
+- **Deep Dive**: Uses `google/gemini-2.5-pro`
+- **Photo Analysis**: Uses `google/gemini-2.5-pro`
+- **Think Harder (o4)**: Uses `openai/o4-mini`
+- **Ultra Think**: Uses `x-ai/grok-4`
+- **Deep Dive Think Harder**: Uses `x-ai/grok-4`
 
 ## 🏗️ PROJECT STRUCTURE
 

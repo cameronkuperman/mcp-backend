@@ -40,7 +40,7 @@ class DeepDiveCompleteRequest(BaseModel):
 class DeepDiveThinkHarderRequest(BaseModel):
     session_id: str
     user_id: Optional[str] = None
-    model: str = "openai/o4-mini-high"  # o4-mini with high reasoning effort - cost-efficient with strong performance
+    model: str = "x-ai/grok-4"  # Grok 4 for maximum reasoning in deep dive
 
 class DeepDiveAskMoreRequest(BaseModel):
     session_id: str
@@ -52,6 +52,16 @@ class QuickScanThinkHarderRequest(BaseModel):
     scan_id: str
     user_id: Optional[str] = None
     model: str = "openai/gpt-4o"  # Default to GPT-4 for enhanced analysis
+
+class QuickScanO4MiniRequest(BaseModel):
+    scan_id: str
+    user_id: Optional[str] = None
+    model: str = "openai/o4-mini"  # Regular o4-mini for balanced cost/performance
+
+class QuickScanUltraThinkRequest(BaseModel):
+    scan_id: str
+    user_id: Optional[str] = None
+    model: str = "x-ai/grok-4"  # Grok 4 for maximum reasoning
 
 class QuickScanAskMoreRequest(BaseModel):
     scan_id: str

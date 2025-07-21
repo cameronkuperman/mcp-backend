@@ -408,7 +408,7 @@ async def get_user_model(user_id: str) -> str:
         response = supabase.table("medical").select("preferred_model").eq("id", user_id).execute()
         if response.data and len(response.data) > 0 and response.data[0].get("preferred_model"):
             return response.data[0]["preferred_model"]
-        return "deepseek/deepseek-chat"  # DeepSeek V3 free model
+        return "deepseek/deepseek-chat"  # DeepSeek V3 - default model
     except Exception as e:
         # If preferred_model column doesn't exist, just use default
         return "deepseek/deepseek-chat"
@@ -423,7 +423,7 @@ async def call_llm(messages: list, model: Optional[str] = None, user_id: Optiona
     if not model and user_id:
         model = await get_user_model(user_id)
     elif not model:
-        model = "deepseek/deepseek-chat"
+        model = "deepseek/deepseek-chat"  # DeepSeek V3 - default model
 
     # Make the request using requests library (proven to work)
     def make_request():
