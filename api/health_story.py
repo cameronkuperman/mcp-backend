@@ -173,17 +173,18 @@ async def generate_health_story(request: HealthStoryRequest):
         - Keep it intriguing but slightly more grounded than the title
 
         Content Guidelines:
-        - Write 2-3 paragraphs with engaging narrative touches
-        - Use clear language with occasional vivid descriptions
-        - Include specific percentages and metrics naturally in the flow
-        - Tell a story but stay grounded in the data
-        - Add descriptive flourishes that enhance understanding
-        - Write in second person with warmth and insight
+        - Write 2-3 paragraphs with engaging narrative flow
+        - Weave health conditions and medical terms naturally into the story
+        - Include specific percentages and metrics within descriptive sentences
+        - Balance creativity with medical accuracy
+        - Reference conditions properly (e.g., "tension headaches", "sleep efficiency") but keep it readable
+        - Write in second person with warmth and slight narrative flair
 
         Style Examples:
-        - Instead of "Your headaches increased": "Morning headaches have been weaving a troubling pattern through your week"
-        - Instead of "Sleep improved 23%": "Your nights have transformed, granting you 23% more restorative deep sleep"
-        - Instead of "Stress correlates with symptoms": "Your body seems to translate stress into a familiar language of aches"
+        - "The tension headaches that visited you 4 times this week seem to prefer the morning hours"
+        - "Your sleep has undergone a transformation, with efficiency climbing to 85% and deep sleep phases extending by 23%"
+        - "There's a strong connection between your stress levels and symptom intensity, with a correlation of 0.78"
+        - "Your heart is finding a calmer rhythm, settling from 72 to a more peaceful 68 beats per minute"
 
         Do NOT:
         - Mention app features, scans, or technical terms
