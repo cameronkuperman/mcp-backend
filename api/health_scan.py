@@ -613,10 +613,21 @@ async def complete_deep_dive(request: DeepDiveCompleteRequest):
         
         # Parse final analysis with comprehensive fallback
         try:
-            analysis_result = extract_json_from_response(llm_response.get("content", llm_response.get("raw_content", "")))
+            # DEBUG: Log the raw response
+            raw_response = llm_response.get("content", llm_response.get("raw_content", ""))
+            print(f"[DEBUG] Deep Dive Complete - Raw LLM Response Type: {type(raw_response)}")
+            print(f"[DEBUG] Deep Dive Complete - Raw LLM Response: {str(raw_response)[:500]}...")
+            
+            analysis_result = extract_json_from_response(raw_response)
+            
+            # DEBUG: Log parsing result
+            print(f"[DEBUG] Deep Dive Complete - Parsed Result: {analysis_result is not None}")
+            if analysis_result:
+                print(f"[DEBUG] Deep Dive Complete - Parsed Keys: {list(analysis_result.keys()) if isinstance(analysis_result, dict) else 'Not a dict'}")
             
             if not analysis_result:
                 # Create structured fallback analysis
+                print("[DEBUG] Deep Dive Complete - Using fallback analysis due to parsing failure")
                 analysis_result = {
                     "confidence": 70,
                     "primaryCondition": f"Analysis of {session.get('body_part', 'symptom')} pain",
@@ -631,6 +642,9 @@ async def complete_deep_dive(request: DeepDiveCompleteRequest):
                     "differentials": [],
                     "redFlags": ["Seek immediate care if symptoms suddenly worsen"],
                     "selfCare": ["Rest and avoid activities that worsen symptoms"],
+                    "timeline": "Monitor for 2-3 days",
+                    "followUp": "If symptoms persist or worsen after 3 days",
+                    "relatedSymptoms": ["Watch for fever, spreading symptoms, or increased pain"],
                     "reasoning_snippets": ["Based on reported symptoms"]
                 }
         except Exception as e:
@@ -646,6 +660,9 @@ async def complete_deep_dive(request: DeepDiveCompleteRequest):
                 "differentials": [],
                 "redFlags": [],
                 "selfCare": [],
+                "timeline": "Seek evaluation within 24-48 hours",
+                "followUp": "Schedule appointment with healthcare provider",
+                "relatedSymptoms": ["Monitor all symptoms"],
                 "reasoning_snippets": ["Unable to complete full analysis"]
             }
         

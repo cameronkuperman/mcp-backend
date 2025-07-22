@@ -343,26 +343,28 @@ Apply clinical reasoning principles:
 - Consider patient's specific risk factors
 
 ## OUTPUT FORMAT
-You MUST return a JSON object with this exact structure:
+CRITICAL: Output ONLY valid JSON with no text before or after. Do not include any explanation, introduction, or commentary.
+
+Return this exact JSON structure:
 {{
   "confidence": number,           // 0-100 your diagnostic certainty
   "primaryCondition": "Medical diagnosis (patient-friendly term)",
   "likelihood": "Very likely" | "Likely" | "Possible",
   "symptoms": string[],          // All symptoms identified during interview
   "recommendations": string[],    // 3-5 specific, actionable next steps
-  "urgency": 'low' | 'medium' | 'high',
+  "urgency": "low" | "medium" | "high",
   "differentials": [
     {{"condition": "Alternative diagnosis (patient term)", "probability": number}}
   ],
   "redFlags": string[],          // Any symptoms requiring immediate evaluation
   "selfCare": string[],
-  "timeline": string,
-  "followUp": string,
-  "relatedSymptoms": string[],
+  "timeline": string,            // e.g., "2-3 days", "1-2 weeks"
+  "followUp": string,            // When to seek further care
+  "relatedSymptoms": string[],   // Things to monitor
   "reasoning_snippets": ["key insights from Q&A that led to diagnosis"]
 }}
 
-Provide more detailed and confident analysis than Quick Scan due to additional Q&A information."""
+IMPORTANT: Provide more detailed and confident analysis than Quick Scan due to additional Q&A information."""
     
     else:
         base_prompt += f"General query\n"
