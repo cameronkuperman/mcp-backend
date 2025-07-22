@@ -214,27 +214,27 @@ async def start_deep_dive(request: DeepDiveStartRequest):
             "medical_data": medical_data if medical_data and "error" not in medical_data else None
         }
         
-        # Use DeepSeek R1 for asking questions (better at generating diagnostic questions)
-        model = request.model or "tngtech/deepseek-r1t-chimera:free"
+        # Use DeepSeek V3 by default (more reliable JSON output)
+        model = request.model or "deepseek/deepseek-chat"
         
         # Add model validation and fallback
         WORKING_MODELS = [
-            "tngtech/deepseek-r1t-chimera:free",  # Primary model for deep dive questions
-            "google/gemini-2.5-pro",  # Fallback option
-            "deepseek/deepseek-chat",
+            "deepseek/deepseek-chat",  # DeepSeek V3 - most reliable for JSON
+            "google/gemini-2.5-pro",  # Good for analysis
+            "tngtech/deepseek-r1t-chimera:free",  # Reasoning model (use carefully)
             "meta-llama/llama-3.2-3b-instruct:free",
             "google/gemini-2.0-flash-exp:free",
             "microsoft/phi-3-mini-128k-instruct:free",
             "x-ai/grok-4",  # Grok 4 for Ultra Think
             "openai/gpt-4-turbo",  # Fallback model
-            "openai/gpt-4o-mini",  # Oracle AI model
+            "openai/o4-mini",  # Think Harder model
             "anthropic/claude-3-sonnet"  # Another fallback
         ]
         
-        # If specified model not in list, use DeepSeek R1
+        # If specified model not in list, use DeepSeek V3
         if model not in WORKING_MODELS:
-            print(f"Model {model} not in working list, using DeepSeek R1")
-            model = "tngtech/deepseek-r1t-chimera:free"
+            print(f"Model {model} not in working list, using DeepSeek V3")
+            model = "deepseek/deepseek-chat"
         
         # Generate initial question
         query = request.form_data.get("symptoms", "Health analysis requested")
@@ -423,13 +423,18 @@ async def continue_deep_dive(request: DeepDiveContinueRequest):
             category="deep-dive-continue"
         )
         
-        # Call LLM
+        # Call LLM - use fallback model if provided
+        model_to_use = request.fallback_model if request.fallback_model else session.get("model_used", "deepseek/deepseek-chat")
+        
+        # Force JSON output
+        user_prompt = "Process answer and decide next step. OUTPUT ONLY JSON."
+        
         llm_response = await call_llm(
             messages=[
                 {"role": "system", "content": system_prompt},
-                {"role": "user", "content": "Process answer and decide next step"}
+                {"role": "user", "content": user_prompt}
             ],
-            model=session.get("model_used", "google/gemini-2.5-pro"),  # Default to Gemini 2.5 Pro
+            model=model_to_use,
             user_id=session.get("user_id"),
             temperature=0.3,
             max_tokens=1024
@@ -644,13 +649,18 @@ async def complete_deep_dive(request: DeepDiveCompleteRequest):
             category="deep-dive-final"
         )
         
-        # Call LLM for final analysis
+        # Call LLM for final analysis - use fallback model if provided
+        model_to_use = request.fallback_model if request.fallback_model else "deepseek/deepseek-chat"
+        
+        # Special handling for Gemini models - force JSON mode
+        user_prompt = "Generate comprehensive final analysis based on all Q&A. OUTPUT ONLY JSON, NO OTHER TEXT."
+        
         llm_response = await call_llm(
             messages=[
                 {"role": "system", "content": system_prompt},
-                {"role": "user", "content": "Generate comprehensive final analysis based on all Q&A"}
+                {"role": "user", "content": user_prompt}
             ],
-            model="google/gemini-2.5-pro",  # Always use Gemini 2.5 Pro for final analysis
+            model=model_to_use,
             user_id=session.get("user_id"),
             temperature=0.3,
             max_tokens=2048
@@ -660,8 +670,19 @@ async def complete_deep_dive(request: DeepDiveCompleteRequest):
         try:
             # DEBUG: Log the raw response
             raw_response = llm_response.get("content", llm_response.get("raw_content", ""))
+            print(f"[DEBUG] Deep Dive Complete - Model Used: {model_to_use}")
             print(f"[DEBUG] Deep Dive Complete - Raw LLM Response Type: {type(raw_response)}")
-            print(f"[DEBUG] Deep Dive Complete - Raw LLM Response: {str(raw_response)[:500]}...")
+            print(f"[DEBUG] Deep Dive Complete - Raw LLM Response: {str(raw_response)[:1000]}...")
+            
+            # For Gemini models, try extra cleaning
+            if "gemini" in model_to_use.lower() and isinstance(raw_response, str):
+                # Remove any markdown or explanation text before/after JSON
+                raw_response = raw_response.strip()
+                # Find JSON boundaries more aggressively
+                json_start = raw_response.find('{')
+                json_end = raw_response.rfind('}')
+                if json_start != -1 and json_end != -1:
+                    raw_response = raw_response[json_start:json_end+1]
             
             analysis_result = extract_json_from_response(raw_response)
             

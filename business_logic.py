@@ -343,9 +343,9 @@ Apply clinical reasoning principles:
 - Consider patient's specific risk factors
 
 ## OUTPUT FORMAT
-CRITICAL: Output ONLY valid JSON with no text before or after. Do not include any explanation, introduction, or commentary.
+You MUST output ONLY a JSON object. No text before or after. Start with { and end with }.
 
-Return this exact JSON structure:
+Return EXACTLY this JSON structure (no other text):
 {{
   "confidence": number,           // 0-100 your diagnostic certainty
   "primaryCondition": "Medical diagnosis (patient-friendly term)",

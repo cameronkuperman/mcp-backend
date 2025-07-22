@@ -30,7 +30,7 @@
 
 ### MODEL USAGE BY ENDPOINT:
 - **Quick Scan**: Uses `deepseek/deepseek-chat` (DeepSeek V3)
-- **Deep Dive**: Uses `google/gemini-2.5-pro`
+- **Deep Dive**: Uses `deepseek/deepseek-chat` (Changed from Gemini for better JSON)
 - **Photo Analysis**: Uses `google/gemini-2.5-pro`
 - **Think Harder (o4)**: Uses `openai/o4-mini`
 - **Ultra Think**: Uses `x-ai/grok-4`
@@ -129,11 +129,22 @@ Before deploying to Railway:
    - All responses use explicit `null` instead of undefined
    - Include helpful messages
 
+6. **JSON Response Format** ✅
+   - **Backend returns parsed JavaScript objects, NOT JSON strings**
+   - **Frontend should NOT use JSON.parse() on responses**
+   - All numeric values are numbers, not strings
+   - Deep Dive now uses DeepSeek V3 by default (better JSON compliance)
+   - Enhanced JSON extraction for Gemini models
+
 ## 🔧 COMMON ISSUES & FIXES
 
 ### Deep Dive Not Working:
-- **Issue**: Returns empty questions or parse errors
-- **Fix**: Ensure using `deepseek/deepseek-chat`, not deepseek-r1
+- **Issue**: Returns generic fallback responses instead of real medical analysis
+- **Fix**: 
+  1. Changed default model to `deepseek/deepseek-chat` (better JSON compliance)
+  2. Added aggressive JSON extraction for Gemini models
+  3. Enhanced debug logging to track parsing failures
+  4. Frontend should NOT double-parse responses (they're already objects)
 
 ### Railway Build Failing:
 - **Issue**: Pydantic/tiktoken build errors
@@ -195,7 +206,7 @@ uv run python run_oracle.py
 # Test health check
 curl http://localhost:8000/api/health
 
-# Test deep dive (uses chimera by default - same as Oracle!)
+# Test deep dive (uses DeepSeek V3 by default for better JSON)
 curl -X POST http://localhost:8000/api/deep-dive/start \
   -H "Content-Type: application/json" \
   -d '{
@@ -230,5 +241,5 @@ The codebase has been modularized from a single 4,871-line file into organized m
 6. **NEVER add new endpoints to run_oracle.py** - use appropriate modules
 
 ---
-Last Updated: 2025-01-17
+Last Updated: 2025-01-22
 Remember: Security first, functionality second!
