@@ -711,9 +711,9 @@ async def complete_deep_dive(request: DeepDiveCompleteRequest):
                 "reasoning_snippets": ["Unable to complete full analysis"]
             }
         
-        # Update session with results
+        # Update session with results - use "analysis_ready" to allow Ask Me More
         update_data = {
-            "status": "completed",  # Using completed for now until DB constraint is updated
+            "status": "analysis_ready",  # Changed from "completed" to allow Ask Me More
             "completed_at": datetime.now(timezone.utc).isoformat(),
             "final_analysis": analysis_result,
             "final_confidence": analysis_result.get("confidence", 0),

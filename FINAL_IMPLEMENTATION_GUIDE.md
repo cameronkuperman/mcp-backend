@@ -12,9 +12,10 @@
    - Proper error responses with fallback messages
 
 2. **✅ Deep Dive Session Management**
-   - Sessions use `analysis_ready` state (not `completed`)
+   - Sessions use `analysis_ready` state after initial analysis
+   - Database constraint confirmed: `['active', 'analysis_ready', 'completed', 'abandoned']`
    - Ask Me More works with up to 5 additional questions
-   - Force completion after 6 questions regardless of confidence
+   - Force completion after 6 total questions regardless of confidence
    - Session tracking with `initial_questions_count`
 
 3. **✅ Deep Dive Continue Response**

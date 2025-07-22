@@ -5,8 +5,9 @@
 All backend changes have been implemented to match your frontend expectations. Here's what's ready:
 
 ### 1. ✅ Session State Management
-- Added `analysis_ready` state support
-- Sessions remain open after analysis for Ask Me More
+- Added `analysis_ready` state support (confirmed in database constraint)
+- Sessions transition: `active` → `analysis_ready` → `completed`
+- Sessions remain open in `analysis_ready` state for Ask Me More
 - Auto-tracking of initial vs additional questions
 
 ### 2. ✅ Dedicated Deep Dive Ultra Think Endpoint

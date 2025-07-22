@@ -120,7 +120,7 @@ SELECT
     NULL as o4_mini_analysis,
     ultra_analysis
 FROM public.deep_dive_sessions
-WHERE status = 'completed';
+WHERE status IN ('completed', 'analysis_ready');  -- Include analysis_ready for Ask Me More support
 
 -- ============================================
 -- 5. HELPER FUNCTIONS (Optional)
