@@ -27,15 +27,18 @@ class DeepDiveStartRequest(BaseModel):
     form_data: Dict[str, Any]
     user_id: Optional[str] = None
     model: Optional[str] = None  # Will default to google/gemini-2.5-pro
+    fallback_model: Optional[str] = None  # For retry support
 
 class DeepDiveContinueRequest(BaseModel):
     session_id: str
     answer: str
     question_number: int
+    fallback_model: Optional[str] = None  # For retry support
 
 class DeepDiveCompleteRequest(BaseModel):
     session_id: str
     final_answer: Optional[str] = None
+    fallback_model: Optional[str] = None  # For retry support
 
 class DeepDiveThinkHarderRequest(BaseModel):
     session_id: str

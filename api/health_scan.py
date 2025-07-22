@@ -242,17 +242,34 @@ async def start_deep_dive(request: DeepDiveStartRequest):
             part_selected=request.body_part
         )
         
-        # Call LLM
-        llm_response = await call_llm(
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": f"Analyze symptoms and generate first diagnostic question"}
-            ],
-            model=model,
-            user_id=request.user_id,
-            temperature=0.3,
-            max_tokens=1024
-        )
+        # Call LLM with fallback support
+        try:
+            llm_response = await call_llm(
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": f"Analyze symptoms and generate first diagnostic question"}
+                ],
+                model=model,
+                user_id=request.user_id,
+                temperature=0.3,
+                max_tokens=1024
+            )
+        except Exception as e:
+            if request.fallback_model:
+                print(f"Primary model {model} failed: {e}. Trying fallback: {request.fallback_model}")
+                llm_response = await call_llm(
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": f"Analyze symptoms and generate first diagnostic question"}
+                    ],
+                    model=request.fallback_model,
+                    user_id=request.user_id,
+                    temperature=0.3,
+                    max_tokens=1024
+                )
+                model = request.fallback_model  # Update model for session tracking
+            else:
+                raise
         
         # Parse response with robust fallback
         try:
@@ -353,7 +370,7 @@ async def continue_deep_dive(request: DeepDiveContinueRequest):
         
         session = session_response.data[0]
         
-        if session["status"] != "active":
+        if session["status"] not in ["active", "analysis_ready"]:
             return {"error": "Session already completed", "status": "error"}
         
         # Add Q&A to history
@@ -538,10 +555,20 @@ async def continue_deep_dive(request: DeepDiveContinueRequest):
                 "status": "success"
             }
         else:
-            # Ready for final analysis
+            # Ready for final analysis - update status to analysis_ready
+            try:
+                supabase.table("deep_dive_sessions").update({
+                    "status": "analysis_ready",
+                    "final_confidence": current_confidence,
+                    "initial_questions_count": len(questions)  # Track initial count for Ask Me More
+                }).eq("id", request.session_id).execute()
+            except Exception as e:
+                print(f"Error updating session to analysis_ready: {e}")
+            
             return {
                 "ready_for_analysis": True,
                 "questions_completed": request.question_number,
+                "current_confidence": current_confidence,
                 "status": "success"
             }
             
@@ -666,15 +693,16 @@ async def complete_deep_dive(request: DeepDiveCompleteRequest):
                 "reasoning_snippets": ["Unable to complete full analysis"]
             }
         
-        # Update session with results
+        # Update session with results - use "analysis_ready" to allow Ask Me More
         update_data = {
-            "status": "completed",
+            "status": "analysis_ready",  # Changed from "completed" to allow Ask Me More
             "completed_at": datetime.now(timezone.utc).isoformat(),
             "final_analysis": analysis_result,
             "final_confidence": analysis_result.get("confidence", 0),
             "reasoning_chain": analysis_result.get("reasoning_snippets", []),
             "questions": questions,
-            "tokens_used": llm_response.get("usage", {})
+            "tokens_used": llm_response.get("usage", {}),
+            "allow_more_questions": True  # Flag to indicate Ask Me More is available
         }
         
         # Update session in database
@@ -871,6 +899,161 @@ Return a JSON response with this exact structure:
         print(f"Error in deep dive think harder: {e}")
         return {"error": str(e), "status": "error"}
 
+@router.post("/deep-dive/ultra-think")
+async def deep_dive_ultra_think(request: DeepDiveThinkHarderRequest):
+    """Ultra Think endpoint specifically for Deep Dive - uses Grok 4 for maximum reasoning"""
+    try:
+        # Get session from database
+        session_response = supabase.table("deep_dive_sessions").select("*").eq("id", request.session_id).execute()
+        
+        if not session_response.data:
+            return {"error": "Session not found", "status": "error"}
+        
+        session = session_response.data[0]
+        
+        if session["status"] not in ["completed", "analysis_ready"]:
+            return {"error": "Session must have analysis before using Ultra Think", "status": "error"}
+        
+        # Get all session data
+        questions = session.get("questions", [])
+        form_data = session.get("form_data", {})
+        body_part = session.get("body_part", "")
+        final_analysis = session.get("final_analysis", {})
+        
+        # Get medical data if user_id exists
+        medical_data = {}
+        llm_context = ""
+        if request.user_id or session.get("user_id"):
+            user_id = request.user_id or session.get("user_id")
+            medical_data = await get_user_medical_data(user_id)
+            llm_context = await get_llm_context_biz(user_id)
+        
+        # Create Ultra Think prompt for Grok 4
+        ultra_prompt = f"""You are applying maximum reasoning capabilities with Grok 4 to provide definitive medical analysis.
+
+PATIENT PRESENTATION:
+- Body Part: {body_part}
+- Initial Symptoms: {json.dumps(form_data)}
+- Medical History: {json.dumps(medical_data) if medical_data else "Not available"}
+
+DIAGNOSTIC Q&A SESSION:
+{chr(10).join([f"Q{q['question_number']}: {q.get('question', 'N/A')}{chr(10)}A{q['question_number']}: {q.get('answer', 'N/A')}" for q in questions])}
+
+CURRENT ANALYSIS:
+{json.dumps(final_analysis)}
+
+ULTRA REASONING TASK:
+Apply Grok 4's advanced reasoning to:
+1. Identify patterns missed by standard analysis
+2. Consider rare conditions and complex interactions
+3. Provide critical insights that change management
+4. Calculate true diagnostic confidence with maximum reasoning
+
+Return JSON with this structure:
+{{
+    "primaryCondition": "Most accurate diagnosis with maximum reasoning",
+    "confidence": 96,  // Your ultra-confidence (typically 90-99)
+    "clinical_reasoning": "Detailed explanation of reasoning process",
+    "differentials": [
+        {{
+            "condition": "Alternative diagnosis",
+            "probability": 20,
+            "evidence_for": ["supporting factors"],
+            "evidence_against": ["contradicting factors"],
+            "diagnostic_tests": ["specific tests to differentiate"]
+        }}
+    ],
+    "hidden_patterns": [
+        "Subtle pattern 1 that was missed",
+        "Complex interaction identified"
+    ],
+    "systemic_analysis": {{
+        "primary_system": "Main affected system",
+        "secondary_effects": ["Other systems involved"],
+        "underlying_factors": ["Root causes identified"]
+    }},
+    "diagnostic_strategy": {{
+        "immediate_tests": ["Test 1 - purpose", "Test 2 - purpose"],
+        "staged_approach": ["If X negative, then Y"],
+        "cost_efficient_path": "Optimal testing sequence"
+    }},
+    "critical_insights": [
+        "Game-changing insight 1",
+        "Key finding that changes approach"
+    ],
+    "complexity_score": 8.5,  // 1-10 scale
+    "recommendation_change": "How this ultra analysis changes the treatment approach",
+    "urgency": "low|medium|high",
+    "redFlags": ["Critical symptoms to monitor"],
+    "timeline": "Expected course with treatment",
+    "followUp": "When to reassess"
+}}"""
+
+        # Call Grok 4
+        llm_response = await call_llm(
+            messages=[
+                {"role": "system", "content": ultra_prompt},
+                {"role": "user", "content": "Apply maximum reasoning for definitive analysis"}
+            ],
+            model="x-ai/grok-4",  # Always use Grok 4 for Ultra Think
+            user_id=session.get("user_id"),
+            temperature=0.1,
+            max_tokens=3000
+        )
+        
+        # Parse response
+        try:
+            ultra_analysis = extract_json_from_response(llm_response.get("content", llm_response.get("raw_content", "")))
+            
+            if not ultra_analysis:
+                ultra_analysis = {
+                    "error": "Failed to parse ultra analysis",
+                    "raw_response": llm_response.get("raw_content", "")
+                }
+        except Exception as e:
+            print(f"Parse error in deep dive ultra think: {e}")
+            ultra_analysis = {
+                "error": str(e),
+                "raw_response": llm_response.get("raw_content", "")
+            }
+        
+        # Update session with ultra analysis
+        original_confidence = final_analysis.get("confidence", 0)
+        ultra_confidence = ultra_analysis.get("confidence", original_confidence)
+        
+        update_data = {
+            "ultra_analysis": ultra_analysis,
+            "ultra_confidence": ultra_confidence,
+            "ultra_model": "x-ai/grok-4",
+            "ultra_at": datetime.now(timezone.utc).isoformat()
+        }
+        
+        try:
+            supabase.table("deep_dive_sessions").update(update_data).eq("id", request.session_id).execute()
+        except Exception as db_error:
+            print(f"Error updating session with ultra analysis: {db_error}")
+        
+        return {
+            "status": "success",
+            "analysis_tier": "ultra",
+            "ultra_analysis": ultra_analysis,
+            "confidence_progression": {
+                "original": original_confidence,
+                "ultra": ultra_confidence
+            },
+            "total_confidence_gain": ultra_confidence - original_confidence,
+            "complexity_score": ultra_analysis.get("complexity_score", 0),
+            "critical_insights": ultra_analysis.get("critical_insights", []),
+            "model_used": "x-ai/grok-4",
+            "processing_message": "Grokked your symptoms with maximum reasoning",
+            "session_id": request.session_id,
+            "usage": llm_response.get("usage", {})
+        }
+        
+    except Exception as e:
+        print(f"Error in deep dive ultra think: {e}")
+        return {"error": str(e), "status": "error"}
+
 @router.post("/deep-dive/ask-more") 
 async def deep_dive_ask_more(request: DeepDiveAskMoreRequest):
     """Generate additional questions to reach target confidence level"""
@@ -883,8 +1066,21 @@ async def deep_dive_ask_more(request: DeepDiveAskMoreRequest):
         
         session = session_response.data[0]
         
-        if session["status"] != "completed":
-            return {"error": "Session must be completed before asking more questions", "status": "error"}
+        if session["status"] not in ["completed", "analysis_ready"]:
+            return {"error": "Session must be in analysis_ready or completed state", "status": "error"}
+        
+        # Check if we've reached the additional questions limit
+        initial_count = session.get("initial_questions_count", 0)
+        current_count = len(session.get("questions", []))
+        additional_questions = current_count - initial_count
+        
+        if additional_questions >= 5:
+            return {
+                "status": "success",
+                "message": "Maximum additional questions (5) already asked",
+                "questions_asked": additional_questions,
+                "should_finalize": True
+            }
         
         # Get current confidence
         current_confidence = session.get("final_confidence", 0)
