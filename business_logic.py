@@ -444,7 +444,7 @@ async def call_llm(messages: list, model: Optional[str] = None, user_id: Optiona
                     "max_tokens": max_tokens,
                     "top_p": top_p,
                 },
-                timeout=30
+                timeout=240  # 4 minutes for reasoning models
             )
             
             if response.status_code == 200:
