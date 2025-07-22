@@ -1235,6 +1235,26 @@ async def deep_dive_ask_more(request: DeepDiveAskMoreRequest):
         body_part = session.get("body_part", "")
         final_analysis = session.get("final_analysis", {})
         
+        # Debug logging to understand data types
+        print(f"[DEBUG] form_data type: {type(form_data)}, value: {form_data if not isinstance(form_data, str) else form_data[:100]}")
+        print(f"[DEBUG] final_analysis type: {type(final_analysis)}, value: {final_analysis if not isinstance(final_analysis, str) else final_analysis[:100]}")
+        
+        # Handle case where form_data might be stored as a JSON string
+        if isinstance(form_data, str):
+            try:
+                form_data = json.loads(form_data)
+            except json.JSONDecodeError:
+                print(f"[ERROR] Failed to parse form_data JSON string: {form_data[:100]}...")
+                form_data = {}
+        
+        # Handle case where final_analysis might be stored as a JSON string
+        if isinstance(final_analysis, str):
+            try:
+                final_analysis = json.loads(final_analysis)
+            except json.JSONDecodeError:
+                print(f"[ERROR] Failed to parse final_analysis JSON string: {final_analysis[:100]}...")
+                final_analysis = {}
+        
         # Validate critical fields exist
         if not questions_asked:
             print(f"[ERROR] Ask Me More - Session {request.session_id} missing questions array")
@@ -1269,6 +1289,14 @@ async def deep_dive_ask_more(request: DeepDiveAskMoreRequest):
         
         # Check how many additional questions have already been asked
         additional_questions_list = session.get("additional_questions", [])
+        
+        # Handle case where additional_questions might be stored as a JSON string
+        if isinstance(additional_questions_list, str):
+            try:
+                additional_questions_list = json.loads(additional_questions_list)
+            except json.JSONDecodeError:
+                print(f"[ERROR] Failed to parse additional_questions JSON string: {additional_questions_list[:100]}...")
+                additional_questions_list = []
         
         # For Ask Me More, allow up to 5 additional questions beyond the initial 6
         # Total possible: 11 questions (6 initial + 5 additional)
