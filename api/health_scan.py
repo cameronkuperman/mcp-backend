@@ -569,11 +569,16 @@ async def continue_deep_dive(request: DeepDiveContinueRequest):
         else:
             # Ready for final analysis - update status to analysis_ready
             try:
+                # IMPORTANT: Preserve all session data for Ask Me More
                 supabase.table("deep_dive_sessions").update({
                     "status": "analysis_ready",
                     "final_confidence": current_confidence,
-                    "initial_questions_count": len(questions)  # Track initial count for Ask Me More
+                    "initial_questions_count": len(questions),  # Track initial count for Ask Me More
+                    "questions": questions,  # PRESERVE the questions array!
+                    "current_step": len(questions),
+                    "last_updated": datetime.now(timezone.utc).isoformat()
                 }).eq("id", request.session_id).execute()
+                print(f"[DEBUG] Session {request.session_id} updated to analysis_ready with {len(questions)} questions")
             except Exception as e:
                 print(f"Error updating session to analysis_ready: {e}")
             
@@ -1097,6 +1102,33 @@ Return JSON with this structure:
         print(f"Error in deep dive ultra think: {e}")
         return {"error": str(e), "status": "error"}
 
+@router.get("/debug/session/{session_id}")
+async def debug_deep_dive_session(session_id: str):
+    """Debug endpoint to check session data"""
+    try:
+        session_response = supabase.table("deep_dive_sessions").select("*").eq("id", session_id).execute()
+        
+        if not session_response.data:
+            return {"found": False, "session_id": session_id}
+        
+        session = session_response.data[0]
+        return {
+            "found": True,
+            "session_id": session_id,
+            "status": session.get("status"),
+            "has_questions": "questions" in session and session["questions"] is not None,
+            "question_count": len(session.get("questions", [])) if session.get("questions") else 0,
+            "has_form_data": "form_data" in session and session["form_data"] is not None,
+            "has_body_part": bool(session.get("body_part")),
+            "initial_questions_count": session.get("initial_questions_count"),
+            "final_confidence": session.get("final_confidence"),
+            "has_final_analysis": "final_analysis" in session and session["final_analysis"] is not None,
+            "created_at": session.get("created_at"),
+            "keys": list(session.keys())
+        }
+    except Exception as e:
+        return {"error": str(e), "session_id": session_id}
+
 @router.post("/deep-dive/ask-more") 
 async def deep_dive_ask_more(request: DeepDiveAskMoreRequest):
     """Generate additional questions to reach target confidence level"""
@@ -1163,11 +1195,30 @@ async def deep_dive_ask_more(request: DeepDiveAskMoreRequest):
                 "questions_needed": 0
             }
         
-        # Get session data
+        # Get session data with validation
+        # Handle jsonb[] array type from PostgreSQL
         questions_asked = session.get("questions", [])
+        if questions_asked is None:
+            questions_asked = []
+        
         form_data = session.get("form_data", {})
         body_part = session.get("body_part", "")
         final_analysis = session.get("final_analysis", {})
+        
+        # Validate critical fields exist
+        if not questions_asked:
+            print(f"[ERROR] Ask Me More - Session {request.session_id} missing questions array")
+            print(f"[ERROR] Session keys: {list(session.keys())}")
+            return {
+                "error": "Session data incomplete. Questions array missing.",
+                "status": "error",
+                "debug": {
+                    "session_id": request.session_id,
+                    "has_questions": "questions" in session,
+                    "has_form_data": "form_data" in session,
+                    "session_status": session.get("status")
+                }
+            }
         
         # Get medical data if available
         medical_data = {}
