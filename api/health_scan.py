@@ -1319,10 +1319,17 @@ async def deep_dive_ask_more(request: DeepDiveAskMoreRequest):
             }
         
         # Create prompt for generating highly leveraged question
+        # Handle None final_analysis
+        primary_condition = "Unknown"
+        differentials = []
+        if final_analysis and isinstance(final_analysis, dict):
+            primary_condition = final_analysis.get('primaryCondition', 'Unknown')
+            differentials = final_analysis.get('differentials', [])
+        
         question_prompt = f"""You are an expert physician conducting a diagnostic interview. A patient has completed an initial assessment but diagnostic confidence is below target.
 
 CURRENT SITUATION:
-- Primary Diagnosis: {final_analysis.get('primaryCondition', 'Unknown')}
+- Primary Diagnosis: {primary_condition}
 - Current Confidence: {current_confidence}%
 - Target Confidence: {target_confidence}%
 - Confidence Gap: {target_confidence - current_confidence}%
@@ -1340,7 +1347,7 @@ ADDITIONAL QUESTIONS ASKED:
 {chr(10).join([f"Q{i+1}: {q.get('question', 'N/A')}{chr(10)}A: {q.get('answer', 'N/A')}" for i, q in enumerate(additional_questions_list)])}
 
 CURRENT DIFFERENTIAL DIAGNOSES:
-{json.dumps(final_analysis.get('differentials', []))}
+{json.dumps(differentials)}
 
 Your task is to generate ONE highly leveraged question that will most effectively increase diagnostic confidence. Focus on:
 
