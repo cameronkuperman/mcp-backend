@@ -25,9 +25,9 @@ router = APIRouter(prefix="/api", tags=["health-scan"])
 
 # Deep Dive Configuration
 DEEP_DIVE_CONFIG = {
-    "max_questions": 7,  # Limit to 7 questions max
+    "max_questions": 6,  # Force completion after 6 questions
     "target_confidence": 80,  # Target 80% confidence
-    "min_confidence_for_completion": 80,  # Can complete at 80% if max questions reached
+    "min_confidence_for_completion": 80,  # Can complete at 80% if confident enough
     "min_questions": 2,  # Minimum questions before completion
 }
 
@@ -224,7 +224,11 @@ async def start_deep_dive(request: DeepDiveStartRequest):
             "deepseek/deepseek-chat",
             "meta-llama/llama-3.2-3b-instruct:free",
             "google/gemini-2.0-flash-exp:free",
-            "microsoft/phi-3-mini-128k-instruct:free"
+            "microsoft/phi-3-mini-128k-instruct:free",
+            "x-ai/grok-4",  # Grok 4 for Ultra Think
+            "openai/gpt-4-turbo",  # Fallback model
+            "openai/gpt-4o-mini",  # Oracle AI model
+            "anthropic/claude-3-sonnet"  # Another fallback
         ]
         
         # If specified model not in list, use DeepSeek R1
@@ -500,10 +504,10 @@ async def continue_deep_dive(request: DeepDiveContinueRequest):
         # Check if LLM also thinks we need another question
         llm_wants_more = decision_data.get("need_another_question", False)
         
-        # Force completion if we've reached max questions
+        # Force completion if we've reached max questions (6)
         if question_count >= DEEP_DIVE_CONFIG["max_questions"]:
             should_complete = True
-            print(f"Max questions ({DEEP_DIVE_CONFIG['max_questions']}) reached - forcing completion")
+            print(f"[FORCE COMPLETE] Max questions ({DEEP_DIVE_CONFIG['max_questions']}) reached at {current_confidence}% confidence")
         
         # Need at least minimum questions
         if question_count < DEEP_DIVE_CONFIG["min_questions"]:
@@ -523,7 +527,10 @@ async def continue_deep_dive(request: DeepDiveContinueRequest):
                 if question_count >= 3:
                     return {
                         "ready_for_analysis": True,
+                        "question": None,  # Explicitly null
+                        "message": "Moving to analysis due to similar questions",
                         "questions_completed": question_count,
+                        "current_confidence": current_confidence,
                         "status": "success",
                         "reason": "duplicate_question_detected"
                     }
@@ -567,6 +574,8 @@ async def continue_deep_dive(request: DeepDiveContinueRequest):
             
             return {
                 "ready_for_analysis": True,
+                "question": None,  # Explicitly null, not undefined
+                "message": "Ready to generate comprehensive analysis",
                 "questions_completed": request.question_number,
                 "current_confidence": current_confidence,
                 "status": "success"
@@ -587,6 +596,15 @@ async def complete_deep_dive(request: DeepDiveCompleteRequest):
             return {"error": "Session not found", "status": "error"}
         
         session = session_response.data[0]
+        
+        # Debug: Log session status
+        print(f"[DEBUG] Deep Dive Complete - Session Status: {session.get('status')}")
+        print(f"[DEBUG] Deep Dive Complete - Session ID: {request.session_id}")
+        print(f"[DEBUG] Deep Dive Complete - Questions Count: {len(session.get('questions', []))}")
+        
+        # Allow completion from any state (active or analysis_ready)
+        if session.get("status") not in ["active", "analysis_ready", "completed"]:
+            print(f"[WARNING] Unexpected session status: {session.get('status')}")
         
         # Add final answer if provided
         if request.final_answer:
@@ -693,9 +711,9 @@ async def complete_deep_dive(request: DeepDiveCompleteRequest):
                 "reasoning_snippets": ["Unable to complete full analysis"]
             }
         
-        # Update session with results - use "analysis_ready" to allow Ask Me More
+        # Update session with results
         update_data = {
-            "status": "analysis_ready",  # Changed from "completed" to allow Ask Me More
+            "status": "completed",  # Using completed for now until DB constraint is updated
             "completed_at": datetime.now(timezone.utc).isoformat(),
             "final_analysis": analysis_result,
             "final_confidence": analysis_result.get("confidence", 0),
@@ -707,9 +725,12 @@ async def complete_deep_dive(request: DeepDiveCompleteRequest):
         
         # Update session in database
         try:
-            supabase.table("deep_dive_sessions").update(update_data).eq("id", request.session_id).execute()
+            update_response = supabase.table("deep_dive_sessions").update(update_data).eq("id", request.session_id).execute()
+            print(f"[DEBUG] Deep Dive Complete - Update Response: {update_response.data if update_response.data else 'No data'}")
+            print(f"[DEBUG] Deep Dive Complete - Session updated to status: {update_data['status']}")
         except Exception as e:
-            print(f"Error updating session: {e}")
+            print(f"[ERROR] Deep Dive Complete - Error updating session: {e}")
+            print(f"[ERROR] Deep Dive Complete - Update data was: {json.dumps(update_data, default=str)[:500]}")
             
             # Auto-generate summary (fire and forget)
             try:

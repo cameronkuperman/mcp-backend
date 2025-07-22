@@ -137,13 +137,28 @@ async def update_conversation(conversation_id: str, user_id: str):
 @router.post("/chat")
 async def chat(request: ChatRequest):
     """Oracle chat endpoint with real OpenRouter AI and Supabase integration"""
+    # Handle both 'query' and 'message' fields from frontend
+    user_message = request.message or request.query
+    if not user_message:
+        return {"error": "No message provided", "status": "error"}
+    
+    # Use the message as query
+    request.query = user_message
+    
+    # Include context if provided
+    additional_context = request.context or ""
+    
     api_key = os.getenv("OPENROUTER_API_KEY")
     
-    # Fetch user medical data
-    user_medical_data = await get_user_medical_data(request.user_id)
+    # Fetch user medical data (handle anonymous users)
+    user_medical_data = {}
+    if request.user_id:
+        user_medical_data = await get_user_medical_data(request.user_id)
     
     # Fetch enhanced LLM context including summaries, quick scans, and deep dives
-    llm_context = await get_enhanced_llm_context(request.user_id, request.conversation_id, request.query)
+    llm_context = ""
+    if request.user_id:
+        llm_context = await get_enhanced_llm_context(request.user_id, request.conversation_id, request.query)
     
     # Get conversation history
     history = await get_conversation_history(request.conversation_id)
@@ -160,6 +175,9 @@ MEDICAL HISTORY: {medical_summary if medical_summary else "No medical history on
 
 HEALTH CONTEXT AND HISTORY:
 {llm_context if llm_context else "No previous health interactions recorded yet."}
+
+CURRENT CONTEXT:
+{additional_context if additional_context else "No specific context provided."}
 
 INSTRUCTIONS:
 - Check if symptoms relate to past conditions or previous conversations
@@ -247,6 +265,7 @@ INSTRUCTIONS:
         
         return {
             "response": content,
+            "message": content,  # Include both formats for frontend compatibility
             "raw_response": content,
             "conversation_id": request.conversation_id,
             "user_id": request.user_id,
@@ -272,6 +291,7 @@ INSTRUCTIONS:
         
         return {
             "response": error_msg,
+            "message": "I'm having trouble connecting right now. Please try again.",  # Fallback for frontend
             "status": "error"
         }
 

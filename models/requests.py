@@ -4,11 +4,13 @@ from typing import Optional, Dict, Any, List
 
 # Chat and Oracle Models
 class ChatRequest(BaseModel):
-    query: str
-    user_id: str
+    query: Optional[str] = None  # Support both query and message
+    message: Optional[str] = None  # Frontend uses 'message'
+    user_id: Optional[str] = None  # Make optional for anonymous
     conversation_id: str
     category: str = "health-scan"
     model: Optional[str] = None
+    context: Optional[str] = None  # Frontend sends context
 
 class GenerateSummaryRequest(BaseModel):
     conversation_id: Optional[str] = None
