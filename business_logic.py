@@ -343,7 +343,7 @@ Apply clinical reasoning principles:
 - Consider patient's specific risk factors
 
 ## OUTPUT FORMAT
-You MUST output ONLY a JSON object. No text before or after. Start with { and end with }.
+You MUST output ONLY a JSON object. No text before or after. Start with {{ and end with }}.
 
 Return EXACTLY this JSON structure (no other text):
 {{
