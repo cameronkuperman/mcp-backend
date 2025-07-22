@@ -1116,12 +1116,19 @@ async def deep_dive_ask_more(request: DeepDiveAskMoreRequest):
         current_count = len(session.get("questions", []))
         additional_questions = current_count - initial_count
         
-        if additional_questions >= 5:
+        # Ask Me More allows up to 5 additional questions (beyond the initial 6)
+        ASK_MORE_LIMIT = 5
+        
+        # Only enforce limit if we haven't reached target confidence
+        if additional_questions >= ASK_MORE_LIMIT and session.get("final_confidence", 0) < request.target_confidence:
             return {
                 "status": "success",
-                "message": "Maximum additional questions (5) already asked",
+                "message": f"Maximum additional questions ({ASK_MORE_LIMIT}) reached. Current confidence: {session.get('final_confidence', 0)}%",
                 "questions_asked": additional_questions,
-                "should_finalize": True
+                "should_finalize": True,
+                "current_confidence": session.get("final_confidence", 0),
+                "target_confidence": request.target_confidence,
+                "info": "Consider using Ultra Think for higher confidence analysis"
             }
         
         # Get current confidence
@@ -1149,30 +1156,35 @@ async def deep_dive_ask_more(request: DeepDiveAskMoreRequest):
         # Get all previous questions from the questions array
         all_previous_questions = [q.get("question", "") for q in questions_asked if q.get("question")]
         
-        # Check total questions against global max
+        # For Ask Me More, we allow beyond the normal 6 question limit
+        # Normal Deep Dive: 6 questions max
+        # Ask Me More: up to 5 additional (11 total) OR until target confidence
         total_questions = len(all_previous_questions)
-        if total_questions >= DEEP_DIVE_CONFIG["max_questions"]:
-            return {
-                "status": "success", 
-                "message": f"Maximum of {DEEP_DIVE_CONFIG['max_questions']} total questions reached",
-                "current_confidence": current_confidence,
-                "total_questions_asked": total_questions
-            }
+        
+        # Skip the normal 6 question limit check for Ask Me More
+        # We'll check the extended limit below
         
         # Check how many additional questions have already been asked
-        additional_questions = session.get("additional_questions", [])
+        additional_questions_list = session.get("additional_questions", [])
+        
+        # For Ask Me More, allow up to 5 additional questions beyond the initial 6
+        # Total possible: 11 questions (6 initial + 5 additional)
+        MAX_TOTAL_WITH_ASK_MORE = 11
+        
         questions_remaining = min(
-            request.max_questions - len(additional_questions),
-            DEEP_DIVE_CONFIG["max_questions"] - total_questions
+            ASK_MORE_LIMIT - additional_questions,  # Up to 5 additional
+            MAX_TOTAL_WITH_ASK_MORE - total_questions  # Up to 11 total
         )
         
-        if questions_remaining <= 0:
+        if questions_remaining <= 0 and current_confidence < request.target_confidence:
             return {
                 "status": "success", 
-                "message": f"Maximum questions limit reached",
+                "message": f"Maximum questions limit reached (11 total). Current confidence: {current_confidence}%",
                 "current_confidence": current_confidence,
-                "questions_asked": len(additional_questions),
-                "total_questions": total_questions
+                "target_confidence": request.target_confidence,
+                "questions_asked": len(additional_questions_list),
+                "total_questions": total_questions,
+                "info": "Consider using Ultra Think for deeper analysis"
             }
         
         # Create prompt for generating highly leveraged question
@@ -1194,7 +1206,7 @@ QUESTIONS ALREADY ASKED:
 {chr(10).join([f"Q{i+1}: {q.get('question', 'N/A')}{chr(10)}A: {q.get('answer', 'N/A')}" for i, q in enumerate(questions_asked)])}
 
 ADDITIONAL QUESTIONS ASKED:
-{chr(10).join([f"Q{i+1}: {q.get('question', 'N/A')}{chr(10)}A: {q.get('answer', 'N/A')}" for i, q in enumerate(additional_questions)])}
+{chr(10).join([f"Q{i+1}: {q.get('question', 'N/A')}{chr(10)}A: {q.get('answer', 'N/A')}" for i, q in enumerate(additional_questions_list)])}
 
 CURRENT DIFFERENTIAL DIAGNOSES:
 {json.dumps(final_analysis.get('differentials', []))}
@@ -1278,7 +1290,7 @@ Return JSON with this structure:
         response = {
             "status": "success",
             "question": question_data.get("question"),
-            "question_number": len(questions_asked) + len(additional_questions) + 1,
+            "question_number": len(questions_asked) + len(additional_questions_list) + 1,
             "question_category": question_data.get("question_category"),
             "current_confidence": current_confidence,
             "target_confidence": request.target_confidence,
@@ -1291,7 +1303,7 @@ Return JSON with this structure:
         
         # Store the generated question in session for tracking
         try:
-            additional_questions.append({
+            additional_questions_list.append({
                 "question": question_data.get("question"),
                 "category": question_data.get("question_category"),
                 "generated_at": datetime.now(timezone.utc).isoformat(),
@@ -1299,7 +1311,7 @@ Return JSON with this structure:
             })
             
             supabase.table("deep_dive_sessions").update({
-                "additional_questions": additional_questions,
+                "additional_questions": additional_questions_list,
                 "ask_more_active": True
             }).eq("id", request.session_id).execute()
         except Exception as db_error:
