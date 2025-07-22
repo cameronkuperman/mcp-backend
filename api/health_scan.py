@@ -740,6 +740,7 @@ async def complete_deep_dive(request: DeepDiveCompleteRequest):
             "final_confidence": analysis_result.get("confidence", 0),
             "reasoning_chain": analysis_result.get("reasoning_snippets", []),
             "questions": questions,
+            "initial_questions_count": len(questions),  # CRITICAL: Track for Ask Me More!
             "tokens_used": llm_response.get("usage", {}),
             "allow_more_questions": True  # Flag to indicate Ask Me More is available
         }
@@ -1100,10 +1101,22 @@ Return JSON with this structure:
 async def deep_dive_ask_more(request: DeepDiveAskMoreRequest):
     """Generate additional questions to reach target confidence level"""
     try:
+        # Debug logging
+        print(f"[DEBUG] Ask Me More - Looking for session: {request.session_id}")
+        print(f"[DEBUG] Ask Me More - Request data: current_confidence={request.current_confidence}, target={request.target_confidence}")
+        
         # Get session from database
         session_response = supabase.table("deep_dive_sessions").select("*").eq("id", request.session_id).execute()
         
+        print(f"[DEBUG] Ask Me More - Session response exists: {bool(session_response.data)}")
+        if session_response.data:
+            print(f"[DEBUG] Ask Me More - Session status: {session_response.data[0].get('status')}")
+            print(f"[DEBUG] Ask Me More - initial_questions_count: {session_response.data[0].get('initial_questions_count')}")
+        
         if not session_response.data:
+            # Try to see what sessions exist for debugging
+            recent_sessions = supabase.table("deep_dive_sessions").select("id, status, created_at").order("created_at", desc=True).limit(5).execute()
+            print(f"[DEBUG] Ask Me More - Recent sessions: {recent_sessions.data if recent_sessions.data else 'None'}")
             return {"error": "Session not found", "status": "error"}
         
         session = session_response.data[0]
