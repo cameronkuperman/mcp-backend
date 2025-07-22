@@ -242,7 +242,7 @@ async def call_openrouter(model: str, messages: List[Dict], max_tokens: int = 10
                 'max_tokens': max_tokens,
                 'temperature': temperature
             },
-            timeout=30.0
+            timeout=180.0
         )
         
         if response.status_code != 200:
@@ -603,7 +603,10 @@ async def analyze_photos(request: PhotoAnalysisRequest):
         analysis_prompt += f"\n\nUser context: {request.context}"
     
     # Call O4-mini for analysis
+    import time
+    start_time = time.time()
     try:
+        print(f"Starting AI analysis at {datetime.now()}")
         response = await call_openrouter(
             model='google/gemini-2.5-pro',
             messages=[{
@@ -616,6 +619,9 @@ async def analyze_photos(request: PhotoAnalysisRequest):
             max_tokens=2000,
             temperature=0.1
         )
+        
+        elapsed = time.time() - start_time
+        print(f"AI response received after {elapsed:.1f} seconds")
         
         content = response['choices'][0]['message']['content']
         print(f"AI response content: {content[:500]}...")  # Log first 500 chars
@@ -635,7 +641,13 @@ async def analyze_photos(request: PhotoAnalysisRequest):
             analysis['trackable_metrics'] = []
         
     except Exception as e:
+        print(f"Primary model failed: {str(e)}")
+        print(f"Error type: {type(e).__name__}")
+        import traceback
+        traceback.print_exc()
+        
         try:
+            print("Falling back to gemini-2.0-flash-exp:free")
             response = await call_openrouter(
                 model='google/gemini-2.0-flash-exp:free',
                 messages=[{
@@ -665,6 +677,10 @@ async def analyze_photos(request: PhotoAnalysisRequest):
                 analysis['trackable_metrics'] = []
             
         except Exception as e2:
+            print(f"Fallback model also failed: {str(e2)}")
+            print(f"Error type: {type(e2).__name__}")
+            import traceback
+            traceback.print_exc()
             raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e2)}")
     
     # Handle comparison if requested
