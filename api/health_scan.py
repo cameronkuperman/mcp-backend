@@ -570,17 +570,27 @@ async def continue_deep_dive(request: DeepDiveContinueRequest):
             # Ready for final analysis - update status to analysis_ready
             try:
                 # IMPORTANT: Preserve all session data for Ask Me More
-                supabase.table("deep_dive_sessions").update({
+                update_result = supabase.table("deep_dive_sessions").update({
                     "status": "analysis_ready",
                     "final_confidence": current_confidence,
                     "initial_questions_count": len(questions),  # Track initial count for Ask Me More
                     "questions": questions,  # PRESERVE the questions array!
-                    "current_step": len(questions),
-                    "last_updated": datetime.now(timezone.utc).isoformat()
+                    "current_step": len(questions)
                 }).eq("id", request.session_id).execute()
+                
+                print(f"[DEBUG] Session {request.session_id} status update result: {update_result}")
                 print(f"[DEBUG] Session {request.session_id} updated to analysis_ready with {len(questions)} questions")
+                
+                # Verify the update worked
+                verify = supabase.table("deep_dive_sessions").select("status").eq("id", request.session_id).execute()
+                if verify.data and verify.data[0]["status"] != "analysis_ready":
+                    print(f"[ERROR] Status update failed! Still showing: {verify.data[0]['status']}")
+                    
             except Exception as e:
-                print(f"Error updating session to analysis_ready: {e}")
+                print(f"[ERROR] Failed to update session to analysis_ready: {e}")
+                # Don't fail the request, but log the error
+                import traceback
+                traceback.print_exc()
             
             return {
                 "ready_for_analysis": True,
@@ -1153,8 +1163,28 @@ async def deep_dive_ask_more(request: DeepDiveAskMoreRequest):
         
         session = session_response.data[0]
         
+        # Check session status - add auto-fix for stuck sessions
         if session["status"] not in ["completed", "analysis_ready"]:
-            return {"error": "Session must be in analysis_ready or completed state", "status": "error"}
+            # Check if this is a session that SHOULD be analysis_ready
+            questions_count = len(session.get("questions", []))
+            if session["status"] == "active" and questions_count >= 1:
+                print(f"[WARNING] Session {request.session_id} is 'active' but has {questions_count} questions. Auto-fixing...")
+                
+                # Auto-fix the session status
+                try:
+                    fix_result = supabase.table("deep_dive_sessions").update({
+                        "status": "analysis_ready",
+                        "initial_questions_count": questions_count
+                    }).eq("id", request.session_id).execute()
+                    
+                    print(f"[INFO] Auto-fixed session status to analysis_ready")
+                    session["status"] = "analysis_ready"  # Update local copy
+                    session["initial_questions_count"] = questions_count
+                except Exception as e:
+                    print(f"[ERROR] Failed to auto-fix session status: {e}")
+                    return {"error": "Session is in wrong state (active). Please complete analysis first.", "status": "error"}
+            else:
+                return {"error": "Session must be in analysis_ready or completed state", "status": "error"}
         
         # Get current confidence - handle both from request and session
         # Frontend might send current_confidence or confidence
