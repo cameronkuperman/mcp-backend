@@ -50,7 +50,10 @@ class DeepDiveThinkHarderRequest(BaseModel):
 class DeepDiveAskMoreRequest(BaseModel):
     session_id: str
     user_id: Optional[str] = None
+    current_confidence: Optional[int] = None  # Frontend sends this
     target_confidence: int = 95
+    confidence: Optional[int] = None  # Frontend alternate name
+    target: Optional[int] = None  # Frontend alternate name
     max_questions: int = 5
 
 class QuickScanThinkHarderRequest(BaseModel):

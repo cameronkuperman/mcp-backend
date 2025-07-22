@@ -1111,6 +1111,17 @@ async def deep_dive_ask_more(request: DeepDiveAskMoreRequest):
         if session["status"] not in ["completed", "analysis_ready"]:
             return {"error": "Session must be in analysis_ready or completed state", "status": "error"}
         
+        # Get current confidence - handle both from request and session
+        # Frontend might send current_confidence or confidence
+        current_confidence = (
+            request.current_confidence or 
+            request.confidence or 
+            session.get("final_confidence", 0)
+        )
+        
+        # Handle alternate target field names
+        target_confidence = request.target or request.target_confidence
+        
         # Check if we've reached the additional questions limit
         initial_count = session.get("initial_questions_count", 0)
         current_count = len(session.get("questions", []))
@@ -1120,23 +1131,21 @@ async def deep_dive_ask_more(request: DeepDiveAskMoreRequest):
         ASK_MORE_LIMIT = 5
         
         # Only enforce limit if we haven't reached target confidence
-        if additional_questions >= ASK_MORE_LIMIT and session.get("final_confidence", 0) < request.target_confidence:
+        if additional_questions >= ASK_MORE_LIMIT and current_confidence < target_confidence:
             return {
                 "status": "success",
-                "message": f"Maximum additional questions ({ASK_MORE_LIMIT}) reached. Current confidence: {session.get('final_confidence', 0)}%",
+                "message": f"Maximum additional questions ({ASK_MORE_LIMIT}) reached. Current confidence: {current_confidence}%",
                 "questions_asked": additional_questions,
                 "should_finalize": True,
-                "current_confidence": session.get("final_confidence", 0),
-                "target_confidence": request.target_confidence,
+                "current_confidence": current_confidence,
+                "target_confidence": target_confidence,
                 "info": "Consider using Ultra Think for higher confidence analysis"
             }
         
-        # Get current confidence
-        current_confidence = session.get("final_confidence", 0)
-        if current_confidence >= request.target_confidence:
+        if current_confidence >= target_confidence:
             return {
                 "status": "success",
-                "message": f"Target confidence of {request.target_confidence}% already achieved",
+                "message": f"Target confidence of {target_confidence}% already achieved",
                 "current_confidence": current_confidence,
                 "questions_needed": 0
             }
@@ -1176,12 +1185,12 @@ async def deep_dive_ask_more(request: DeepDiveAskMoreRequest):
             MAX_TOTAL_WITH_ASK_MORE - total_questions  # Up to 11 total
         )
         
-        if questions_remaining <= 0 and current_confidence < request.target_confidence:
+        if questions_remaining <= 0 and current_confidence < target_confidence:
             return {
                 "status": "success", 
                 "message": f"Maximum questions limit reached (11 total). Current confidence: {current_confidence}%",
                 "current_confidence": current_confidence,
-                "target_confidence": request.target_confidence,
+                "target_confidence": target_confidence,
                 "questions_asked": len(additional_questions_list),
                 "total_questions": total_questions,
                 "info": "Consider using Ultra Think for deeper analysis"
@@ -1193,8 +1202,8 @@ async def deep_dive_ask_more(request: DeepDiveAskMoreRequest):
 CURRENT SITUATION:
 - Primary Diagnosis: {final_analysis.get('primaryCondition', 'Unknown')}
 - Current Confidence: {current_confidence}%
-- Target Confidence: {request.target_confidence}%
-- Confidence Gap: {request.target_confidence - current_confidence}%
+- Target Confidence: {target_confidence}%
+- Confidence Gap: {target_confidence - current_confidence}%
 - Questions Remaining: {questions_remaining} (of {request.max_questions} max)
 
 PATIENT DATA:
@@ -1269,7 +1278,7 @@ Return JSON with this structure:
         
         # Calculate estimated questions to reach target
         avg_confidence_gain = 12  # Average expected gain per question
-        confidence_gap = request.target_confidence - current_confidence
+        confidence_gap = target_confidence - current_confidence
         estimated_questions = min(
             max(1, int(confidence_gap / avg_confidence_gain)), 
             questions_remaining
@@ -1293,7 +1302,7 @@ Return JSON with this structure:
             "question_number": len(questions_asked) + len(additional_questions_list) + 1,
             "question_category": question_data.get("question_category"),
             "current_confidence": current_confidence,
-            "target_confidence": request.target_confidence,
+            "target_confidence": target_confidence,
             "confidence_gap": confidence_gap,
             "estimated_questions_remaining": estimated_questions,
             "max_questions_remaining": questions_remaining,
