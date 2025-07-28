@@ -23,6 +23,23 @@ from utils.json_parser import extract_json_from_text
 
 router = APIRouter(prefix="/api/photo-analysis", tags=["photo-analysis"])
 
+import re
+
+def sanitize_filename(filename: str) -> str:
+    """Sanitize filename by removing special characters and unicode spaces"""
+    # Replace unicode spaces with regular spaces
+    filename = re.sub(r'[\u00A0\u1680\u2000-\u200B\u202F\u205F\u3000\uFEFF]', ' ', filename)
+    # Replace multiple spaces with single space
+    filename = re.sub(r'\s+', ' ', filename)
+    # Remove or replace other special characters (keep only alphanumeric, spaces, dots, dashes, underscores)
+    filename = re.sub(r'[^a-zA-Z0-9\s._-]', '', filename)
+    # Trim spaces
+    filename = filename.strip()
+    # If filename is empty after sanitization, use a default
+    if not filename:
+        filename = "photo.jpg"
+    return filename
+
 @router.get("/health")
 async def health_check():
     """Health check endpoint for photo analysis"""
@@ -415,7 +432,8 @@ async def upload_photos(
         
         if category in ['medical_normal', 'medical_gore']:
             # Upload to Supabase Storage
-            file_name = f"{user_id}/{session_id}/{datetime.now().timestamp()}_{photo.filename}"
+            sanitized_filename = sanitize_filename(photo.filename)
+            file_name = f"{user_id}/{session_id}/{datetime.now().timestamp()}_{sanitized_filename}"
             
             try:
                 # Reset file pointer
