@@ -379,6 +379,30 @@ async def update_strategy_status(move_id: str, status: str, user_id: str):
     
     return {'status': 'success', 'move': result.data[0]}
 
+@router.post("/trigger-weekly-generation")
+async def trigger_weekly_generation_manual(user_id: Optional[str] = None):
+    """
+    Manually trigger weekly generation for testing
+    """
+    try:
+        from services.background_jobs import trigger_weekly_generation_manual as trigger_job
+        
+        if user_id:
+            # Generate for specific user
+            result = await trigger_job([user_id])
+        else:
+            # Generate for all users
+            result = await trigger_job()
+        
+        return {
+            'status': 'success',
+            'message': 'Weekly generation triggered',
+            'result': result
+        }
+    except Exception as e:
+        logging.error(f"Manual trigger failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Trigger failed: {str(e)}")
+
 @router.get("/analysis-history/{user_id}")
 async def get_analysis_history(user_id: str, weeks: int = 4):
     """

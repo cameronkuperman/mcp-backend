@@ -202,10 +202,10 @@ async def generate_user_weekly_content(user_id: str) -> Dict:
             'week_of': get_current_week_monday().isoformat()
         }
 
-@scheduler.scheduled_job(CronTrigger(day_of_week='mon', hour=9, minute=0), id='weekly_generation')
+@scheduler.scheduled_job(CronTrigger(day_of_week='tue', hour=18, minute=20), id='weekly_generation')
 async def weekly_health_generation_job():
     """
-    Main weekly generation job - runs every Monday at 9 AM UTC
+    Main weekly generation job - runs every Tuesday at 6:20 PM UTC
     Generates health stories and analysis for all active users
     """
     logger.info(f"Starting weekly health generation at {datetime.utcnow()}")
