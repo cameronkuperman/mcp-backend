@@ -1159,21 +1159,137 @@ DIETARY PATTERNS:
 - Dietary restrictions
 - Symptom-food correlations"""
 
-        system_prompt = """Generate a gastroenterology specialist report. Include both general medical sections AND GI-specific analysis.
+        system_prompt = """Generate a detailed gastroenterology specialist report analyzing GI symptoms and patterns.
 
-Return JSON format with:
-- executive_summary (GI focus)
-- patient_story (GI symptoms timeline)
-- medical_analysis (GI assessment)
-- gastroenterology_specific section with:
-  - symptom_patterns (relation to meals, bowel habits)
-  - alarm_symptoms (bleeding, weight loss, etc)
-  - recommended_tests (endoscopy, colonoscopy, imaging)
-  - dietary_recommendations
-  - medication_options (PPIs, antispasmodics, etc)
-  - probiotic_recommendations
-- action_plan (GI focused)
-- billing_optimization"""
+Return JSON format:
+{
+  "clinical_summary": {
+    "chief_complaint": "Primary GI concern",
+    "hpi": "Detailed GI history with timeline",
+    "symptom_timeline": [
+      {
+        "date": "ISO date",
+        "symptoms": "specific GI symptoms",
+        "severity": 1-10,
+        "timing": "relation to meals",
+        "bowel_pattern": "changes noted"
+      }
+    ]
+  },
+  
+  "gastroenterology_assessment": {
+    "symptom_characterization": {
+      "abdominal_pain": {
+        "location": "epigastric/periumbilical/RLQ/etc",
+        "quality": "cramping/burning/sharp",
+        "timing": "before/during/after meals",
+        "relief": "with BM/antacids/nothing"
+      },
+      "bowel_patterns": {
+        "frequency": "times per day/week",
+        "consistency": "Bristol stool scale",
+        "blood": "present/absent",
+        "mucus": "present/absent"
+      },
+      "associated_symptoms": {
+        "nausea": "frequency and triggers",
+        "bloating": "timing and severity",
+        "weight_change": "amount and timeframe"
+      }
+    },
+    "alarm_features": {
+      "present": ["list any red flags"],
+      "absent": ["important negatives"],
+      "risk_assessment": "low/moderate/high for serious pathology"
+    }
+  },
+  
+  "gi_specific_findings": {
+    "dietary_analysis": {
+      "trigger_foods": ["identified from history"],
+      "safe_foods": ["well tolerated"],
+      "meal_patterns": "regular/irregular",
+      "fodmap_sensitivity": "suspected based on symptoms"
+    },
+    "functional_assessment": {
+      "rome_criteria": "meets criteria for IBS/functional dyspepsia",
+      "symptom_pattern": "post-infectious/stress-related/dietary",
+      "quality_of_life_impact": "work/social/sleep"
+    },
+    "medication_history": {
+      "current": ["what patient takes now"],
+      "previous_trials": ["what helped/failed"],
+      "otc_use": "antacids/laxatives frequency"
+    }
+  },
+  
+  "diagnostic_recommendations": {
+    "laboratory": [
+      {
+        "test": "CBC, CMP, TSH",
+        "rationale": "baseline and rule out metabolic causes"
+      },
+      {
+        "test": "Celiac panel",
+        "rationale": "if chronic diarrhea or bloating"
+      },
+      {
+        "test": "H. pylori testing",
+        "rationale": "if dyspepsia symptoms"
+      }
+    ],
+    "endoscopy": {
+      "colonoscopy": {
+        "indicated": "yes/no based on symptoms and age",
+        "urgency": "routine/expedited",
+        "prep_considerations": "standard/modified"
+      },
+      "upper_endoscopy": {
+        "indicated": "if GERD/dyspepsia/alarm symptoms",
+        "biopsies": "H. pylori, celiac if indicated"
+      }
+    },
+    "imaging": {
+      "ct_abdomen": "only if suspicion of structural issue",
+      "other": "HIDA scan if biliary symptoms"
+    }
+  },
+  
+  "treatment_plan": {
+    "dietary_modifications": {
+      "immediate": ["food diary", "regular meals", "avoid triggers"],
+      "trial_diets": ["low FODMAP", "gluten-free if indicated"],
+      "nutritionist_referral": "if complex dietary needs"
+    },
+    "medications": {
+      "acid_suppression": {
+        "ppi": "omeprazole 20mg daily x 8 weeks",
+        "timing": "30 min before breakfast"
+      },
+      "motility": {
+        "if_constipation": "PEG 3350 daily",
+        "if_diarrhea": "loperamide PRN"
+      },
+      "antispasmodics": "dicyclomine for cramping"
+    },
+    "lifestyle": {
+      "stress_management": "noted correlation with symptoms",
+      "exercise": "regular activity helps motility",
+      "sleep": "poor sleep worsens GI symptoms"
+    }
+  },
+  
+  "follow_up_plan": {
+    "timing": "4-6 weeks to assess response",
+    "symptom_diary": "track triggers and patterns",
+    "red_flags": [
+      "persistent vomiting",
+      "GI bleeding",
+      "severe pain",
+      "unintended weight loss"
+    ]
+  }
+}"""
 
         llm_response = await call_llm(
             messages=[
