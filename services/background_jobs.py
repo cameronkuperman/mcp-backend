@@ -17,7 +17,7 @@ import json
 
 # Import our services
 from api.health_analysis import generate_weekly_analysis, GenerateAnalysisRequest
-from api.health_story import generate_weekly_story
+# Remove direct import - we'll call the endpoint instead
 from utils.data_gathering import gather_user_health_data
 
 # Initialize logging
@@ -134,7 +134,15 @@ async def generate_user_weekly_content(user_id: str) -> Dict:
             
             if not story_result.data:
                 logger.info(f"Generating weekly story for user {user_id}")
-                await generate_weekly_story(user_id)
+                # Call the health story endpoint via HTTP
+                import httpx
+                async with httpx.AsyncClient() as client:
+                    response = await client.post(
+                        "http://localhost:8000/api/health-story",
+                        json={"user_id": user_id}
+                    )
+                    if response.status_code != 200:
+                        logger.error(f"Failed to generate story: {response.text}")
             
             # Step 2: Generate analysis
             request = GenerateAnalysisRequest(

@@ -109,11 +109,11 @@ async def get_stories_with_analysis(story_ids: List[str]) -> Dict:
         # Get associated analysis
         insights = supabase.table('health_insights').select('*').eq(
             'story_id', story_id
-        ).order('confidence', desc=True).execute()
+        ).order('confidence.desc').execute()
         
         predictions = supabase.table('health_predictions').select('*').eq(
             'story_id', story_id
-        ).order('probability', desc=True).execute()
+        ).order('probability.desc').execute()
         
         # Get any notes
         notes = supabase.table('health_notes').select('*').eq(

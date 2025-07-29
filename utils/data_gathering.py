@@ -517,7 +517,7 @@ async def gather_user_health_data(user_id: str) -> Dict[str, Any]:
             .select("message, created_at")\
             .eq("user_id", user_id)\
             .gte("created_at", month_ago.isoformat())\
-            .order("created_at", desc=True)\
+            .order("created_at.desc")\
             .execute()
         
         if oracle_response.data:
@@ -533,7 +533,7 @@ async def gather_user_health_data(user_id: str) -> Dict[str, Any]:
             .select("body_part, form_data, created_at")\
             .eq("user_id", user_id)\
             .gte("created_at", month_ago.isoformat())\
-            .order("created_at", desc=True)\
+            .order("created_at.desc")\
             .execute()
         
         if scans_response.data:

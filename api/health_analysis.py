@@ -162,7 +162,7 @@ async def generate_weekly_analysis(request: GenerateAnalysisRequest, background_
         # Get or generate the weekly story
         story_result = supabase.table('health_stories').select('*').eq(
             'user_id', request.user_id
-        ).gte('created_at', week_of.isoformat()).order('created_at', desc=True).limit(1).execute()
+        ).gte('created_at', week_of.isoformat()).order('created_at.desc').limit(1).execute()
         
         if not story_result.data:
             raise HTTPException(
@@ -304,11 +304,11 @@ async def get_health_analysis(user_id: str, week_of: Optional[str] = None):
         # Fetch all components
         insights = supabase.table('health_insights').select('*').eq(
             'user_id', user_id
-        ).eq('week_of', week_of).order('confidence', desc=True).execute()
+        ).eq('week_of', week_of).order('confidence.desc').execute()
         
         predictions = supabase.table('health_predictions').select('*').eq(
             'user_id', user_id
-        ).eq('week_of', week_of).order('probability', desc=True).execute()
+        ).eq('week_of', week_of).order('probability.desc').execute()
         
         shadow_patterns = supabase.table('shadow_patterns').select('*').eq(
             'user_id', user_id
@@ -316,7 +316,7 @@ async def get_health_analysis(user_id: str, week_of: Optional[str] = None):
         
         strategies = supabase.table('strategic_moves').select('*').eq(
             'user_id', user_id
-        ).eq('week_of', week_of).order('priority', desc=True).execute()
+        ).eq('week_of', week_of).order('priority.desc').execute()
         
         # Get story ID if available
         story_id = None
