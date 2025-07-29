@@ -489,3 +489,115 @@ async def gather_photo_data(user_id: str, config: dict):
     # This would integrate with your photo storage system
     # For now, return empty list
     return []
+
+async def gather_user_health_data(user_id: str) -> Dict[str, Any]:
+    """
+    Gather comprehensive health data for analysis generation
+    Returns structured data for AI processing
+    """
+    now = datetime.now(timezone.utc)
+    week_start = now - timedelta(days=now.weekday())  # Monday of current week
+    month_ago = now - timedelta(days=30)
+    
+    data = {
+        "oracle_sessions": {"total_sessions": 0, "recent_topics": []},
+        "quick_scans": {"total_scans": 0, "recent_scans": []},
+        "deep_dives": {"total_dives": 0, "recent_dives": []},
+        "body_parts": [],
+        "recent_symptoms": [],
+        "symptom_patterns": {},
+        "body_part_frequency": {},
+        "tracking_frequency": "unknown",
+        "notes_count": 0
+    }
+    
+    try:
+        # Get Oracle chat history
+        oracle_response = supabase.table("oracle_chat_history")\
+            .select("message, created_at")\
+            .eq("user_id", user_id)\
+            .gte("created_at", month_ago.isoformat())\
+            .order("created_at", desc=True)\
+            .execute()
+        
+        if oracle_response.data:
+            data["oracle_sessions"]["total_sessions"] = len(oracle_response.data)
+            # Extract topics from recent messages
+            for chat in oracle_response.data[:10]:  # Last 10 messages
+                msg = chat.get("message", "").lower()
+                if len(msg) > 20:  # Only meaningful messages
+                    data["oracle_sessions"]["recent_topics"].append(msg[:100])
+        
+        # Get Quick Scans
+        scans_response = supabase.table("quick_scans")\
+            .select("body_part, form_data, created_at")\
+            .eq("user_id", user_id)\
+            .gte("created_at", month_ago.isoformat())\
+            .order("created_at", desc=True)\
+            .execute()
+        
+        if scans_response.data:
+            data["quick_scans"]["total_scans"] = len(scans_response.data)
+            body_parts = []
+            symptoms = []
+            
+            for scan in scans_response.data:
+                body_part = scan.get("body_part", "").lower()
+                if body_part:
+                    body_parts.append(body_part)
+                    data["body_part_frequency"][body_part] = data["body_part_frequency"].get(body_part, 0) + 1
+                
+                form_data = scan.get("form_data", {})
+                if isinstance(form_data, dict):
+                    scan_symptoms = form_data.get("symptoms", "").lower().split(",")
+                    for symptom in scan_symptoms:
+                        symptom = symptom.strip()
+                        if symptom:
+                            symptoms.append(symptom)
+                            data["symptom_patterns"][symptom] = data["symptom_patterns"].get(symptom, 0) + 1
+            
+            data["body_parts"] = list(set(body_parts))
+            data["recent_symptoms"] = list(set(symptoms))
+        
+        # Get Deep Dives
+        dives_response = supabase.table("deep_dive_sessions")\
+            .select("body_part, status, created_at")\
+            .eq("user_id", user_id)\
+            .eq("status", "completed")\
+            .gte("created_at", month_ago.isoformat())\
+            .execute()
+        
+        if dives_response.data:
+            data["deep_dives"]["total_dives"] = len(dives_response.data)
+        
+        # Get symptom tracking frequency
+        tracking_response = supabase.table("symptom_tracking")\
+            .select("created_at")\
+            .eq("user_id", user_id)\
+            .gte("created_at", week_start.isoformat())\
+            .execute()
+        
+        if tracking_response.data:
+            tracking_days = len(set(entry["created_at"][:10] for entry in tracking_response.data))
+            if tracking_days >= 5:
+                data["tracking_frequency"] = "daily"
+            elif tracking_days >= 3:
+                data["tracking_frequency"] = "frequent"
+            elif tracking_days >= 1:
+                data["tracking_frequency"] = "occasional"
+            else:
+                data["tracking_frequency"] = "rare"
+        
+        # Get health notes count
+        notes_response = supabase.table("health_notes")\
+            .select("id")\
+            .eq("user_id", user_id)\
+            .execute()
+        
+        if notes_response.data:
+            data["notes_count"] = len(notes_response.data)
+        
+    except Exception as e:
+        print(f"Error gathering health data: {e}")
+    
+    return data

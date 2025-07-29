@@ -202,3 +202,23 @@ class PhotoSessionResponse(BaseModel):
     is_sensitive: bool
     latest_summary: Optional[str] = None
     thumbnail_url: Optional[str] = None
+
+# Health Analysis Models
+class HealthAnalysisRequest(BaseModel):
+    user_id: str
+    week_of: Optional[str] = None
+    include_predictions: bool = True
+    include_patterns: bool = True
+    
+class RefreshAnalysisRequest(BaseModel):
+    user_id: str
+    include_predictions: bool = True
+    include_patterns: bool = True
+    include_strategies: bool = True
+
+# Specialist Report Models
+class SpecialtyTriageRequest(BaseModel):
+    user_id: str
+    primary_concern: Optional[str] = None
+    symptoms: Optional[List[str]] = None
+    urgency: Optional[str] = None

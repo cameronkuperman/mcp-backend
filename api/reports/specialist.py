@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 import json
 import uuid
 
-from models.requests import SpecialistReportRequest
+from models.requests import SpecialistReportRequest, SpecialtyTriageRequest
 from supabase_client import supabase
 from business_logic import call_llm
 from utils.json_parser import extract_json_from_response
@@ -23,6 +23,84 @@ from utils.data_gathering import (
 )
 
 router = APIRouter(prefix="/api/report", tags=["reports-specialist"])
+
+@router.post("/specialty-triage")
+async def triage_specialty(request: SpecialtyTriageRequest):
+    """AI determines which specialist(s) are needed based on symptoms"""
+    try:
+        # Gather user data
+        data = await gather_report_data(request.user_id, {"time_range": {"start": "2020-01-01"}})
+        
+        # Build context for triage
+        context = f"""Analyze patient data to determine appropriate specialist referral.
+
+Recent Symptoms:
+{json.dumps([{
+    'date': s['created_at'][:10],
+    'symptoms': s.get('form_data', {}).get('symptoms', ''),
+    'body_part': s.get('body_part', ''),
+    'severity': s.get('form_data', {}).get('painLevel', 0)
+} for s in data['quick_scans'][-10:]], indent=2)}
+
+Symptom Tracking:
+{json.dumps([{
+    'symptom': s.get('symptom_name'),
+    'frequency': s.get('frequency'),
+    'severity': s.get('severity')
+} for s in data['symptom_tracking'][-20:]], indent=2)}
+
+Patient Concern: {request.primary_concern}"""
+
+        system_prompt = """You are a medical triage specialist. Analyze symptoms and recommend appropriate specialist referrals.
+
+Return JSON:
+{
+  "primary_specialty": "most appropriate specialty",
+  "confidence": 0.0-1.0,
+  "reasoning": "clinical reasoning for recommendation",
+  "secondary_specialties": [
+    {
+      "specialty": "alternative specialty",
+      "confidence": 0.0-1.0,
+      "reason": "why to consider"
+    }
+  ],
+  "urgency": "routine|urgent|emergent",
+  "red_flags": ["concerning symptoms if any"],
+  "recommended_timing": "when to see specialist"
+}
+
+Specialties: cardiology, neurology, psychiatry, dermatology, gastroenterology, endocrinology, pulmonology, primary-care"""
+
+        llm_response = await call_llm(
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": context}
+            ],
+            model="google/gemini-2.0-flash-exp:free",
+            temperature=0.3,
+            max_tokens=1000
+        )
+        
+        triage_data = extract_json_from_response(llm_response.get("content", ""))
+        
+        if not triage_data:
+            triage_data = {
+                "primary_specialty": "primary-care",
+                "confidence": 0.5,
+                "reasoning": "Unable to determine specific specialty, recommend primary care evaluation",
+                "urgency": "routine"
+            }
+        
+        return {
+            "status": "success",
+            "triage_result": triage_data,
+            "generated_at": datetime.now(timezone.utc).isoformat()
+        }
+        
+    except Exception as e:
+        print(f"Error in specialty triage: {e}")
+        return {"error": str(e), "status": "error"}
 
 async def load_analysis(analysis_id: str):
     """Load analysis from database"""
@@ -965,4 +1043,180 @@ Return JSON format with:
         
     except Exception as e:
         print(f"Error generating pulmonology report: {e}")
+        return {"error": str(e), "status": "error"}
+
+@router.post("/primary-care")
+async def generate_primary_care_report(request: SpecialistReportRequest):
+    """Generate comprehensive primary care/internal medicine report"""
+    try:
+        analysis = await load_analysis(request.analysis_id)
+        config = analysis.get("report_config", {})
+        
+        # Gather comprehensive data
+        all_data = await gather_comprehensive_data(request.user_id or analysis["user_id"], config)
+        
+        # Build comprehensive primary care context
+        context = f"""Generate a comprehensive primary care evaluation report.
+
+PATIENT DATA:
+Total Quick Scans: {len(all_data.get('quick_scans', []))}
+Total Deep Dives: {len(all_data.get('deep_dives', []))}
+Total Symptom Entries: {len(all_data.get('symptom_tracking', []))}
+
+RECENT HEALTH CONCERNS (Last 10 entries):
+{json.dumps([{
+    'date': s['created_at'][:10],
+    'symptoms': s.get('form_data', {}).get('symptoms'),
+    'body_part': s.get('body_part'),
+    'severity': s.get('form_data', {}).get('painLevel')
+} for s in all_data['quick_scans'][-10:]], indent=2)}
+
+SYMPTOM TRACKING PATTERNS:
+{json.dumps([{
+    'symptom': s.get('symptom_name'),
+    'frequency': s.get('frequency'),
+    'last_reported': s.get('created_at', '')[:10]
+} for s in all_data['symptom_tracking'][-20:]], indent=2)}
+
+TIME RANGE: {config['time_range']['start'][:10]} to {config['time_range']['end'][:10]}"""
+
+        system_prompt = """Generate a comprehensive primary care report focusing on overall health assessment and coordination of care.
+
+Return JSON format:
+{
+  "clinical_summary": {
+    "chief_complaints": ["main health concerns"],
+    "hpi": "comprehensive history of present illness",
+    "review_of_systems": {
+      "constitutional": ["fatigue", "weight changes", "fever"],
+      "cardiovascular": ["chest pain", "palpitations"],
+      "respiratory": ["cough", "dyspnea"],
+      "gastrointestinal": ["abdominal pain", "bowel changes"],
+      "genitourinary": ["urinary symptoms"],
+      "musculoskeletal": ["joint pain", "stiffness"],
+      "neurological": ["headaches", "dizziness"],
+      "psychiatric": ["mood", "anxiety", "sleep"],
+      "endocrine": ["energy", "temperature intolerance"],
+      "dermatologic": ["rashes", "lesions"]
+    }
+  },
+  
+  "preventive_care_gaps": {
+    "screening_due": ["colonoscopy", "mammogram", "etc based on age/sex"],
+    "immunizations_needed": ["flu", "covid booster", "etc"],
+    "health_maintenance": ["annual physical", "dental", "vision"]
+  },
+  
+  "chronic_disease_assessment": {
+    "identified_conditions": [
+      {
+        "condition": "condition name",
+        "control_status": "well-controlled/poorly-controlled/needs assessment",
+        "last_evaluation": "date or unknown",
+        "management_gaps": ["what needs attention"]
+      }
+    ],
+    "risk_factors": {
+      "cardiovascular": ["identified risks"],
+      "metabolic": ["weight, diet, exercise patterns"],
+      "cancer": ["family history, lifestyle factors"]
+    }
+  },
+  
+  "medication_reconciliation": {
+    "current_medications": ["if mentioned in reports"],
+    "adherence_concerns": ["if any patterns noted"],
+    "potential_interactions": ["to discuss with pharmacist"]
+  },
+  
+  "specialist_coordination": {
+    "current_specialists": ["based on report patterns"],
+    "recommended_referrals": [
+      {
+        "specialty": "specialty name",
+        "reason": "clinical indication",
+        "urgency": "routine/urgent",
+        "pre_referral_workup": ["tests to order first"]
+      }
+    ],
+    "care_gaps": ["specialists needed but not yet seen"]
+  },
+  
+  "diagnostic_plan": {
+    "laboratory": [
+      {
+        "test": "CBC, CMP, Lipid panel",
+        "rationale": "baseline/screening",
+        "frequency": "annual/one-time"
+      }
+    ],
+    "imaging": ["if indicated by symptoms"],
+    "screening": ["age-appropriate cancer screening"]
+  },
+  
+  "health_optimization": {
+    "lifestyle_counseling": {
+      "diet": ["specific recommendations"],
+      "exercise": ["realistic goals"],
+      "sleep": ["hygiene tips if issues noted"],
+      "stress": ["management strategies"]
+    },
+    "behavioral_health": {
+      "mood_screening": "PHQ-9 recommended if symptoms",
+      "substance_use": "screening indicated",
+      "support_resources": ["if needed"]
+    }
+  },
+  
+  "care_plan_summary": {
+    "immediate_actions": ["urgent items"],
+    "short_term_goals": ["1-3 month targets"],
+    "long_term_goals": ["6-12 month targets"],
+    "follow_up_schedule": {
+      "next_visit": "recommended timing",
+      "monitoring_plan": "for chronic conditions"
+    }
+  },
+  
+  "patient_engagement": {
+    "strengths": ["good tracking, seeking care, etc"],
+    "barriers": ["identified challenges"],
+    "education_priorities": ["key topics to address"]
+  }
+}"""
+
+        llm_response = await call_llm(
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": context}
+            ],
+            model="google/gemini-2.0-flash-exp:free",
+            temperature=0.3,
+            max_tokens=4000
+        )
+        
+        report_data = extract_json_from_response(llm_response.get("content", llm_response.get("raw_content", "")))
+        
+        if not report_data:
+            report_data = {
+                "clinical_summary": {
+                    "chief_complaints": ["Unable to generate report"],
+                    "hpi": "Report generation failed. Please retry."
+                }
+            }
+        
+        # Save report
+        report_id = str(uuid.uuid4())
+        await save_specialist_report(report_id, request, "primary_care", report_data)
+        
+        return {
+            "report_id": report_id,
+            "report_type": "primary_care",
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "report_data": report_data,
+            "status": "success"
+        }
+        
+    except Exception as e:
+        print(f"Error generating primary care report: {e}")
         return {"error": str(e), "status": "error"}
