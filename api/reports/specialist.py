@@ -298,97 +298,141 @@ RISK FACTORS:
 PATIENT PROFILE:
 {json.dumps(analysis.get("user_data", {}), indent=2)}"""
 
-        system_prompt = """Generate a cardiology specialist report. Include both general medical sections AND cardiology-specific analysis.
+        system_prompt = """Generate a detailed cardiology specialist report analyzing the patient's cardiac symptoms and history.
 
 Return JSON format:
 {
-  "executive_summary": {
-    "one_page_summary": "Complete cardiovascular assessment summary",
-    "chief_complaints": ["primary cardiac concerns"],
-    "key_findings": ["significant cardiovascular findings"],
-    "urgency_indicators": ["any concerning cardiac symptoms"],
-    "action_items": ["immediate cardiac care needs"]
-  },
-  "patient_story": {
-    "cardiac_symptoms_timeline": [
+  "clinical_summary": {
+    "chief_complaint": "Primary cardiac concern in patient's words",
+    "hpi": "Detailed history of present illness with timeline",
+    "symptom_timeline": [
       {
         "date": "ISO date",
-        "symptom": "chest pain/palpitations/etc",
+        "symptoms": "specific symptoms reported",
         "severity": 1-10,
-        "triggers": ["exertion", "stress", "rest"],
-        "duration": "minutes/hours",
-        "relief_factors": ["rest", "medication"]
-      }
-    ],
-    "cardiac_risk_factors": {
-      "modifiable": ["smoking", "diet", "exercise"],
-      "non_modifiable": ["age", "family history", "gender"],
-      "comorbidities": ["diabetes", "hypertension", "obesity"]
-    }
-  },
-  "medical_analysis": {
-    "cardiac_assessment": {
-      "rhythm_concerns": ["arrhythmia patterns if any"],
-      "ischemic_symptoms": ["chest pain characteristics"],
-      "heart_failure_signs": ["dyspnea", "edema", "fatigue"],
-      "vascular_symptoms": ["claudication", "cold extremities"]
-    },
-    "differential_diagnosis": [
-      {
-        "condition": "Condition name",
-        "icd10_code": "IXX.X",
-        "likelihood": "High/Medium/Low",
-        "supporting_evidence": ["evidence points"]
+        "context": "what patient was doing",
+        "duration": "how long it lasted",
+        "resolution": "what helped"
       }
     ],
     "pattern_analysis": {
-      "symptom_triggers": ["identified triggers"],
-      "temporal_patterns": ["when symptoms occur"],
-      "progression": "stable/worsening/improving"
+      "frequency": "how often symptoms occur",
+      "triggers": ["identified triggers"],
+      "alleviating_factors": ["what helps"],
+      "progression": "getting worse/better/stable over time"
     }
   },
-  "cardiology_specific": {
-    "recommended_tests": {
-      "immediate": ["ECG", "Troponin if chest pain"],
-      "routine": ["Echo", "Stress test", "Holter monitor"],
-      "advanced": ["Cardiac MRI", "Coronary angiography if indicated"]
+  
+  "cardiology_assessment": {
+    "angina_classification": {
+      "ccs_class": "I-IV based on functional limitation",
+      "typical_features": ["substernal", "exertional", "relieved by rest"],
+      "atypical_features": ["any unusual characteristics"]
+    },
+    "functional_capacity": {
+      "current": "estimated METs based on activities",
+      "baseline": "prior exercise tolerance if known",
+      "specific_limitations": ["cannot climb stairs", "stops after 1 block", "etc"]
     },
     "risk_stratification": {
-      "ascvd_risk": "Calculate if data available",
-      "heart_failure_risk": "Low/Medium/High",
-      "arrhythmia_risk": "Low/Medium/High"
-    },
-    "medication_considerations": {
-      "indicated": ["Aspirin", "Statin", "Beta-blocker", "ACE-I/ARB"],
-      "contraindicated": ["based on symptoms"],
-      "monitoring_required": ["lab work needed"]
+      "clinical_risk": "low/intermediate/high based on symptoms",
+      "missing_data_for_scores": ["BP", "cholesterol", "smoking status"],
+      "red_flags": ["concerning features requiring urgent evaluation"]
     }
   },
-  "action_plan": {
-    "immediate_actions": ["911 if acute symptoms", "urgent cardiology if concerning"],
-    "diagnostic_pathway": {
-      "week_1": ["Initial tests"],
-      "week_2_4": ["Follow-up tests"],
-      "ongoing": ["Monitoring plan"]
+  
+  "cardiologist_specific_findings": {
+    "chest_pain_characterization": {
+      "quality": "pressure/sharp/burning/etc",
+      "location": "specific location described",
+      "radiation": "if pain spreads anywhere",
+      "associated_symptoms": ["dyspnea", "diaphoresis", "nausea", "palpitations"]
     },
-    "lifestyle_modifications": {
-      "diet": ["DASH diet", "sodium restriction"],
-      "exercise": ["cardiac rehab if indicated", "activity recommendations"],
-      "risk_reduction": ["smoking cessation", "weight management"]
+    "symptom_pattern_insights": {
+      "temporal_patterns": "morning vs evening, weekday vs weekend",
+      "activity_correlation": "symptoms with specific activities",
+      "stress_relationship": "emotional trigger patterns noted"
     },
-    "follow_up": {
-      "cardiology_appointment": "Urgent/Routine/As needed",
-      "primary_care": "Frequency of monitoring",
-      "red_flags": ["When to seek immediate care"]
+    "functional_decline": {
+      "trajectory": "how function has changed over time",
+      "compensatory_behaviors": ["avoiding stairs", "stopping activities"]
     }
   },
-  "billing_optimization": {
-    "suggested_codes": {
-      "icd10": ["Primary and secondary diagnosis codes"],
-      "cpt": ["Recommended procedure codes for workup"]
+  
+  "diagnostic_priorities": {
+    "immediate": [
+      {
+        "test": "ECG",
+        "rationale": "baseline assessment, check for ischemic changes",
+        "timing": "same day"
+      }
+    ],
+    "short_term": [
+      {
+        "test": "Exercise stress test or pharmacologic if cannot exercise",
+        "rationale": "assess for inducible ischemia",
+        "timing": "within 1 week given symptom progression"
+      },
+      {
+        "test": "Lipid panel, A1C, TSH",
+        "rationale": "risk stratification and secondary causes",
+        "timing": "with next blood draw"
+      }
+    ],
+    "contingent": [
+      {
+        "test": "Coronary CTA or angiography",
+        "condition": "if stress test positive or high clinical suspicion",
+        "rationale": "define coronary anatomy"
+      }
+    ]
+  },
+  
+  "treatment_recommendations": {
+    "immediate_medical_therapy": [
+      {
+        "medication": "Aspirin 81mg daily",
+        "rationale": "antiplatelet for suspected CAD"
+      },
+      {
+        "medication": "Atorvastatin 40mg daily",
+        "rationale": "high-intensity statin for ASCVD risk reduction"
+      },
+      {
+        "medication": "Metoprolol 25mg BID",
+        "rationale": "rate control and anti-anginal effect"
+      }
+    ],
+    "symptom_management": {
+      "prn_medications": ["Sublingual nitroglycerin for acute episodes"],
+      "activity_modification": "avoid known triggers until evaluated",
+      "monitoring": "keep symptom diary"
     },
-    "pre_authorization": ["Tests that may need prior auth"],
-    "documentation_tips": ["Key elements to document for billing"]
+    "lifestyle_interventions": {
+      "diet": "Mediterranean or DASH diet for cardiovascular health",
+      "exercise": "cardiac rehab referral after evaluation",
+      "risk_factor_modification": ["smoking cessation if applicable", "weight management", "stress reduction"]
+    }
+  },
+  
+  "care_coordination": {
+    "referral_urgency": "routine/urgent/emergent",
+    "pre_visit_preparation": [
+      "bring list of all medications",
+      "document symptom episodes",
+      "gather family cardiac history"
+    ],
+    "follow_up_plan": {
+      "cardiology": "within 2 weeks",
+      "primary_care": "after cardiac workup for risk factor management",
+      "emergency_plan": "call 911 for rest pain or prolonged symptoms"
+    }
+  },
+  
+  "data_quality_notes": {
+    "completeness": "good symptom description, missing risk factor data",
+    "consistency": "symptoms consistent across reports",
+    "gaps": ["family history needed", "BP readings helpful", "prior ECGs if available"]
   }
 }"""
 
@@ -466,91 +510,168 @@ ASSOCIATED SYMPTOMS:
 - Mood changes
 - Autonomic symptoms"""
 
-        system_prompt = """Generate a neurology specialist report. Include both general medical sections AND neurology-specific analysis.
+        system_prompt = """Generate a detailed neurology specialist report focusing on neurological symptoms and patterns.
 
 Return JSON format:
 {
-  "executive_summary": {
-    "one_page_summary": "Complete neurological assessment summary",
-    "chief_complaints": ["primary neurological concerns"],
-    "key_findings": ["significant neurological findings"],
-    "urgency_indicators": ["red flags requiring immediate attention"],
-    "action_items": ["immediate neurological care needs"]
-  },
-  "patient_story": {
-    "neurological_timeline": [
+  "clinical_summary": {
+    "chief_complaint": "Primary neurological concern",
+    "hpi": "Detailed neurological history with timeline",
+    "symptom_timeline": [
       {
         "date": "ISO date",
-        "symptom": "headache/numbness/etc",
-        "location": "specific location",
-        "quality": "sharp/dull/burning/etc",
+        "symptoms": "specific neurological symptoms",
+        "location": "anatomical location",
         "severity": 1-10,
-        "duration": "minutes/hours/days",
+        "duration": "episode duration",
         "associated_symptoms": ["accompanying symptoms"]
-      }
-    ],
-    "functional_impact": {
-      "daily_activities": ["activities affected"],
-      "work_impact": "impact on work/school",
-      "quality_of_life": "overall impact"
-    }
-  },
-  "medical_analysis": {
-    "neurological_assessment": {
-      "headache_classification": "primary/secondary, type if applicable",
-      "sensory_findings": ["numbness, tingling patterns"],
-      "motor_findings": ["weakness patterns"],
-      "cognitive_concerns": ["memory, concentration issues"],
-      "red_flags": ["concerning neurological signs"]
-    },
-    "localization": {
-      "suspected_location": "central/peripheral/both",
-      "anatomical_correlation": "suspected structures involved"
-    },
-    "differential_diagnosis": [
-      {
-        "condition": "Neurological condition",
-        "icd10_code": "GXX.X",
-        "likelihood": "High/Medium/Low",
-        "supporting_evidence": ["clinical features"]
       }
     ]
   },
-  "neurology_specific": {
-    "recommended_tests": {
-      "imaging": ["MRI brain/spine", "CT if urgent"],
-      "electrophysiology": ["EEG", "EMG/NCS if indicated"],
-      "laboratory": ["B12", "thyroid", "inflammatory markers"],
-      "specialized": ["LP if indicated", "autonomic testing"]
+  
+  "neurology_assessment": {
+    "headache_characterization": {
+      "classification": "Probable diagnosis per ICHD-3 criteria",
+      "frequency": "episodes per month",
+      "pattern": {
+        "typical_onset": "time of day patterns",
+        "duration": "typical episode length",
+        "laterality": "unilateral/bilateral percentages"
+      }
     },
-    "headache_management": {
-      "abortive_options": ["acute treatment options"],
-      "preventive_options": ["prophylactic medications"],
-      "lifestyle_triggers": ["identified triggers to avoid"]
+    "clinical_scales": {
+      "midas_score": {
+        "calculated": "score if data available",
+        "grade": "I-IV disability level",
+        "breakdown": {
+          "missed_work": "days",
+          "reduced_productivity": "days",
+          "household_impact": "days",
+          "social_impact": "days"
+        }
+      },
+      "functional_impact": {
+        "work_days_affected": "number in past 3 months",
+        "emergency_visits": "if any",
+        "quality_of_life": "specific impacts noted"
+      }
     },
-    "treatment_recommendations": {
-      "pharmacological": ["medication options by condition"],
-      "non_pharmacological": ["PT", "cognitive therapy", "biofeedback"],
-      "referrals_needed": ["subspecialty referrals if needed"]
+    "red_flag_screen": {
+      "thunderclap_onset": "present/absent",
+      "progressive_pattern": "worsening/stable",
+      "focal_deficits": "any reported",
+      "systemic_symptoms": "fever/weight loss",
+      "papilledema_risk": "symptoms suggesting increased ICP"
     }
   },
-  "action_plan": {
-    "immediate_actions": ["urgent steps if red flags"],
-    "diagnostic_timeline": {
-      "urgent": ["tests needed immediately"],
-      "routine": ["scheduled evaluations"],
-      "follow_up": ["reassessment timeline"]
+  
+  "neurologist_specific_findings": {
+    "headache_phenomenology": {
+      "pain_quality": "throbbing/pressure/sharp/burning",
+      "location_specifics": "precise anatomical description",
+      "radiation_pattern": "if pain spreads",
+      "triggers": {
+        "identified": ["specific triggers from history"],
+        "suspected": ["possible triggers to test"],
+        "protective": ["what prevents episodes"]
+      }
     },
-    "symptom_diary": {
-      "tracking_recommendations": ["what to track"],
-      "trigger_identification": ["potential triggers to monitor"]
+    "associated_phenomena": {
+      "autonomic": ["lacrimation", "rhinorrhea", "ptosis"],
+      "sensory": ["photophobia", "phonophobia", "osmophobia"],
+      "aura": "visual/sensory/speech symptoms if present"
+    },
+    "medication_patterns": {
+      "current_use": {
+        "acute": "medications and frequency",
+        "preventive": "if any tried",
+        "overuse_risk": "days per month of analgesic use"
+      },
+      "treatment_response": "what has helped/failed"
     }
   },
-  "billing_optimization": {
-    "suggested_codes": {
-      "icd10": ["neurological diagnosis codes"],
-      "cpt": ["procedure codes for workup"]
+  
+  "diagnostic_plan": {
+    "imaging": {
+      "mri_brain": {
+        "indicated": "yes/no",
+        "rationale": "red flags or atypical features",
+        "protocol": "with/without contrast",
+        "urgency": "routine/urgent"
+      }
+    },
+    "laboratory": [
+      {
+        "test": "ESR, CRP",
+        "rationale": "if giant cell arteritis suspected"
+      },
+      {
+        "test": "Thyroid function",
+        "rationale": "can trigger headaches"
+      }
+    ],
+    "specialized": {
+      "sleep_study": "if sleep-related headaches",
+      "lumbar_puncture": "only if specific indications"
     }
+  },
+  
+  "treatment_recommendations": {
+    "acute_management": {
+      "first_line": [
+        {
+          "medication": "Sumatriptan 100mg",
+          "instructions": "at onset, may repeat in 2 hours",
+          "contraindications": "vascular disease"
+        }
+      ],
+      "rescue": "if first-line fails",
+      "limits": "maximum days per month to avoid MOH"
+    },
+    "preventive_strategy": {
+      "lifestyle": {
+        "essential": ["sleep hygiene", "meal regularity", "hydration"],
+        "triggers_to_avoid": "based on diary"
+      },
+      "medications": [
+        {
+          "drug": "Topiramate",
+          "starting_dose": "25mg daily",
+          "target": "50-100mg BID",
+          "side_effects": "cognitive, weight loss"
+        },
+        {
+          "drug": "Propranolol",
+          "starting_dose": "20mg BID",
+          "target": "80-160mg daily",
+          "contraindications": "asthma, bradycardia"
+        }
+      ],
+      "expected_response": "50% reduction in 3 months"
+    },
+    "non_pharmacologic": {
+      "recommended": ["CBT for chronic pain", "biofeedback", "acupuncture"],
+      "physical_therapy": "if cervicogenic component"
+    }
+  },
+  
+  "follow_up_plan": {
+    "neurology_visit": "4-6 weeks to assess treatment",
+    "headache_diary": {
+      "track": ["frequency", "triggers", "medication use"],
+      "apps_recommended": ["specific tracking apps"]
+    },
+    "warning_signs": [
+      "sudden severe headache",
+      "neurological deficits",
+      "fever with headache"
+    ]
+  },
+  
+  "data_insights": {
+    "pattern_recognition": "episodic migraine progressing to chronic",
+    "comorbidities": ["anxiety noted in reports", "sleep issues"],
+    "prognosis": "good with appropriate prophylaxis"
   }
 }"""
 
@@ -629,21 +750,131 @@ FUNCTIONAL ASSESSMENT:
 - Self-care abilities
 - Coping mechanisms"""
 
-        system_prompt = """Generate a psychiatry specialist report. Include both general medical sections AND psychiatric-specific analysis.
+        system_prompt = """Generate a detailed psychiatry specialist report analyzing mental health symptoms and psychosocial factors.
 
-Return JSON format with:
-- executive_summary (mental health focus)
-- patient_story (psychiatric history and timeline)
-- medical_analysis (psychiatric assessment)
-- psychiatry_specific section with:
-  - mental_status_exam components
-  - risk_assessment (suicide, violence, self-harm)
-  - diagnostic_formulation (DSM-5 considerations)
-  - medication_recommendations
-  - therapy_recommendations
-  - safety_planning if indicated
-- action_plan (psychiatric treatment focused)
-- billing_optimization"""
+Return JSON format:
+{
+  "clinical_summary": {
+    "chief_complaint": "Primary mental health concern",
+    "hpi": "Psychiatric history with precipitants and timeline",
+    "symptom_timeline": [
+      {
+        "date": "ISO date",
+        "symptoms": "mood/anxiety/psychotic symptoms",
+        "severity": "mild/moderate/severe",
+        "triggers": "identified stressors",
+        "impact": "functional impairment"
+      }
+    ]
+  },
+  
+  "psychiatry_assessment": {
+    "diagnostic_impression": {
+      "primary": "Most likely DSM-5 diagnosis",
+      "differential": ["other considerations"],
+      "specifiers": ["with anxious distress", "severity", "etc"],
+      "timeline": "acute/chronic, first episode/recurrent"
+    },
+    "standardized_assessments": {
+      "phq9_score": {
+        "total": "calculated from symptoms",
+        "interpretation": "severity level",
+        "item_9": "suicide item score",
+        "functional_impact": "last question score"
+      },
+      "gad7_estimate": "if anxiety symptoms present",
+      "other_scales": "as indicated by symptoms"
+    },
+    "risk_assessment": {
+      "suicide_risk": {
+        "current_ideation": "none/passive/active",
+        "plan_intent": "present/absent",
+        "risk_level": "low/moderate/high",
+        "protective_factors": ["identified protections"]
+      },
+      "violence_risk": "assessment if indicated",
+      "self_harm": "non-suicidal self-injury patterns"
+    }
+  },
+  
+  "psychiatrist_specific_findings": {
+    "mental_status_elements": {
+      "mood_symptoms": ["depression", "anhedonia", "hopelessness"],
+      "anxiety_symptoms": ["worry", "panic", "avoidance"],
+      "cognitive_symptoms": ["concentration", "memory", "decision-making"],
+      "neurovegetative": ["sleep", "appetite", "energy", "psychomotor"]
+    },
+    "functional_analysis": {
+      "occupational": "impact on work/school",
+      "social": "relationship effects",
+      "adls": "self-care status",
+      "behavioral_activation": "activity level changes"
+    },
+    "psychosocial_factors": {
+      "stressors": ["identified triggers"],
+      "supports": ["family", "friends", "community"],
+      "coping_mechanisms": ["adaptive", "maladaptive"]
+    }
+  },
+  
+  "treatment_planning": {
+    "psychopharmacology": {
+      "recommended_medication": {
+        "class": "SSRI/SNRI/other",
+        "specific_drug": "medication name",
+        "starting_dose": "initial dose",
+        "titration": "increase schedule",
+        "monitoring": "side effects to watch"
+      },
+      "past_medications": {
+        "tried": ["what has been tried"],
+        "response": "effectiveness and tolerability"
+      },
+      "augmentation_options": "if partial response"
+    },
+    "psychotherapy": {
+      "modality": "CBT/DBT/IPT/supportive",
+      "frequency": "weekly/biweekly",
+      "focus": ["specific targets"],
+      "duration": "expected treatment length"
+    },
+    "behavioral_interventions": {
+      "immediate": ["sleep hygiene", "exercise", "routine"],
+      "behavioral_activation": ["pleasant activities", "social contact"],
+      "coping_skills": ["specific techniques"]
+    }
+  },
+  
+  "safety_planning": {
+    "warning_signs": ["personal triggers"],
+    "coping_strategies": ["internal strategies"],
+    "support_contacts": ["who to reach out to"],
+    "professional_contacts": ["therapist", "crisis line"],
+    "environment_safety": ["means restriction if needed"],
+    "follow_up": "next appointment timing"
+  },
+  
+  "coordination_of_care": {
+    "primary_care": "communicate about medications",
+    "therapy_referral": {
+      "type": "specific therapy modality",
+      "urgency": "routine/expedited",
+      "expected_wait": "typical timeframe"
+    },
+    "community_resources": ["support groups", "peer support"],
+    "monitoring_plan": {
+      "frequency": "follow-up schedule",
+      "symptom_tracking": "PHQ-9 q2weeks",
+      "medication_monitoring": "labs if needed"
+    }
+  },
+  
+  "prognosis_factors": {
+    "positive_indicators": ["help-seeking", "support system", "insight"],
+    "challenges": ["chronicity", "comorbidities", "stressors"],
+    "expected_trajectory": "with appropriate treatment"
+  }
+}"""
 
         llm_response = await call_llm(
             messages=[
@@ -719,21 +950,140 @@ PHOTO DOCUMENTATION:
 - Response to treatments
 - Environmental triggers"""
 
-        system_prompt = """Generate a dermatology specialist report. Include both general medical sections AND dermatology-specific analysis.
+        system_prompt = """Generate a detailed dermatology specialist report analyzing skin conditions with photo documentation insights.
 
-Return JSON format with:
-- executive_summary (dermatological focus)
-- patient_story (skin condition timeline)
-- medical_analysis (dermatological assessment)
-- dermatology_specific section with:
-  - lesion_descriptions (morphology, distribution)
-  - photo_analysis_summary
-  - differential_diagnosis (skin conditions)
-  - biopsy_recommendations if indicated
-  - treatment_plan (topical, systemic, procedures)
-  - sun_protection_counseling
-- action_plan (dermatology focused)
-- billing_optimization"""
+Return JSON format:
+{
+  "clinical_summary": {
+    "chief_complaint": "Primary skin concern",
+    "hpi": "Detailed history of skin condition",
+    "lesion_timeline": [
+      {
+        "date": "ISO date",
+        "description": "appearance and changes",
+        "location": "anatomical sites",
+        "symptoms": "itching/pain/burning",
+        "triggers": "identified factors"
+      }
+    ]
+  },
+  
+  "dermatology_assessment": {
+    "lesion_characterization": {
+      "morphology": "papules/plaques/vesicles/etc",
+      "configuration": "scattered/grouped/linear",
+      "distribution": "body areas affected",
+      "color": "erythematous/hyperpigmented/etc",
+      "surface_changes": "scale/crust/erosion",
+      "size": "measurements from photos"
+    },
+    "clinical_diagnosis": {
+      "primary_impression": "most likely diagnosis",
+      "differential": ["other possibilities"],
+      "confidence": "high/moderate/low",
+      "supporting_features": ["classic signs present"]
+    },
+    "severity_assessment": {
+      "bsa_affected": "percent of body surface",
+      "pasi_estimate": "if psoriasis suspected",
+      "impact_score": "quality of life impact 1-10"
+    }
+  },
+  
+  "dermatologist_specific_findings": {
+    "photo_analysis": {
+      "quality": "good/fair/poor lighting and angles",
+      "evolution_documented": "changes over time visible",
+      "key_features": ["specific findings in photos"],
+      "comparison": "improvement/worsening/stable"
+    },
+    "clinical_patterns": {
+      "koebner_phenomenon": "present/absent",
+      "distribution_pattern": "extensor/flexural/sun-exposed",
+      "symmetry": "bilateral/unilateral",
+      "dermatomal": "follows nerve distribution"
+    },
+    "associated_findings": {
+      "nail_changes": "pitting/onycholysis/etc",
+      "scalp_involvement": "if present",
+      "mucosal_involvement": "oral/genital",
+      "joint_symptoms": "if psoriatic arthritis risk"
+    }
+  },
+  
+  "diagnostic_plan": {
+    "biopsy_recommendation": {
+      "indicated": "yes/no",
+      "rationale": "uncertain diagnosis/rule out malignancy",
+      "type": "punch/shave/excisional",
+      "sites": "where to biopsy"
+    },
+    "laboratory": [
+      {
+        "test": "KOH prep",
+        "indication": "if fungal suspected"
+      },
+      {
+        "test": "Patch testing",
+        "indication": "if contact dermatitis"
+      }
+    ],
+    "imaging": "dermoscopy if available"
+  },
+  
+  "treatment_recommendations": {
+    "topical_therapy": {
+      "first_line": [
+        {
+          "medication": "Clobetasol 0.05% ointment",
+          "instructions": "BID to affected areas x 2 weeks",
+          "then": "weekend pulse therapy"
+        }
+      ],
+      "adjuncts": [
+        {
+          "medication": "Calcipotriene",
+          "role": "maintenance therapy",
+          "combination": "with topical steroid"
+        }
+      ],
+      "vehicles": "ointment for dry areas, cream for moist"
+    },
+    "systemic_considerations": {
+      "threshold": "BSA >10% or QOL impact",
+      "options": [
+        {
+          "medication": "Methotrexate",
+          "dose": "15-25mg weekly",
+          "monitoring": "LFTs, CBC"
+        }
+      ],
+      "phototherapy": "NB-UVB if widespread"
+    },
+    "skin_care": {
+      "moisturizers": "thick creams/ointments daily",
+      "bathing": "lukewarm water, gentle cleansers",
+      "triggers_to_avoid": ["harsh soaps", "hot water"]
+    }
+  },
+  
+  "patient_education": {
+    "disease_course": "chronic with flares and remissions",
+    "trigger_avoidance": ["stress", "skin trauma", "infections"],
+    "treatment_expectations": "improvement in 4-6 weeks",
+    "when_to_follow_up": [
+      "no improvement in 4 weeks",
+      "side effects from treatment",
+      "new lesions appearing"
+    ]
+  },
+  
+  "follow_up_plan": {
+    "timing": "4-6 weeks for treatment response",
+    "photo_documentation": "take photos before starting treatment",
+    "treatment_diary": "track what helps/worsens"
+  }
+}"""
 
         llm_response = await call_llm(
             messages=[
