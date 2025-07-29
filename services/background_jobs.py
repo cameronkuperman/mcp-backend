@@ -137,8 +137,10 @@ async def generate_user_weekly_content(user_id: str) -> Dict:
                 # Call the health story endpoint via HTTP
                 import httpx
                 async with httpx.AsyncClient() as client:
+                    # Use environment variable for API URL
+                    api_url = os.getenv("API_URL", "http://localhost:8000")
                     response = await client.post(
-                        "http://localhost:8000/api/health-story",
+                        f"{api_url}/api/health-story",
                         json={"user_id": user_id}
                     )
                     if response.status_code != 200:
