@@ -90,3 +90,4 @@ Traceback (most recent call last):
   File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/postgrest/_sync/request_builder.py", line 78, in execute
     raise APIError(dict(json_obj))
 postgrest.exceptions.APIError: {'message': 'invalid input syntax for type uuid: "test"', 'code': '22P02', 'hint': None, 'details': None}
+INFO:     127.0.0.1:60240 - "POST /api/trigger-weekly-generation HTTP/1.1" 404 Not Found

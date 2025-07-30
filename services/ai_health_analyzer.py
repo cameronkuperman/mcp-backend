@@ -26,7 +26,7 @@ class HealthAnalyzer:
         self.base_url = "https://openrouter.ai/api/v1/chat/completions"
         self.api_key = os.getenv("OPENROUTER_API_KEY")
         self.model = "google/gemini-2.5-pro"
-        self.timeout = 90  # Longer timeout for complex analysis
+        self.timeout = 900  # 15 minutes timeout for complex analysis
         
     async def _call_ai(self, prompt: str, temperature: float = 0.7) -> Dict:
         """Make API call to Gemini 2.5 Pro via OpenRouter"""
@@ -237,28 +237,36 @@ class HealthAnalyzer:
             return []
     
     async def detect_shadow_patterns(self, health_data: Dict, user_id: str) -> List[Dict]:
-        """Identify patterns that are missing from recent data"""
-        # Get historical data for comparison
-        historical_data = await self._get_historical_data(user_id, weeks=4)
+        """Identify patterns that are missing from recent data across ALL health interactions"""
+        # Get comprehensive historical data
+        historical_data = await self._get_comprehensive_historical_data(user_id, weeks=4)
+        current_week_data = await self._get_current_week_comprehensive_data(user_id)
         
         prompt = f"""
-        Compare current health data with historical patterns to identify what's missing.
+        You are analyzing what health topics/concerns a user USUALLY mentions but HASN'T mentioned this week.
+        Look across ALL their health interactions: stories, quick scans, deep dives, chats, tracking, etc.
         
-        Current Week Data:
-        - Symptoms mentioned: {health_data.get('recent_symptoms', [])}
-        - Activities tracked: {health_data.get('activities', [])}
-        - Body parts noted: {health_data.get('body_parts', [])}
-        - Tracking frequency: {health_data.get('tracking_frequency', 'unknown')}
+        Current Week Activity:
+        - Quick scans: {current_week_data.get('quick_scan_topics', [])}
+        - Deep dive topics: {current_week_data.get('deep_dive_topics', [])}
+        - Chat topics: {current_week_data.get('chat_topics', [])}
+        - Symptoms tracked: {current_week_data.get('symptoms', [])}
+        - Body parts mentioned: {current_week_data.get('body_parts', [])}
         
-        Historical Patterns (last 4 weeks):
-        {json.dumps(historical_data, indent=2)[:1500]}
+        Historical Patterns (previous 4 weeks):
+        - Frequently scanned body parts: {historical_data.get('common_body_parts', [])}
+        - Recurring symptoms: {historical_data.get('recurring_symptoms', [])}
+        - Common health topics: {historical_data.get('common_topics', [])}
+        - Regular concerns: {historical_data.get('regular_concerns', [])}
+        - Usual medications: {historical_data.get('medications', [])}
         
-        Identify 3-5 patterns that were previously prominent but are missing this week.
-        Focus on:
-        1. Regular activities not mentioned (exercise, meditation, etc.)
-        2. Symptoms that disappeared (could be good or concerning)
-        3. Tracking habits that changed
-        4. Wellness practices not continued
+        Identify 3-5 significant patterns that are MISSING this week.
+        These could be:
+        1. Symptoms they always mention but haven't this week (e.g., "daily headaches" suddenly not mentioned)
+        2. Body parts they frequently scan but ignored this week (e.g., always checking knee pain, now silent)
+        3. Health topics they discuss regularly but avoided (e.g., anxiety, sleep issues, diet)
+        4. Medications or treatments usually tracked but missing
+        5. Wellness activities they stopped mentioning (exercise, meditation, supplements)
         
         For each shadow pattern:
         - name: Brief pattern name (e.g., "Morning exercise routine")
@@ -304,46 +312,60 @@ class HealthAnalyzer:
     async def generate_strategies(self, insights: List[Dict], predictions: List[Dict], 
                                 patterns: List[Dict], user_id: str) -> List[Dict]:
         """Generate strategic health moves based on all analysis"""
+        # Get current week activity for more specific recommendations
+        current_week_data = await self._get_current_week_comprehensive_data(user_id)
+        
+        # Build activity summary
+        activity_summary = []
+        if current_week_data['quick_scan_topics']:
+            activity_summary.append(f"Quick scans focused on: {', '.join(current_week_data['quick_scan_topics'][:3])}")
+        if current_week_data['symptoms']:
+            activity_summary.append(f"Symptoms tracked: {', '.join(current_week_data['symptoms'][:3])}")
+        if current_week_data['body_parts']:
+            activity_summary.append(f"Body areas of concern: {', '.join(current_week_data['body_parts'][:3])}")
+        
         prompt = f"""
-        Based on these health insights, predictions, and missing patterns, create 5-7 strategic health moves.
+        Based on this week's health activity and analysis, create 5-7 strategic health moves.
+        
+        This Week's Activity:
+        {chr(10).join(activity_summary) if activity_summary else "Limited health tracking this week"}
         
         Key Insights:
-        {json.dumps(insights, indent=2)[:1000]}
+        {json.dumps(insights, indent=2)[:800]}
         
         Predictions:
-        {json.dumps(predictions, indent=2)[:1000]}
+        {json.dumps(predictions, indent=2)[:800]}
         
-        Shadow Patterns (missing):
-        {json.dumps(patterns, indent=2)[:1000]}
+        Shadow Patterns (things usually mentioned but missing this week):
+        {json.dumps(patterns, indent=2)[:800]}
         
         Generate strategic moves that are:
-        1. Specific and actionable (can be done this week)
-        2. Based on the analysis above
-        3. Focused on discovery, prevention, or optimization
-        4. Realistic and achievable
+        1. Tailored to what the user ACTUALLY did this week
+        2. Specific enough to be actionable but general enough to be flexible
+        3. Mix of immediate actions (today/tomorrow) and week-long strategies
+        4. Based on their actual tracking patterns and concerns
         
         For each strategy:
-        - strategy: Specific action to take (one clear sentence)
-        - type: "discovery" (learn something new), "pattern" (track correlation), "prevention" (avoid issues), "optimization" (improve wellness)
-        - priority: 1-10 (10 being highest priority)
-        - rationale: Why this strategy is recommended
-        - outcome: Expected benefit if followed
+        - strategy: Action that relates to their SPECIFIC weekly activity (e.g., "Since you tracked headaches 3 times, try...")
+        - type: "discovery" (learn patterns), "pattern" (track correlations), "prevention" (avoid issues), "optimization" (improve wellness)
+        - priority: 1-10 (10 being highest)
+        - rationale: Connect to their ACTUAL weekly data
+        - outcome: Specific benefit based on their patterns
         
-        Prioritize strategies that:
-        - Address high-confidence warnings
-        - Leverage positive patterns
-        - Fill important shadow patterns
-        - Prevent predicted issues
+        Examples of good strategies:
+        - If they tracked knee pain: "Log activities 30 minutes before knee pain episodes to identify triggers"
+        - If they mentioned fatigue: "Track caffeine intake alongside your energy levels for 3 days"
+        - If pattern is missing: "You usually track sleep but didn't this week - resume sleep logging to maintain insights"
         
         Return ONLY a JSON object:
         {{
             "strategies": [
                 {{
-                    "strategy": "Track energy levels hourly for 3 days to identify patterns",
+                    "strategy": "Since you scanned your chest area twice this week, track any activities that precede chest discomfort",
                     "type": "discovery",
                     "priority": 8,
-                    "rationale": "Energy fluctuations predicted; need data to understand triggers",
-                    "outcome": "Identify specific times and triggers for energy dips"
+                    "rationale": "Your chest scans this week suggest concern; activity tracking helps identify triggers",
+                    "outcome": "Understand if specific movements or stress triggers your chest symptoms"
                 }}
             ]
         }}
@@ -469,3 +491,224 @@ class HealthAnalyzer:
         days_since_monday = dt.weekday()
         week_start = dt - timedelta(days=days_since_monday)
         return week_start.date().isoformat()
+    
+    async def _get_comprehensive_historical_data(self, user_id: str, weeks: int = 4) -> Dict:
+        """Get comprehensive historical health data from ALL interactions"""
+        try:
+            cutoff = (date.today() - timedelta(weeks=weeks)).isoformat()
+            now = date.today()
+            current_week_start = self._get_week_start(now.isoformat())
+            
+            data = {
+                'common_body_parts': [],
+                'recurring_symptoms': [],
+                'common_topics': [],
+                'regular_concerns': [],
+                'medications': []
+            }
+            
+            # 1. Quick Scans - extract body parts and symptoms
+            scans = supabase.table('quick_scans').select(
+                'body_part, form_data, created_at'
+            ).eq('user_id', user_id).gte('created_at', cutoff).lt('created_at', current_week_start).execute()
+            
+            body_part_counts = {}
+            symptom_counts = {}
+            
+            for scan in (scans.data or []):
+                # Count body parts
+                body_part = scan.get('body_part', '').lower()
+                if body_part:
+                    body_part_counts[body_part] = body_part_counts.get(body_part, 0) + 1
+                
+                # Extract symptoms from form_data
+                form_data = scan.get('form_data', {})
+                if isinstance(form_data, dict):
+                    symptoms = form_data.get('symptoms', '').lower()
+                    for symptom in symptoms.split(','):
+                        symptom = symptom.strip()
+                        if symptom:
+                            symptom_counts[symptom] = symptom_counts.get(symptom, 0) + 1
+            
+            # 2. Deep Dives - extract topics and concerns
+            dives = supabase.table('deep_dive_sessions').select(
+                'body_part, form_data, analysis_result, final_analysis'
+            ).eq('user_id', user_id).gte('created_at', cutoff).lt('created_at', current_week_start).execute()
+            
+            topics = []
+            for dive in (dives.data or []):
+                if dive.get('body_part'):
+                    body_part_counts[dive['body_part'].lower()] = body_part_counts.get(dive['body_part'].lower(), 0) + 1
+                
+                # Extract topics from analysis
+                analysis = dive.get('final_analysis', {})
+                if isinstance(analysis, dict):
+                    # Look for conditions, concerns, recommendations
+                    if 'primaryCondition' in analysis:
+                        topics.append(analysis['primaryCondition'])
+                    if 'symptoms' in analysis:
+                        for symptom in analysis['symptoms']:
+                            symptom_counts[symptom.lower()] = symptom_counts.get(symptom.lower(), 0) + 1
+            
+            # 3. Conversations - extract health topics discussed
+            conv_result = supabase.table('conversations').select('id').eq(
+                'user_id', user_id
+            ).gte('updated_at', cutoff).lt('updated_at', current_week_start).execute()
+            
+            if conv_result.data:
+                conv_ids = [c['id'] for c in conv_result.data]
+                messages = supabase.table('messages').select(
+                    'content, role'
+                ).in_('conversation_id', conv_ids).eq('role', 'user').execute()
+                
+                # Analyze messages for health topics
+                health_keywords = ['pain', 'ache', 'symptom', 'feeling', 'medication', 'doctor', 
+                                 'anxiety', 'stress', 'sleep', 'energy', 'fatigue', 'dizzy',
+                                 'nausea', 'headache', 'breathing', 'heart', 'stomach']
+                
+                medication_keywords = ['taking', 'medication', 'pill', 'medicine', 'prescribed',
+                                     'tylenol', 'ibuprofen', 'advil', 'aspirin']
+                
+                for msg in (messages.data or []):
+                    content = msg.get('content', '').lower()
+                    # Extract health topics
+                    for keyword in health_keywords:
+                        if keyword in content:
+                            topics.append(keyword)
+                    
+                    # Extract medications
+                    for med_keyword in medication_keywords:
+                        if med_keyword in content:
+                            # Try to extract medication name
+                            words = content.split()
+                            idx = words.index(med_keyword) if med_keyword in words else -1
+                            if idx > 0 and idx < len(words) - 1:
+                                data['medications'].append(words[idx + 1])
+            
+            # 4. Symptom Tracking
+            tracking = supabase.table('symptom_tracking').select(
+                'symptom_name, body_part'
+            ).eq('user_id', user_id).gte('created_at', cutoff).lt('created_at', current_week_start).execute()
+            
+            for entry in (tracking.data or []):
+                symptom = entry.get('symptom_name', '').lower()
+                if symptom:
+                    symptom_counts[symptom] = symptom_counts.get(symptom, 0) + 1
+                body_part = entry.get('body_part', '').lower()
+                if body_part:
+                    body_part_counts[body_part] = body_part_counts.get(body_part, 0) + 1
+            
+            # Process counts into lists
+            # Common = mentioned at least 2 times
+            data['common_body_parts'] = [bp for bp, count in body_part_counts.items() if count >= 2]
+            data['recurring_symptoms'] = [s for s, count in symptom_counts.items() if count >= 2]
+            data['common_topics'] = list(set(topics))[:10]  # Top 10 unique topics
+            data['regular_concerns'] = [s for s, count in symptom_counts.items() if count >= 3]
+            data['medications'] = list(set(data['medications']))
+            
+            return data
+            
+        except Exception as e:
+            logger.error(f"Failed to get comprehensive historical data: {str(e)}")
+            return {
+                'common_body_parts': [],
+                'recurring_symptoms': [],
+                'common_topics': [],
+                'regular_concerns': [],
+                'medications': []
+            }
+    
+    async def _get_current_week_comprehensive_data(self, user_id: str) -> Dict:
+        """Get all health mentions from current week"""
+        try:
+            week_start = self._get_week_start(date.today().isoformat())
+            
+            data = {
+                'quick_scan_topics': [],
+                'deep_dive_topics': [],
+                'chat_topics': [],
+                'symptoms': [],
+                'body_parts': []
+            }
+            
+            # 1. Quick Scans this week
+            scans = supabase.table('quick_scans').select(
+                'body_part, form_data'
+            ).eq('user_id', user_id).gte('created_at', week_start).execute()
+            
+            for scan in (scans.data or []):
+                if scan.get('body_part'):
+                    data['body_parts'].append(scan['body_part'].lower())
+                    data['quick_scan_topics'].append(scan['body_part'].lower())
+                
+                form_data = scan.get('form_data', {})
+                if isinstance(form_data, dict):
+                    symptoms = form_data.get('symptoms', '').lower()
+                    for symptom in symptoms.split(','):
+                        symptom = symptom.strip()
+                        if symptom:
+                            data['symptoms'].append(symptom)
+                            data['quick_scan_topics'].append(symptom)
+            
+            # 2. Deep Dives this week
+            dives = supabase.table('deep_dive_sessions').select(
+                'body_part, form_data, final_analysis'
+            ).eq('user_id', user_id).gte('created_at', week_start).execute()
+            
+            for dive in (dives.data or []):
+                if dive.get('body_part'):
+                    data['body_parts'].append(dive['body_part'].lower())
+                    data['deep_dive_topics'].append(dive['body_part'].lower())
+                
+                analysis = dive.get('final_analysis', {})
+                if isinstance(analysis, dict) and 'symptoms' in analysis:
+                    for symptom in analysis['symptoms']:
+                        data['symptoms'].append(symptom.lower())
+                        data['deep_dive_topics'].append(symptom.lower())
+            
+            # 3. Conversations this week
+            conv_result = supabase.table('conversations').select('id').eq(
+                'user_id', user_id
+            ).gte('updated_at', week_start).execute()
+            
+            if conv_result.data:
+                conv_ids = [c['id'] for c in conv_result.data]
+                messages = supabase.table('messages').select(
+                    'content'
+                ).in_('conversation_id', conv_ids).eq('role', 'user').execute()
+                
+                health_keywords = ['pain', 'ache', 'symptom', 'feeling', 'medication', 
+                                 'anxiety', 'stress', 'sleep', 'energy', 'fatigue']
+                
+                for msg in (messages.data or []):
+                    content = msg.get('content', '').lower()
+                    for keyword in health_keywords:
+                        if keyword in content:
+                            data['chat_topics'].append(keyword)
+            
+            # 4. Symptom Tracking this week
+            tracking = supabase.table('symptom_tracking').select(
+                'symptom_name, body_part'
+            ).eq('user_id', user_id).gte('created_at', week_start).execute()
+            
+            for entry in (tracking.data or []):
+                if entry.get('symptom_name'):
+                    data['symptoms'].append(entry['symptom_name'].lower())
+                if entry.get('body_part'):
+                    data['body_parts'].append(entry['body_part'].lower())
+            
+            # Remove duplicates
+            for key in data:
+                data[key] = list(set(data[key]))
+            
+            return data
+            
+        except Exception as e:
+            logger.error(f"Failed to get current week comprehensive data: {str(e)}")
+            return {
+                'quick_scan_topics': [],
+                'deep_dive_topics': [],
+                'chat_topics': [],
+                'symptoms': [],
+                'body_parts': []
+            }
