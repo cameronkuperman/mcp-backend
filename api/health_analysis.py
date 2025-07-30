@@ -171,6 +171,7 @@ async def generate_weekly_analysis(request: GenerateAnalysisRequest, background_
             )
         
         story = story_result.data[0]
+        logger.info(f"Found story ID: {story.get('id')} for user: {request.user_id}")
         
         # Generate all analysis components in parallel
         tasks = []
@@ -212,45 +213,58 @@ async def generate_weekly_analysis(request: GenerateAnalysisRequest, background_
         # Store insights
         if insights:
             for insight in insights:
-                supabase.table('health_insights').insert({
-                    'user_id': request.user_id,
-                    'story_id': story['id'],
-                    'insight_type': insight['type'],
-                    'title': insight['title'],
-                    'description': insight['description'],
-                    'confidence': insight['confidence'],
-                    'week_of': week_of.isoformat(),
-                    'metadata': insight.get('metadata', {})
-                }).execute()
+                try:
+                    supabase.table('health_insights').insert({
+                        'user_id': request.user_id,
+                        'story_id': story['id'],
+                        'insight_type': insight['type'],
+                        'title': insight['title'],
+                        'description': insight['description'],
+                        'confidence': insight['confidence'],
+                        'week_of': week_of.isoformat(),
+                        'metadata': insight.get('metadata', {})
+                    }).execute()
+                except Exception as e:
+                    logger.error(f"Failed to insert insight: {str(e)}")
+                    logger.error(f"User ID: {request.user_id}, Story ID: {story['id']}")
+                    logger.error(f"Insight data: {insight}")
         
         # Store predictions
         if predictions:
             for pred in predictions:
-                supabase.table('health_predictions').insert({
-                    'user_id': request.user_id,
-                    'story_id': story['id'],
-                    'event_description': pred['event'],
-                    'probability': pred['probability'],
-                    'timeframe': pred['timeframe'],
-                    'preventable': pred.get('preventable', False),
-                    'reasoning': pred.get('reasoning', ''),
-                    'suggested_actions': pred.get('actions', []),
-                    'week_of': week_of.isoformat()
-                }).execute()
+                try:
+                    supabase.table('health_predictions').insert({
+                        'user_id': request.user_id,
+                        'story_id': story['id'],
+                        'event_description': pred['event'],
+                        'probability': pred['probability'],
+                        'timeframe': pred['timeframe'],
+                        'preventable': pred.get('preventable', False),
+                        'reasoning': pred.get('reasoning', ''),
+                        'suggested_actions': pred.get('actions', []),
+                        'week_of': week_of.isoformat()
+                    }).execute()
+                except Exception as e:
+                    logger.error(f"Failed to insert prediction: {str(e)}")
+                    logger.error(f"Prediction data: {pred}")
         
         # Store shadow patterns
         if shadow_patterns:
             for pattern in shadow_patterns:
-                supabase.table('shadow_patterns').insert({
-                    'user_id': request.user_id,
-                    'pattern_name': pattern['name'],
-                    'pattern_category': pattern.get('category', 'other'),
-                    'last_seen_description': pattern['last_seen'],
-                    'significance': pattern['significance'],
-                    'last_mentioned_date': pattern.get('last_date'),
-                    'days_missing': pattern.get('days_missing', 0),
-                    'week_of': week_of.isoformat()
-                }).execute()
+                try:
+                    supabase.table('shadow_patterns').insert({
+                        'user_id': request.user_id,
+                        'pattern_name': pattern['name'],
+                        'pattern_category': pattern.get('category', 'other'),
+                        'last_seen_description': pattern['last_seen'],
+                        'significance': pattern['significance'],
+                        'last_mentioned_date': pattern.get('last_date'),
+                        'days_missing': pattern.get('days_missing', 0),
+                        'week_of': week_of.isoformat()
+                    }).execute()
+                except Exception as e:
+                    logger.error(f"Failed to insert shadow pattern: {str(e)}")
+                    logger.error(f"Pattern data: {pattern}")
         
         # Store strategies
         if strategies:
