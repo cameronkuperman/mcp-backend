@@ -119,6 +119,7 @@ async def generate_weekly_analysis(request: GenerateAnalysisRequest, background_
     Generate complete weekly health analysis including insights, predictions, patterns, and strategies
     """
     try:
+        logger.info(f"Starting weekly analysis generation for user: {request.user_id}")
         week_of = get_current_week_monday()
         
         # Check if analysis already exists for this week
@@ -202,6 +203,8 @@ async def generate_weekly_analysis(request: GenerateAnalysisRequest, background_
         predictions = results[1] if len(results) > 1 and not isinstance(results[1], Exception) else []
         shadow_patterns = results[2] if len(results) > 2 and not isinstance(results[2], Exception) else []
         
+        logger.info(f"Generated {len(insights)} insights, {len(predictions)} predictions, {len(shadow_patterns)} shadow patterns")
+        
         # Generate strategies based on all components
         strategies = []
         if request.include_strategies:
@@ -214,8 +217,21 @@ async def generate_weekly_analysis(request: GenerateAnalysisRequest, background_
         if insights:
             for insight in insights:
                 try:
+                    # Convert user_id to UUID if needed
+                    user_id_for_insert = request.user_id
+                    if isinstance(request.user_id, str) and not request.user_id.startswith('{'):
+                        # Try to convert to UUID format
+                        try:
+                            import uuid
+                            uuid.UUID(request.user_id)
+                            user_id_for_insert = request.user_id
+                        except:
+                            # If not a valid UUID, keep as is - let DB handle it
+                            logger.warning(f"User ID {request.user_id} is not a valid UUID")
+                            user_id_for_insert = request.user_id
+                    
                     supabase.table('health_insights').insert({
-                        'user_id': request.user_id,
+                        'user_id': user_id_for_insert,
                         'story_id': story['id'],
                         'insight_type': insight['type'],
                         'title': insight['title'],
