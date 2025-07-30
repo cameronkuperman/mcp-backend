@@ -175,8 +175,8 @@ async def generate_weekly_analysis(request: GenerateAnalysisRequest, background_
         # Generate all analysis components in parallel
         tasks = []
         
-        # Get the story content - try both possible field names
-        story_content = story.get('content') or story.get('story_content') or ""
+        # Get the story content - the field is called 'story_text' in the database
+        story_content = story.get('story_text') or ""
         
         if not story_content:
             raise HTTPException(

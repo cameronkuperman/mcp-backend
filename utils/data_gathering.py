@@ -599,8 +599,8 @@ async def gather_user_health_data(user_id: str) -> Dict[str, Any]:
             else:
                 data["tracking_frequency"] = "rare"
         
-        # Get health notes count
-        notes_response = supabase.table("health_notes")\
+        # Get story notes count
+        notes_response = supabase.table("story_notes")\
             .select("id")\
             .eq("user_id", user_id)\
             .execute()

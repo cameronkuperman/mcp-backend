@@ -116,7 +116,7 @@ async def get_stories_with_analysis(story_ids: List[str]) -> Dict:
         ).order('probability.desc').execute()
         
         # Get any notes
-        notes = supabase.table('health_notes').select('*').eq(
+        notes = supabase.table('story_notes').select('*').eq(
             'story_id', story_id
         ).execute()
         
@@ -124,7 +124,7 @@ async def get_stories_with_analysis(story_ids: List[str]) -> Dict:
             'story': story,
             'insights': insights.data if insights.data else [],
             'predictions': predictions.data if predictions.data else [],
-            'notes': notes.data[0] if notes.data else None
+            'notes': {'content': notes.data[0]['note_text']} if notes.data else None
         })
     
     return stories_data
@@ -229,7 +229,7 @@ async def generate_health_report_pdf(user_id: str, stories_data: List[Dict],
         elements.append(Spacer(1, 0.2*inch))
         
         # Story content
-        elements.append(Paragraph(story['content'], styles['Normal']))
+        elements.append(Paragraph(story['story_text'], styles['Normal']))
         
         # Personal note if included
         if include_notes and data.get('notes'):
