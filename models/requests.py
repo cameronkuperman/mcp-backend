@@ -219,6 +219,8 @@ class RefreshAnalysisRequest(BaseModel):
 # Specialist Report Models
 class SpecialtyTriageRequest(BaseModel):
     user_id: str
+    quick_scan_ids: Optional[List[str]] = None
+    deep_dive_ids: Optional[List[str]] = None
     primary_concern: Optional[str] = None
     symptoms: Optional[List[str]] = None
     urgency: Optional[str] = None

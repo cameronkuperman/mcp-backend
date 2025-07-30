@@ -26,30 +26,63 @@ router = APIRouter(prefix="/api/report", tags=["reports-specialist"])
 
 @router.post("/specialty-triage")
 async def triage_specialty(request: SpecialtyTriageRequest):
-    """AI determines which specialist(s) are needed based on symptoms"""
+    """AI determines which specialist(s) are needed based on selected quick scans/deep dives"""
     try:
-        # Gather user data
-        data = await gather_report_data(request.user_id, {"time_range": {"start": "2020-01-01"}})
+        context_parts = []
+        
+        # Gather Quick Scan data if provided
+        if request.quick_scan_ids:
+            context_parts.append("QUICK SCAN DATA:")
+            for scan_id in request.quick_scan_ids:
+                scan_response = supabase.table("quick_scans")\
+                    .select("*")\
+                    .eq("id", scan_id)\
+                    .execute()
+                
+                if scan_response.data:
+                    scan = scan_response.data[0]
+                    context_parts.append(f"""
+Quick Scan ID: {scan_id}
+Date: {scan['created_at'][:10]}
+Body Part: {scan['body_part']}
+Initial Symptoms: {json.dumps(scan.get('form_data', {}), indent=2)}
+Analysis Result: {json.dumps(scan.get('analysis_result', {}), indent=2)}
+Confidence Score: {scan.get('confidence_score')}
+Urgency Level: {scan.get('urgency_level')}
+LLM Summary: {scan.get('llm_summary', 'N/A')}
+""")
+        
+        # Gather Deep Dive data if provided
+        if request.deep_dive_ids:
+            context_parts.append("\nDEEP DIVE DATA:")
+            for dive_id in request.deep_dive_ids:
+                dive_response = supabase.table("deep_dive_sessions")\
+                    .select("*")\
+                    .eq("id", dive_id)\
+                    .execute()
+                
+                if dive_response.data:
+                    dive = dive_response.data[0]
+                    context_parts.append(f"""
+Deep Dive ID: {dive_id}
+Date: {dive['created_at'][:10]}
+Body Part: {dive['body_part']}
+Initial Form Data: {json.dumps(dive.get('form_data', {}), indent=2)}
+
+Questions and Answers:
+{json.dumps(dive.get('questions', []), indent=2)}
+
+Final Analysis: {json.dumps(dive.get('final_analysis', {}), indent=2)}
+Final Confidence: {dive.get('final_confidence')}
+Status: {dive.get('status')}
+""")
         
         # Build context for triage
-        context = f"""Analyze patient data to determine appropriate specialist referral.
+        context = f"""Analyze the complete patient interactions to determine the most appropriate specialist referral.
 
-Recent Symptoms:
-{json.dumps([{
-    'date': s['created_at'][:10],
-    'symptoms': s.get('form_data', {}).get('symptoms', ''),
-    'body_part': s.get('body_part', ''),
-    'severity': s.get('form_data', {}).get('painLevel', 0)
-} for s in data['quick_scans'][-10:]], indent=2)}
+{chr(10).join(context_parts)}
 
-Symptom Tracking:
-{json.dumps([{
-    'symptom': s.get('symptom_name'),
-    'frequency': s.get('frequency'),
-    'severity': s.get('severity')
-} for s in data['symptom_tracking'][-20:]], indent=2)}
-
-Patient Concern: {request.primary_concern}"""
+Based on all the information from these interactions, determine which specialist should see this patient."""
 
         system_prompt = """You are a medical triage specialist. Analyze symptoms and recommend appropriate specialist referrals.
 

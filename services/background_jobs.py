@@ -248,21 +248,24 @@ async def generate_weekly_ai_predictions_for_user(user_id: str) -> Dict:
                 alert_data = alert_response.json() if alert_response.status_code == 200 else {}
                 dashboard_alert = alert_data.get('alert') if alert_data else None
                 
-                # 2. Predictions
-                predictions_response = await client.get(f"{api_url}/api/ai/predictions/{user_id}")
+                # 2. Immediate Predictions
+                predictions_response = await client.get(f"{api_url}/api/ai/predictions/immediate/{user_id}")
                 predictions_data = predictions_response.json() if predictions_response.status_code == 200 else {}
                 predictions = predictions_data.get('predictions', []) if predictions_data else []
                 data_quality_score = predictions_data.get('data_quality_score', 0) if predictions_data else 0
                 
                 # 3. Pattern Questions
-                questions_response = await client.get(f"{api_url}/api/ai/pattern-questions/{user_id}")
+                questions_response = await client.get(f"{api_url}/api/ai/questions/{user_id}")
                 questions_data = questions_response.json() if questions_response.status_code == 200 else {}
                 pattern_questions = questions_data.get('questions', []) if questions_data else []
                 
                 # 4. Body Patterns
-                patterns_response = await client.get(f"{api_url}/api/ai/body-patterns/{user_id}")
+                patterns_response = await client.get(f"{api_url}/api/ai/patterns/{user_id}")
                 patterns_data = patterns_response.json() if patterns_response.status_code == 200 else {}
-                body_patterns = patterns_data.get('patterns', {}) if patterns_data else {}
+                body_patterns = {
+                    'tendencies': patterns_data.get('tendencies', []),
+                    'positiveResponses': patterns_data.get('positive_responses', [])
+                } if patterns_data else {}
             
             # Update the record with all data
             update_data = {

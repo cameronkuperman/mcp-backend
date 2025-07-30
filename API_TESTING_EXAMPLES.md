@@ -5,13 +5,30 @@ Base URL: `https://web-production-945c4.up.railway.app`
 ## 1. Specialty Triage Endpoint
 
 ```bash
-# Get AI recommendation for which specialist to see
+# Get AI recommendation based on specific quick scans and deep dives
 curl -X POST https://web-production-945c4.up.railway.app/api/report/specialty-triage \
   -H "Content-Type: application/json" \
   -d '{
     "user_id": "your-user-id",
-    "primary_concern": "I have been having chest pain when I walk up stairs",
-    "symptoms": ["chest pain", "shortness of breath", "fatigue"]
+    "quick_scan_ids": ["scan-id-1", "scan-id-2"],
+    "deep_dive_ids": ["dive-id-1"],
+    "primary_concern": "Additional context about my symptoms"
+  }'
+
+# Example with only quick scans
+curl -X POST https://web-production-945c4.up.railway.app/api/report/specialty-triage \
+  -H "Content-Type: application/json" \
+  -d '{
+    "user_id": "your-user-id",
+    "quick_scan_ids": ["550e8400-e29b-41d4-a716-446655440001"]
+  }'
+
+# Example with only deep dives
+curl -X POST https://web-production-945c4.up.railway.app/api/report/specialty-triage \
+  -H "Content-Type: application/json" \
+  -d '{
+    "user_id": "your-user-id",
+    "deep_dive_ids": ["550e8400-e29b-41d4-a716-446655440002", "550e8400-e29b-41d4-a716-446655440003"]
   }'
 ```
 

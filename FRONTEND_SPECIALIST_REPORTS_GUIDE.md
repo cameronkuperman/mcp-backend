@@ -10,9 +10,11 @@ This guide outlines the frontend changes needed to support the new enhanced spec
 POST /api/report/specialty-triage
 {
   "user_id": string,
-  "primary_concern": string,  // Optional: "chest pain when walking"
-  "symptoms": string[],       // Optional: ["chest pain", "shortness of breath"]
-  "urgency": string          // Optional: "routine" | "urgent"
+  "quick_scan_ids": string[],  // Optional: IDs of quick scans to analyze
+  "deep_dive_ids": string[],   // Optional: IDs of deep dives to analyze
+  "primary_concern": string,   // Optional: Additional context
+  "symptoms": string[],        // Optional: Additional symptoms
+  "urgency": string           // Optional: "routine" | "urgent"
 }
 
 Response:
@@ -21,12 +23,12 @@ Response:
   "triage_result": {
     "primary_specialty": "cardiology",
     "confidence": 0.85,
-    "reasoning": "Exertional chest pain pattern suggests cardiac evaluation",
+    "reasoning": "Based on quick scan showing exertional chest pain and deep dive analysis",
     "secondary_specialties": [
       {
-        "specialty": "pulmonology",
+        "specialty": "pulmonology", 
         "confidence": 0.45,
-        "reason": "Shortness of breath component"
+        "reason": "Shortness of breath component noted in interactions"
       }
     ],
     "urgency": "urgent",
@@ -119,19 +121,98 @@ interface SpecialistReport {
 ```jsx
 // SpecialtyTriage.jsx
 const SpecialtyTriage = ({ userId, onSpecialtySelected }) => {
+  const [selectedQuickScans, setSelectedQuickScans] = useState([]);
+  const [selectedDeepDives, setSelectedDeepDives] = useState([]);
   const [primaryConcern, setPrimaryConcern] = useState('');
   const [triageResult, setTriageResult] = useState(null);
+  
+  // Fetch user's quick scans and deep dives
+  const { quickScans, deepDives } = useHealthData(userId);
+  
+  const runTriage = async () => {
+    const response = await api.post('/api/report/specialty-triage', {
+      user_id: userId,
+      quick_scan_ids: selectedQuickScans,
+      deep_dive_ids: selectedDeepDives,
+      primary_concern: primaryConcern
+    });
+    setTriageResult(response.data.triage_result);
+  };
   
   return (
     <div className="specialty-triage">
       <h2>Find the Right Specialist</h2>
-      <textarea
-        placeholder="Describe your main health concern..."
-        value={primaryConcern}
-        onChange={(e) => setPrimaryConcern(e.target.value)}
-      />
       
-      <button onClick={runTriage}>Get Specialist Recommendation</button>
+      {/* Quick Scan Selection */}
+      <div className="scan-selection">
+        <h3>Select Quick Scans to Include</h3>
+        <div className="scan-list">
+          {quickScans.map(scan => (
+            <label key={scan.id} className="scan-item">
+              <input
+                type="checkbox"
+                value={scan.id}
+                onChange={(e) => {
+                  if (e.target.checked) {
+                    setSelectedQuickScans([...selectedQuickScans, scan.id]);
+                  } else {
+                    setSelectedQuickScans(selectedQuickScans.filter(id => id !== scan.id));
+                  }
+                }}
+              />
+              <div className="scan-info">
+                <span className="date">{new Date(scan.created_at).toLocaleDateString()}</span>
+                <span className="body-part">{scan.body_part}</span>
+                <span className="urgency">{scan.urgency_level}</span>
+              </div>
+            </label>
+          ))}
+        </div>
+      </div>
+      
+      {/* Deep Dive Selection */}
+      <div className="dive-selection">
+        <h3>Select Deep Dives to Include</h3>
+        <div className="dive-list">
+          {deepDives.map(dive => (
+            <label key={dive.id} className="dive-item">
+              <input
+                type="checkbox"
+                value={dive.id}
+                onChange={(e) => {
+                  if (e.target.checked) {
+                    setSelectedDeepDives([...selectedDeepDives, dive.id]);
+                  } else {
+                    setSelectedDeepDives(selectedDeepDives.filter(id => id !== dive.id));
+                  }
+                }}
+              />
+              <div className="dive-info">
+                <span className="date">{new Date(dive.created_at).toLocaleDateString()}</span>
+                <span className="body-part">{dive.body_part}</span>
+                <span className="status">{dive.status}</span>
+              </div>
+            </label>
+          ))}
+        </div>
+      </div>
+      
+      {/* Additional Context */}
+      <div className="additional-context">
+        <h3>Additional Information (Optional)</h3>
+        <textarea
+          placeholder="Any other details you'd like to add..."
+          value={primaryConcern}
+          onChange={(e) => setPrimaryConcern(e.target.value)}
+        />
+      </div>
+      
+      <button 
+        onClick={runTriage}
+        disabled={selectedQuickScans.length === 0 && selectedDeepDives.length === 0}
+      >
+        Get Specialist Recommendation
+      </button>
       
       {triageResult && (
         <TriageResults 

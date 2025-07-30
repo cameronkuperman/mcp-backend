@@ -738,3 +738,492 @@ async def get_deep_dive_sessions(user_id: str, days: int) -> List[Dict[str, Any]
     except Exception as e:
         print(f"Error getting deep dive sessions: {e}")
         return []
+
+
+async def gather_prediction_data(user_id: str, prediction_type: str) -> Dict[str, Any]:
+    """
+    Gathers comprehensive data for AI predictions based on type
+    
+    Time windows:
+    - immediate: 14 days of recent data
+    - seasonal: 90 days to capture seasonal patterns
+    - longterm: All available data for trajectory analysis
+    - patterns: 90 days for pattern recognition
+    - questions: 30 days for recent patterns
+    """
+    try:
+        # Determine time window based on prediction type
+        time_windows = {
+            "immediate": 14,
+            "seasonal": 90,
+            "longterm": 365,  # 1 year or all data
+            "patterns": 90,
+            "questions": 30,
+            "dashboard": 14
+        }
+        
+        days = time_windows.get(prediction_type, 30)
+        end_date = datetime.now(timezone.utc)
+        start_date = end_date - timedelta(days=days)
+        
+        # Gather all data sources
+        data = {
+            "user_id": user_id,
+            "prediction_type": prediction_type,
+            "time_window": {
+                "start": start_date.isoformat(),
+                "end": end_date.isoformat(),
+                "days": days
+            },
+            "current_date": end_date.isoformat(),
+            "day_of_week": end_date.strftime("%A"),
+            "season": get_current_season(),
+            "medical_profile": await get_user_medical_data(user_id)
+        }
+        
+        # Get symptom logs with proper structure
+        symptom_logs = await get_symptom_logs(user_id, days)
+        data["symptom_tracking"] = {
+            "total_entries": len(symptom_logs),
+            "entries": symptom_logs,
+            "symptom_frequency": calculate_symptom_frequency(symptom_logs),
+            "severity_trends": calculate_severity_trends(symptom_logs)
+        }
+        
+        # Get quick scans with analysis
+        quick_scans = await get_quick_scan_history(user_id, days)
+        data["quick_scans"] = {
+            "total_scans": len(quick_scans),
+            "scans": quick_scans,
+            "body_part_frequency": calculate_body_part_frequency(quick_scans),
+            "urgency_distribution": calculate_urgency_distribution(quick_scans)
+        }
+        
+        # Get deep dive sessions
+        deep_dives = await get_deep_dive_sessions(user_id, days)
+        data["deep_dives"] = {
+            "total_sessions": len(deep_dives),
+            "completed_sessions": [d for d in deep_dives if d.get("status") == "completed"],
+            "sessions": deep_dives
+        }
+        
+        # Get sleep data
+        sleep_data = await get_sleep_data(user_id, days)
+        data["sleep_patterns"] = {
+            "entries": sleep_data,
+            "average_hours": calculate_average_sleep_hours(sleep_data),
+            "quality_trend": calculate_sleep_quality_trend(sleep_data)
+        }
+        
+        # Get mood data
+        mood_data = await get_mood_data(user_id, days)
+        data["mood_patterns"] = {
+            "entries": mood_data,
+            "average_mood": calculate_average_mood(mood_data),
+            "stress_levels": extract_stress_levels(mood_data)
+        }
+        
+        # Get medication data
+        medication_logs = await get_medication_logs(user_id, days)
+        data["medication_adherence"] = {
+            "logs": medication_logs,
+            "compliance_rate": calculate_medication_compliance(medication_logs)
+        }
+        
+        # For long-term predictions, get additional historical data
+        if prediction_type == "longterm":
+            data["historical_patterns"] = await get_historical_patterns(user_id)
+            data["chronic_conditions"] = await identify_chronic_conditions(user_id)
+            data["risk_factors"] = await calculate_risk_factors(user_id)
+        
+        # For seasonal predictions, add season-specific data
+        if prediction_type == "seasonal":
+            data["seasonal_history"] = await get_seasonal_history(user_id)
+            data["upcoming_season"] = get_upcoming_season()
+            data["weather_sensitivity"] = await check_weather_sensitivity(user_id)
+        
+        # Calculate data quality score
+        data["data_quality"] = calculate_data_quality_score(data)
+        
+        return data
+        
+    except Exception as e:
+        print(f"Error gathering prediction data: {e}")
+        return {
+            "error": str(e),
+            "user_id": user_id,
+            "prediction_type": prediction_type
+        }
+
+
+def get_current_season() -> str:
+    """Get the current season based on date"""
+    month = datetime.now().month
+    if month in [12, 1, 2]:
+        return "winter"
+    elif month in [3, 4, 5]:
+        return "spring"
+    elif month in [6, 7, 8]:
+        return "summer"
+    else:
+        return "fall"
+
+
+def get_upcoming_season() -> Dict[str, str]:
+    """Get the upcoming season and transition date"""
+    now = datetime.now()
+    year = now.year
+    
+    # Season transitions (approximate)
+    transitions = {
+        "spring": datetime(year, 3, 20),
+        "summer": datetime(year, 6, 21),
+        "fall": datetime(year, 9, 23),
+        "winter": datetime(year, 12, 21)
+    }
+    
+    # Find next transition
+    for season, date in transitions.items():
+        if now < date:
+            return {
+                "season": season,
+                "transition_date": date.isoformat(),
+                "days_until": (date - now).days
+            }
+    
+    # If we're past winter, next is spring of next year
+    return {
+        "season": "spring",
+        "transition_date": datetime(year + 1, 3, 20).isoformat(),
+        "days_until": (datetime(year + 1, 3, 20) - now).days
+    }
+
+
+def calculate_symptom_frequency(symptom_logs: List[Dict]) -> Dict[str, int]:
+    """Calculate frequency of each symptom"""
+    frequency = {}
+    for log in symptom_logs:
+        symptom = log.get("symptom_name", "unknown")
+        frequency[symptom] = frequency.get(symptom, 0) + 1
+    return frequency
+
+
+def calculate_severity_trends(symptom_logs: List[Dict]) -> Dict[str, Any]:
+    """Calculate severity trends over time"""
+    if not symptom_logs:
+        return {"average": 0, "trend": "stable", "recent_average": 0}
+    
+    severities = [log.get("severity", 5) for log in symptom_logs if log.get("severity")]
+    if not severities:
+        return {"average": 0, "trend": "stable", "recent_average": 0}
+    
+    average = sum(severities) / len(severities)
+    recent = severities[-7:] if len(severities) > 7 else severities
+    recent_avg = sum(recent) / len(recent)
+    
+    trend = "increasing" if recent_avg > average + 0.5 else "decreasing" if recent_avg < average - 0.5 else "stable"
+    
+    return {
+        "average": round(average, 1),
+        "trend": trend,
+        "recent_average": round(recent_avg, 1),
+        "max_severity": max(severities),
+        "min_severity": min(severities)
+    }
+
+
+def calculate_body_part_frequency(quick_scans: List[Dict]) -> Dict[str, int]:
+    """Calculate frequency of body parts in quick scans"""
+    frequency = {}
+    for scan in quick_scans:
+        body_part = scan.get("body_part", "unknown")
+        frequency[body_part] = frequency.get(body_part, 0) + 1
+    return frequency
+
+
+def calculate_urgency_distribution(quick_scans: List[Dict]) -> Dict[str, int]:
+    """Calculate distribution of urgency levels"""
+    distribution = {"low": 0, "medium": 0, "high": 0}
+    for scan in quick_scans:
+        urgency = scan.get("urgency_level", "low")
+        if urgency in distribution:
+            distribution[urgency] += 1
+    return distribution
+
+
+def calculate_average_sleep_hours(sleep_data: List[Dict]) -> float:
+    """Calculate average sleep hours"""
+    if not sleep_data:
+        return 0
+    
+    total_hours = 0
+    count = 0
+    
+    for entry in sleep_data:
+        # Try to extract hours from various possible fields
+        hours = entry.get("hours", 0) or entry.get("duration", 0) or 0
+        if hours > 0:
+            total_hours += hours
+            count += 1
+    
+    return round(total_hours / count, 1) if count > 0 else 0
+
+
+def calculate_sleep_quality_trend(sleep_data: List[Dict]) -> str:
+    """Determine sleep quality trend"""
+    if not sleep_data:
+        return "unknown"
+    
+    # Extract quality scores
+    qualities = []
+    for entry in sleep_data:
+        quality = entry.get("quality") or entry.get("severity")
+        if quality:
+            qualities.append(quality)
+    
+    if not qualities:
+        return "unknown"
+    
+    # Compare recent to overall
+    recent = qualities[-7:] if len(qualities) > 7 else qualities
+    avg_quality = sum(qualities) / len(qualities)
+    recent_avg = sum(recent) / len(recent)
+    
+    if recent_avg > avg_quality + 0.5:
+        return "improving"
+    elif recent_avg < avg_quality - 0.5:
+        return "declining"
+    else:
+        return "stable"
+
+
+def calculate_average_mood(mood_data: List[Dict]) -> float:
+    """Calculate average mood score"""
+    if not mood_data:
+        return 5.0
+    
+    moods = []
+    for entry in mood_data:
+        # Try various fields that might contain mood data
+        mood = entry.get("mood_score") or entry.get("severity") or entry.get("value")
+        if mood:
+            moods.append(mood)
+    
+    return round(sum(moods) / len(moods), 1) if moods else 5.0
+
+
+def extract_stress_levels(mood_data: List[Dict]) -> List[int]:
+    """Extract stress levels from mood data"""
+    stress_levels = []
+    for entry in mood_data:
+        # Look for stress-related entries
+        if "stress" in entry.get("symptom_name", "").lower():
+            level = entry.get("severity") or entry.get("value") or 5
+            stress_levels.append(level)
+    return stress_levels
+
+
+def calculate_medication_compliance(medication_logs: List[Dict]) -> float:
+    """Calculate medication compliance percentage"""
+    if not medication_logs:
+        return 100.0
+    
+    taken = sum(1 for log in medication_logs if log.get("taken", True))
+    return round((taken / len(medication_logs)) * 100, 1)
+
+
+async def get_historical_patterns(user_id: str) -> Dict[str, Any]:
+    """Get historical health patterns for long-term analysis"""
+    try:
+        # Get all symptom tracking data
+        all_symptoms = supabase.table("symptom_tracking")\
+            .select("*")\
+            .eq("user_id", str(user_id))\
+            .order("occurrence_date", desc=False)\
+            .execute()
+        
+        if not all_symptoms.data:
+            return {}
+        
+        # Analyze patterns
+        patterns = {
+            "total_tracked_days": len(set(s["occurrence_date"] for s in all_symptoms.data)),
+            "most_common_symptoms": {},
+            "seasonal_patterns": {},
+            "chronic_symptoms": []
+        }
+        
+        # Count symptom occurrences
+        symptom_counts = {}
+        for symptom in all_symptoms.data:
+            name = symptom.get("symptom_name", "unknown")
+            symptom_counts[name] = symptom_counts.get(name, 0) + 1
+        
+        # Find chronic symptoms (appearing more than 10 times)
+        patterns["chronic_symptoms"] = [s for s, count in symptom_counts.items() if count > 10]
+        patterns["most_common_symptoms"] = dict(sorted(symptom_counts.items(), key=lambda x: x[1], reverse=True)[:5])
+        
+        return patterns
+        
+    except Exception as e:
+        print(f"Error getting historical patterns: {e}")
+        return {}
+
+
+async def identify_chronic_conditions(user_id: str) -> List[str]:
+    """Identify potential chronic conditions based on patterns"""
+    patterns = await get_historical_patterns(user_id)
+    chronic_symptoms = patterns.get("chronic_symptoms", [])
+    
+    conditions = []
+    
+    # Simple pattern matching for common chronic conditions
+    if any("migraine" in s.lower() or "headache" in s.lower() for s in chronic_symptoms):
+        conditions.append("chronic_migraines")
+    
+    if any("anxiety" in s.lower() or "stress" in s.lower() for s in chronic_symptoms):
+        conditions.append("anxiety_disorder")
+    
+    if any("sleep" in s.lower() or "insomnia" in s.lower() for s in chronic_symptoms):
+        conditions.append("sleep_disorder")
+    
+    return conditions
+
+
+async def calculate_risk_factors(user_id: str) -> Dict[str, Any]:
+    """Calculate health risk factors based on medical profile and patterns"""
+    medical_data = await get_user_medical_data(user_id)
+    
+    risk_factors = {
+        "cardiovascular": [],
+        "metabolic": [],
+        "mental_health": []
+    }
+    
+    if medical_data:
+        # Check family history
+        family_history = medical_data.get("family_history", [])
+        if isinstance(family_history, list):
+            for condition in family_history:
+                if "heart" in str(condition).lower() or "cardiac" in str(condition).lower():
+                    risk_factors["cardiovascular"].append("family_history")
+                if "diabetes" in str(condition).lower():
+                    risk_factors["metabolic"].append("family_history")
+        
+        # Check lifestyle factors
+        if medical_data.get("lifestyle_smoking_status") == "current":
+            risk_factors["cardiovascular"].append("smoking")
+        
+        if medical_data.get("lifestyle_exercise_frequency") in ["never", "rarely"]:
+            risk_factors["cardiovascular"].append("sedentary_lifestyle")
+            risk_factors["metabolic"].append("sedentary_lifestyle")
+        
+        if medical_data.get("lifestyle_stress_level") in ["high", "very_high"]:
+            risk_factors["mental_health"].append("chronic_stress")
+            risk_factors["cardiovascular"].append("chronic_stress")
+    
+    return risk_factors
+
+
+async def get_seasonal_history(user_id: str) -> Dict[str, List[str]]:
+    """Get historical symptoms by season"""
+    try:
+        # Get all symptom data
+        all_symptoms = supabase.table("symptom_tracking")\
+            .select("symptom_name, occurrence_date")\
+            .eq("user_id", str(user_id))\
+            .execute()
+        
+        seasonal_symptoms = {
+            "winter": [],
+            "spring": [],
+            "summer": [],
+            "fall": []
+        }
+        
+        for symptom in all_symptoms.data:
+            date = datetime.fromisoformat(symptom["occurrence_date"])
+            month = date.month
+            
+            if month in [12, 1, 2]:
+                season = "winter"
+            elif month in [3, 4, 5]:
+                season = "spring"
+            elif month in [6, 7, 8]:
+                season = "summer"
+            else:
+                season = "fall"
+            
+            seasonal_symptoms[season].append(symptom["symptom_name"])
+        
+        # Count frequencies
+        for season in seasonal_symptoms:
+            symptom_counts = {}
+            for symptom in seasonal_symptoms[season]:
+                symptom_counts[symptom] = symptom_counts.get(symptom, 0) + 1
+            # Keep top 5 symptoms per season
+            seasonal_symptoms[season] = [s for s, _ in sorted(symptom_counts.items(), key=lambda x: x[1], reverse=True)[:5]]
+        
+        return seasonal_symptoms
+        
+    except Exception as e:
+        print(f"Error getting seasonal history: {e}")
+        return {"winter": [], "spring": [], "summer": [], "fall": []}
+
+
+async def check_weather_sensitivity(user_id: str) -> Dict[str, Any]:
+    """Check for weather-related symptom patterns"""
+    # This is a simplified version - in production you might correlate with actual weather data
+    weather_keywords = ["pressure", "weather", "storm", "rain", "humidity", "temperature"]
+    
+    try:
+        symptoms = supabase.table("symptom_tracking")\
+            .select("symptom_name, notes")\
+            .eq("user_id", str(user_id))\
+            .execute()
+        
+        weather_related = 0
+        total = len(symptoms.data)
+        
+        for symptom in symptoms.data:
+            text = f"{symptom.get('symptom_name', '')} {symptom.get('notes', '')}".lower()
+            if any(keyword in text for keyword in weather_keywords):
+                weather_related += 1
+        
+        sensitivity_score = (weather_related / total * 100) if total > 0 else 0
+        
+        return {
+            "is_sensitive": sensitivity_score > 10,
+            "sensitivity_score": round(sensitivity_score, 1),
+            "weather_related_symptoms": weather_related
+        }
+        
+    except Exception as e:
+        print(f"Error checking weather sensitivity: {e}")
+        return {"is_sensitive": False, "sensitivity_score": 0, "weather_related_symptoms": 0}
+
+
+def calculate_data_quality_score(data: Dict[str, Any]) -> int:
+    """Calculate data quality score 0-100"""
+    score = 0
+    
+    # Check various data sources
+    if data.get("symptom_tracking", {}).get("total_entries", 0) >= 10:
+        score += 20
+    
+    if data.get("quick_scans", {}).get("total_scans", 0) >= 5:
+        score += 20
+    
+    if data.get("deep_dives", {}).get("completed_sessions"):
+        score += 15
+    
+    if data.get("sleep_patterns", {}).get("average_hours", 0) > 0:
+        score += 15
+    
+    if data.get("mood_patterns", {}).get("entries"):
+        score += 15
+    
+    if data.get("medication_adherence", {}).get("compliance_rate", 100) < 100:
+        score += 15  # They're tracking medications
+    
+    return min(score, 100)
