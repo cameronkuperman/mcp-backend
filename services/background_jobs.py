@@ -67,7 +67,7 @@ async def get_active_users(batch_size: int = 100) -> List[Dict]:
         cutoff_date = (datetime.utcnow() - timedelta(days=30)).isoformat()
         
         # Query for active users
-        result = supabase.table('oracle_chat_history').select(
+        result = supabase.table('oracle_chats').select(
             'user_id'
         ).gte('created_at', cutoff_date).execute()
         

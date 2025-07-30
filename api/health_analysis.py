@@ -175,11 +175,20 @@ async def generate_weekly_analysis(request: GenerateAnalysisRequest, background_
         # Generate all analysis components in parallel
         tasks = []
         
+        # Get the story content - try both possible field names
+        story_content = story.get('content') or story.get('story_content') or ""
+        
+        if not story_content:
+            raise HTTPException(
+                status_code=400,
+                detail="Health story has no content. Please generate a story first."
+            )
+        
         # Always generate insights
-        tasks.append(analyzer.generate_insights(story['content'], health_data, request.user_id))
+        tasks.append(analyzer.generate_insights(story_content, health_data, request.user_id))
         
         if request.include_predictions:
-            tasks.append(analyzer.generate_predictions(story['content'], health_data, request.user_id))
+            tasks.append(analyzer.generate_predictions(story_content, health_data, request.user_id))
         
         if request.include_patterns:
             tasks.append(analyzer.detect_shadow_patterns(health_data, request.user_id))

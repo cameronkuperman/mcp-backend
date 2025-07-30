@@ -411,7 +411,7 @@ class HealthAnalyzer:
             cutoff = (date.today() - timedelta(weeks=weeks)).isoformat()
             
             # Get various health data points
-            oracle_chats = supabase.table('oracle_chat_history').select(
+            oracle_chats = supabase.table('oracle_chats').select(
                 'message, created_at'
             ).eq('user_id', user_id).gte('created_at', cutoff).execute()
             

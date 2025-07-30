@@ -513,7 +513,7 @@ async def gather_user_health_data(user_id: str) -> Dict[str, Any]:
     
     try:
         # Get Oracle chat history
-        oracle_response = supabase.table("oracle_chat_history")\
+        oracle_response = supabase.table("oracle_chats")\
             .select("message, created_at")\
             .eq("user_id", user_id)\
             .gte("created_at", month_ago.isoformat())\
