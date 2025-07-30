@@ -147,6 +147,7 @@ class HealthAnalyzer:
         
         try:
             result = await self._call_ai(prompt, temperature=0.6)
+            logger.info(f"AI returned for insights: {json.dumps(result)[:500]}")
             insights = result.get('insights', [])
             
             # Validate and clean insights
