@@ -53,7 +53,7 @@ class HealthAnalyzer:
                             }
                         ],
                         "temperature": temperature,
-                        "max_tokens": 4000
+                        "max_tokens": 2000
                     }
                 )
                 
@@ -91,13 +91,53 @@ class HealthAnalyzer:
         content = content.replace("'", '"')  # Replace single quotes
         content = content.strip()
         
+        # Try to fix truncated JSON by closing open structures
+        if content.count('{') > content.count('}'):
+            # Count how many closing braces we need
+            missing_braces = content.count('{') - content.count('}')
+            content += '}' * missing_braces
+        
+        if content.count('[') > content.count(']'):
+            # Count how many closing brackets we need
+            missing_brackets = content.count('[') - content.count(']')
+            content += ']' * missing_brackets
+        
+        # Remove incomplete elements at the end
+        # If the JSON ends with a comma, remove everything after the last complete element
+        if content.rstrip().endswith(','):
+            # Find the last complete object/value
+            last_comma = content.rfind(',')
+            content = content[:last_comma]
+        
         try:
             return json.loads(content)
         except json.JSONDecodeError as e:
             logger.error(f"JSON parsing failed: {e}")
             logger.error(f"Content: {content[:500]}...")
-            # Return a safe default
-            return {}
+            # Try to extract what we can
+            try:
+                # If it's a partial response, try to extract complete parts
+                if '"insights"' in content and content.find('"insights"'):
+                    # Try to extract just the insights array
+                    insights_start = content.find('"insights"') + len('"insights"') + 1
+                    insights_text = content[insights_start:]
+                    if insights_text.strip().startswith('['):
+                        bracket_count = 0
+                        end_pos = 0
+                        for i, char in enumerate(insights_text):
+                            if char == '[':
+                                bracket_count += 1
+                            elif char == ']':
+                                bracket_count -= 1
+                                if bracket_count == 0:
+                                    end_pos = i + 1
+                                    break
+                        if end_pos > 0:
+                            insights_array = insights_text[:end_pos]
+                            return {"insights": json.loads(insights_array)}
+                return {}
+            except:
+                return {}
     
     async def generate_insights(self, story: str, health_data: Dict, user_id: str) -> List[Dict]:
         """Generate key health insights from the story and data"""
@@ -105,7 +145,7 @@ class HealthAnalyzer:
         Analyze this health story and data to generate 4-6 key insights.
         
         Health Story:
-        {story[:2000]}  # Limit story length to avoid token issues
+        {story[:1000]}  # Reduced to avoid token issues
         
         Health Data Summary:
         - Total Oracle chats: {health_data.get('oracle_sessions', {}).get('total_sessions', 0)}

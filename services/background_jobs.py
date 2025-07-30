@@ -19,6 +19,10 @@ import json
 from api.health_analysis import generate_weekly_analysis, GenerateAnalysisRequest
 # Remove direct import - we'll call the endpoint instead
 from utils.data_gathering import gather_user_health_data
+from api.ai_predictions import (
+    generate_dashboard_alert, generate_ai_predictions, 
+    generate_pattern_questions, analyze_body_patterns
+)
 
 # Initialize logging
 logging.basicConfig(level=logging.INFO)
