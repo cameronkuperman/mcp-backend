@@ -423,6 +423,7 @@ async def trigger_weekly_generation_manual(user_id: Optional[str] = None):
     """
     Manually trigger weekly generation for testing
     """
+    logger.info(f"TRIGGER ENDPOINT HIT! User ID: {user_id}")
     try:
         from services.background_jobs import trigger_weekly_generation_manual as trigger_job
         

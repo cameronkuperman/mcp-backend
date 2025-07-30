@@ -612,3 +612,129 @@ async def gather_user_health_data(user_id: str) -> Dict[str, Any]:
         print(f"Error gathering health data: {e}")
     
     return data
+
+
+async def get_symptom_logs(user_id: str, days: int) -> List[Dict[str, Any]]:
+    """Get symptom logs for specified number of days"""
+    try:
+        end_date = datetime.now(timezone.utc)
+        start_date = end_date - timedelta(days=days)
+        
+        response = supabase.table("symptom_tracking")\
+            .select("*")\
+            .eq("user_id", str(user_id))\
+            .gte("occurrence_date", start_date.isoformat())\
+            .lte("occurrence_date", end_date.isoformat())\
+            .order("occurrence_date", desc=False)\
+            .execute()
+        
+        return response.data if response.data else []
+    except Exception as e:
+        print(f"Error getting symptom logs: {e}")
+        return []
+
+
+async def get_sleep_data(user_id: str, days: int) -> List[Dict[str, Any]]:
+    """Get sleep data for specified number of days"""
+    try:
+        end_date = datetime.now(timezone.utc)
+        start_date = end_date - timedelta(days=days)
+        
+        # Get from symptom tracking where type is sleep-related
+        response = supabase.table("symptom_tracking")\
+            .select("*")\
+            .eq("user_id", str(user_id))\
+            .ilike("symptom_name", "%sleep%")\
+            .gte("occurrence_date", start_date.isoformat())\
+            .lte("occurrence_date", end_date.isoformat())\
+            .order("occurrence_date", desc=False)\
+            .execute()
+        
+        return response.data if response.data else []
+    except Exception as e:
+        print(f"Error getting sleep data: {e}")
+        return []
+
+
+async def get_mood_data(user_id: str, days: int) -> List[Dict[str, Any]]:
+    """Get mood data for specified number of days"""
+    try:
+        end_date = datetime.now(timezone.utc)
+        start_date = end_date - timedelta(days=days)
+        
+        # Get mood-related symptoms
+        response = supabase.table("symptom_tracking")\
+            .select("*")\
+            .eq("user_id", str(user_id))\
+            .or_("symptom_name.ilike.%mood%,symptom_name.ilike.%anxiety%,symptom_name.ilike.%depression%")\
+            .gte("occurrence_date", start_date.isoformat())\
+            .lte("occurrence_date", end_date.isoformat())\
+            .order("occurrence_date", desc=False)\
+            .execute()
+        
+        return response.data if response.data else []
+    except Exception as e:
+        print(f"Error getting mood data: {e}")
+        return []
+
+
+async def get_medication_logs(user_id: str, days: int) -> List[Dict[str, Any]]:
+    """Get medication logs for specified number of days"""
+    try:
+        end_date = datetime.now(timezone.utc)
+        start_date = end_date - timedelta(days=days)
+        
+        # Get medication-related tracking
+        response = supabase.table("symptom_tracking")\
+            .select("*")\
+            .eq("user_id", str(user_id))\
+            .ilike("symptom_name", "%medication%")\
+            .gte("occurrence_date", start_date.isoformat())\
+            .lte("occurrence_date", end_date.isoformat())\
+            .order("occurrence_date", desc=False)\
+            .execute()
+        
+        return response.data if response.data else []
+    except Exception as e:
+        print(f"Error getting medication logs: {e}")
+        return []
+
+
+async def get_quick_scan_history(user_id: str, days: int) -> List[Dict[str, Any]]:
+    """Get quick scan history for specified number of days"""
+    try:
+        end_date = datetime.now(timezone.utc)
+        start_date = end_date - timedelta(days=days)
+        
+        response = supabase.table("quick_scans")\
+            .select("*")\
+            .eq("user_id", str(user_id))\
+            .gte("created_at", start_date.isoformat())\
+            .lte("created_at", end_date.isoformat())\
+            .order("created_at", desc=False)\
+            .execute()
+        
+        return response.data if response.data else []
+    except Exception as e:
+        print(f"Error getting quick scan history: {e}")
+        return []
+
+
+async def get_deep_dive_sessions(user_id: str, days: int) -> List[Dict[str, Any]]:
+    """Get deep dive sessions for specified number of days"""
+    try:
+        end_date = datetime.now(timezone.utc)
+        start_date = end_date - timedelta(days=days)
+        
+        response = supabase.table("deep_dive_sessions")\
+            .select("*")\
+            .eq("user_id", str(user_id))\
+            .gte("created_at", start_date.isoformat())\
+            .lte("created_at", end_date.isoformat())\
+            .order("created_at", desc=False)\
+            .execute()
+        
+        return response.data if response.data else []
+    except Exception as e:
+        print(f"Error getting deep dive sessions: {e}")
+        return []

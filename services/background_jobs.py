@@ -62,6 +62,7 @@ def get_current_week_monday() -> date:
 
 async def get_active_users(batch_size: int = 100) -> List[Dict]:
     """Get all active users who need weekly generation"""
+    logger.info("Getting active users for weekly generation...")
     try:
         # Get users who have been active in the last 30 days
         cutoff_date = (datetime.utcnow() - timedelta(days=30)).isoformat()
@@ -210,7 +211,7 @@ async def weekly_health_generation_job():
     Main weekly generation job - runs every Monday at 9 AM UTC
     Generates health stories and analysis for all active users
     """
-    logger.info(f"Starting weekly health generation at {datetime.utcnow()}")
+    logger.info(f"========== WEEKLY GENERATION STARTED at {datetime.utcnow()} ==========")
     
     try:
         # Get all active users

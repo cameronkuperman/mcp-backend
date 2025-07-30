@@ -21,6 +21,7 @@ from api.reports.general import router as general_reports_router
 from api.reports.specialist import router as specialist_reports_router
 from api.reports.time_based import router as time_based_reports_router
 from api.reports.urgent import router as urgent_reports_router
+from api.ai_predictions import router as ai_predictions_router
 
 # Import middleware
 from core.middleware import setup_cors
@@ -69,6 +70,7 @@ app.include_router(general_reports_router)
 app.include_router(specialist_reports_router)
 app.include_router(time_based_reports_router)
 app.include_router(urgent_reports_router)
+app.include_router(ai_predictions_router)
 
 # Root endpoint
 @app.get("/")
