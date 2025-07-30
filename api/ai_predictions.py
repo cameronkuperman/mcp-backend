@@ -7,7 +7,7 @@ import json
 import logging
 import uuid
 from services.ai_health_analyzer import HealthAnalyzer
-from supabase_client import get_supabase_client
+from supabase_client import supabase
 from utils.data_gathering import (
     get_symptom_logs, get_sleep_data, get_mood_data, 
     get_medication_logs, get_quick_scan_history, get_deep_dive_sessions
@@ -461,7 +461,7 @@ def check_medication_compliance(data: Dict[str, Any]) -> Dict[str, Any]:
 
 async def get_user_patterns(user_id: str) -> Dict[str, Any]:
     """Gets historical patterns for a user"""
-    supabase = get_supabase_client()
+    # supabase is already imported at module level
     
     try:
         # Get known triggers from health analysis
@@ -489,7 +489,7 @@ async def get_user_patterns(user_id: str) -> Dict[str, Any]:
 
 async def log_alert_generation(user_id: str, alert_data: Dict[str, Any]):
     """Logs generated alerts for analytics"""
-    supabase = get_supabase_client()
+    # supabase is already imported at module level
     
     try:
         supabase.table('ai_alerts_log').insert({
