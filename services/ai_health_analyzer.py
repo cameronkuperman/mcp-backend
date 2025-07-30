@@ -410,10 +410,17 @@ class HealthAnalyzer:
         try:
             cutoff = (date.today() - timedelta(weeks=weeks)).isoformat()
             
-            # Get various health data points
-            oracle_chats = supabase.table('oracle_chats').select(
-                'message, created_at'
-            ).eq('user_id', user_id).gte('created_at', cutoff).execute()
+            # Get various health data points through conversations
+            conv_result = supabase.table('conversations').select(
+                'id'
+            ).eq('user_id', user_id).gte('updated_at', cutoff).execute()
+            
+            oracle_chats = {'data': []}
+            if conv_result.data:
+                conv_ids = [c['id'] for c in conv_result.data]
+                oracle_chats = supabase.table('messages').select(
+                    'content as message, created_at'
+                ).in_('conversation_id', conv_ids).execute()
             
             symptom_tracking = supabase.table('symptom_tracking').select(
                 'symptom_name, body_part, created_at'

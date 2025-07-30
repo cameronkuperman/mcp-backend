@@ -66,10 +66,10 @@ async def get_active_users(batch_size: int = 100) -> List[Dict]:
         # Get users who have been active in the last 30 days
         cutoff_date = (datetime.utcnow() - timedelta(days=30)).isoformat()
         
-        # Query for active users
-        result = supabase.table('oracle_chats').select(
+        # Query for active users through conversations
+        result = supabase.table('conversations').select(
             'user_id'
-        ).gte('created_at', cutoff_date).execute()
+        ).gte('updated_at', cutoff_date).execute()
         
         # Get unique user IDs
         user_ids = list(set(record['user_id'] for record in result.data))

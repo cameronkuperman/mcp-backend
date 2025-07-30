@@ -512,21 +512,32 @@ async def gather_user_health_data(user_id: str) -> Dict[str, Any]:
     }
     
     try:
-        # Get Oracle chat history
-        oracle_response = supabase.table("oracle_chats")\
-            .select("message, created_at")\
+        # Get Oracle chat messages through conversations
+        conv_response = supabase.table("conversations")\
+            .select("id")\
             .eq("user_id", user_id)\
-            .gte("created_at", month_ago.isoformat())\
-            .order("created_at.desc")\
+            .gte("updated_at", month_ago.isoformat())\
             .execute()
         
-        if oracle_response.data:
-            data["oracle_sessions"]["total_sessions"] = len(oracle_response.data)
+        oracle_messages = []
+        if conv_response.data:
+            conv_ids = [c['id'] for c in conv_response.data]
+            # Get messages from these conversations
+            msg_response = supabase.table("messages")\
+                .select("content, created_at")\
+                .in_("conversation_id", conv_ids)\
+                .order("created_at.desc")\
+                .limit(50)\
+                .execute()
+            oracle_messages = msg_response.data if msg_response.data else []
+        
+        if oracle_messages:
+            data["oracle_sessions"]["total_sessions"] = len(oracle_messages)
             # Extract topics from recent messages
-            for chat in oracle_response.data[:10]:  # Last 10 messages
-                msg = chat.get("message", "").lower()
-                if len(msg) > 20:  # Only meaningful messages
-                    data["oracle_sessions"]["recent_topics"].append(msg[:100])
+            for msg in oracle_messages[:10]:  # Last 10 messages
+                content = msg.get("content", "").lower()
+                if len(content) > 20:  # Only meaningful messages
+                    data["oracle_sessions"]["recent_topics"].append(content[:100])
         
         # Get Quick Scans
         scans_response = supabase.table("quick_scans")\
