@@ -3,7 +3,7 @@ INFO:apscheduler.scheduler:Adding job tentatively -- it will be properly schedul
 INFO:apscheduler.scheduler:Adding job tentatively -- it will be properly scheduled when the scheduler starts
 INFO:apscheduler.scheduler:Adding job tentatively -- it will be properly scheduled when the scheduler starts
 INFO:apscheduler.scheduler:Adding job tentatively -- it will be properly scheduled when the scheduler starts
-INFO:     Started server process [81849]
+INFO:     Started server process [96979]
 INFO:     Waiting for application startup.
 INFO:run_oracle:Starting Oracle Health API with background scheduler...
 WARNING:services.background_jobs:Redis connection failed: Error Multiple exceptions: [Errno 61] Connect call failed ('::1', 6379, 0, 0), [Errno 61] Connect call failed ('127.0.0.1', 6379) connecting to localhost:6379.. Running without cache.
@@ -16,67 +16,3 @@ INFO:apscheduler.scheduler:Scheduler started
 INFO:services.background_jobs:Background job scheduler started
 INFO:     Application startup complete.
 INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
-INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/user_ai_preferences?select=%2A&user_id=eq.45b61b67-175d-48a0-aca6-d0be57609383 "HTTP/2 200 OK"
-CORS: Allowing ALL origins with credentials
-CORS: Allowing ALL origins with credentials
-INFO:     127.0.0.1:62187 - "GET /api/ai/preferences/45b61b67-175d-48a0-aca6-d0be57609383 HTTP/1.1" 200 OK
-INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/weekly_ai_predictions?select=%2A&user_id=eq.45b61b67-175d-48a0-aca6-d0be57609383&is_current=eq.True&generation_status=eq.completed "HTTP/2 200 OK"
-INFO:     127.0.0.1:62187 - "GET /api/ai/weekly/45b61b67-175d-48a0-aca6-d0be57609383 HTTP/1.1" 200 OK
-INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/weekly_ai_predictions?select=id%2Cdashboard_alert%2Cgenerated_at&user_id=eq.45b61b67-175d-48a0-aca6-d0be57609383&is_current=eq.True&generation_status=eq.completed "HTTP/2 200 OK"
-INFO:     127.0.0.1:62187 - "GET /api/ai/weekly/45b61b67-175d-48a0-aca6-d0be57609383/alert HTTP/1.1" 200 OK
-INFO:api.ai_predictions:Generating initial AI predictions for new user 45b61b67-175d-48a0-aca6-d0be57609383
-INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/user_ai_preferences?select=initial_predictions_generated&user_id=eq.45b61b67-175d-48a0-aca6-d0be57609383 "HTTP/2 200 OK"
-INFO:     127.0.0.1:62187 - "POST /api/ai/generate-initial/45b61b67-175d-48a0-aca6-d0be57609383 HTTP/1.1" 200 OK
-INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/user_ai_preferences?select=user_id&user_id=eq.45b61b67-175d-48a0-aca6-d0be57609383 "HTTP/2 200 OK"
-INFO:httpx:HTTP Request: PATCH https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/user_ai_preferences?user_id=eq.45b61b67-175d-48a0-aca6-d0be57609383 "HTTP/2 200 OK"
-INFO:     127.0.0.1:62187 - "PUT /api/ai/preferences/45b61b67-175d-48a0-aca6-d0be57609383 HTTP/1.1" 200 OK
-INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/user_ai_preferences?select=%2A&user_id=eq.45b61b67-175d-48a0-aca6-d0be57609383 "HTTP/2 200 OK"
-INFO:     127.0.0.1:62187 - "GET /api/ai/preferences/45b61b67-175d-48a0-aca6-d0be57609383 HTTP/1.1" 200 OK
-INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/user_ai_preferences?select=last_generation_date&user_id=eq.45b61b67-175d-48a0-aca6-d0be57609383 "HTTP/2 200 OK"
-INFO:     127.0.0.1:62187 - "POST /api/ai/regenerate/45b61b67-175d-48a0-aca6-d0be57609383 HTTP/1.1" 200 OK
-INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/weekly_ai_predictions?select=%2A&user_id=eq.45b61b67-175d-48a0-aca6-d0be57609383&is_current=eq.True&generation_status=eq.completed "HTTP/2 200 OK"
-INFO:     127.0.0.1:62187 - "GET /api/ai/weekly/45b61b67-175d-48a0-aca6-d0be57609383 HTTP/1.1" 200 OK
-INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/user_ai_preferences?select=%2A&user_id=eq.45b61b67-175d-48a0-aca6-d0be57609383 "HTTP/2 200 OK"
-INFO:     127.0.0.1:62776 - "GET /api/ai/preferences/45b61b67-175d-48a0-aca6-d0be57609383 HTTP/1.1" 200 OK
-INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/weekly_ai_predictions?select=%2A&user_id=eq.45b61b67-175d-48a0-aca6-d0be57609383&is_current=eq.True&generation_status=eq.completed "HTTP/2 200 OK"
-INFO:     127.0.0.1:62776 - "GET /api/ai/weekly/45b61b67-175d-48a0-aca6-d0be57609383 HTTP/1.1" 200 OK
-INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/weekly_ai_predictions?select=id%2Cdashboard_alert%2Cgenerated_at&user_id=eq.45b61b67-175d-48a0-aca6-d0be57609383&is_current=eq.True&generation_status=eq.completed "HTTP/2 200 OK"
-INFO:     127.0.0.1:62776 - "GET /api/ai/weekly/45b61b67-175d-48a0-aca6-d0be57609383/alert HTTP/1.1" 200 OK
-INFO:api.ai_predictions:Generating initial AI predictions for new user 45b61b67-175d-48a0-aca6-d0be57609383
-INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/user_ai_preferences?select=initial_predictions_generated&user_id=eq.45b61b67-175d-48a0-aca6-d0be57609383 "HTTP/2 200 OK"
-INFO:     127.0.0.1:62776 - "POST /api/ai/generate-initial/45b61b67-175d-48a0-aca6-d0be57609383 HTTP/1.1" 200 OK
-INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/user_ai_preferences?select=user_id&user_id=eq.45b61b67-175d-48a0-aca6-d0be57609383 "HTTP/2 200 OK"
-INFO:httpx:HTTP Request: PATCH https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/user_ai_preferences?user_id=eq.45b61b67-175d-48a0-aca6-d0be57609383 "HTTP/2 200 OK"
-INFO:     127.0.0.1:62776 - "PUT /api/ai/preferences/45b61b67-175d-48a0-aca6-d0be57609383 HTTP/1.1" 200 OK
-INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/user_ai_preferences?select=%2A&user_id=eq.45b61b67-175d-48a0-aca6-d0be57609383 "HTTP/2 200 OK"
-INFO:     127.0.0.1:62776 - "GET /api/ai/preferences/45b61b67-175d-48a0-aca6-d0be57609383 HTTP/1.1" 200 OK
-INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/user_ai_preferences?select=last_generation_date&user_id=eq.45b61b67-175d-48a0-aca6-d0be57609383 "HTTP/2 200 OK"
-INFO:     127.0.0.1:62776 - "POST /api/ai/regenerate/45b61b67-175d-48a0-aca6-d0be57609383 HTTP/1.1" 200 OK
-INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/weekly_ai_predictions?select=%2A&user_id=eq.45b61b67-175d-48a0-aca6-d0be57609383&is_current=eq.True&generation_status=eq.completed "HTTP/2 200 OK"
-INFO:     127.0.0.1:62776 - "GET /api/ai/weekly/45b61b67-175d-48a0-aca6-d0be57609383 HTTP/1.1" 200 OK
-INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/symptom_tracking?select=%2A&user_id=eq.45b61b67-175d-48a0-aca6-d0be57609383&occurrence_date=gte.2025-07-16T23%3A46%3A47.028501%2B00%3A00&occurrence_date=lte.2025-07-30T23%3A46%3A47.028501%2B00%3A00&order=occurrence_date.asc "HTTP/2 200 OK"
-INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/symptom_tracking?select=%2A&user_id=eq.45b61b67-175d-48a0-aca6-d0be57609383&symptom_name=ilike.%25sleep%25&occurrence_date=gte.2025-07-16T23%3A46%3A47.262046%2B00%3A00&occurrence_date=lte.2025-07-30T23%3A46%3A47.262046%2B00%3A00&order=occurrence_date.asc "HTTP/2 200 OK"
-INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/symptom_tracking?select=%2A&user_id=eq.45b61b67-175d-48a0-aca6-d0be57609383&or=%28symptom_name.ilike.%25mood%25%2Csymptom_name.ilike.%25anxiety%25%2Csymptom_name.ilike.%25depression%25%29&occurrence_date=gte.2025-07-16T23%3A46%3A47.403047%2B00%3A00&occurrence_date=lte.2025-07-30T23%3A46%3A47.403047%2B00%3A00&order=occurrence_date.asc "HTTP/2 200 OK"
-INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/symptom_tracking?select=%2A&user_id=eq.45b61b67-175d-48a0-aca6-d0be57609383&symptom_name=ilike.%25medication%25&occurrence_date=gte.2025-07-16T23%3A46%3A47.549903%2B00%3A00&occurrence_date=lte.2025-07-30T23%3A46%3A47.549903%2B00%3A00&order=occurrence_date.asc "HTTP/2 200 OK"
-INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/quick_scans?select=%2A&user_id=eq.45b61b67-175d-48a0-aca6-d0be57609383&created_at=gte.2025-07-16T23%3A46%3A47.680076%2B00%3A00&created_at=lte.2025-07-30T23%3A46%3A47.680076%2B00%3A00&order=created_at.asc "HTTP/2 200 OK"
-INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/deep_dive_sessions?select=%2A&user_id=eq.45b61b67-175d-48a0-aca6-d0be57609383&created_at=gte.2025-07-16T23%3A46%3A47.836260%2B00%3A00&created_at=lte.2025-07-30T23%3A46%3A47.836260%2B00%3A00&order=created_at.asc "HTTP/2 200 OK"
-INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/health_analysis_results?select=%2A&user_id=eq.45b61b67-175d-48a0-aca6-d0be57609383 "HTTP/2 404 Not Found"
-ERROR:api.ai_predictions:Error getting user patterns: {'message': 'relation "public.health_analysis_results" does not exist', 'code': '42P01', 'hint': None, 'details': None}
-INFO:httpx:HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
-INFO:     127.0.0.1:49679 - "GET /api/ai/dashboard-alert/45b61b67-175d-48a0-aca6-d0be57609383 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:49679 - "GET /api/ai/predictions/immediate/45b61b67-175d-48a0-aca6-d0be57609383 HTTP/1.1" 404 Not Found
-INFO:     127.0.0.1:49679 - "GET /api/ai/predictions/seasonal/45b61b67-175d-48a0-aca6-d0be57609383 HTTP/1.1" 404 Not Found
-INFO:     127.0.0.1:49679 - "GET /api/ai/predictions/longterm/45b61b67-175d-48a0-aca6-d0be57609383 HTTP/1.1" 404 Not Found
-INFO:     127.0.0.1:49679 - "GET /api/ai/patterns/45b61b67-175d-48a0-aca6-d0be57609383 HTTP/1.1" 404 Not Found
-INFO:     127.0.0.1:49679 - "GET /api/ai/questions/45b61b67-175d-48a0-aca6-d0be57609383 HTTP/1.1" 404 Not Found
-INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/weekly_ai_predictions?select=%2A&user_id=eq.45b61b67-175d-48a0-aca6-d0be57609383&is_current=eq.True&generation_status=eq.completed "HTTP/2 200 OK"
-INFO:     127.0.0.1:49679 - "GET /api/ai/weekly/45b61b67-175d-48a0-aca6-d0be57609383 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:49679 - "POST /api/ai/generate-weekly/45b61b67-175d-48a0-aca6-d0be57609383 HTTP/1.1" 404 Not Found
-INFO:     127.0.0.1:49686 - "GET /api/ai/predictions/immediate/45b61b67-175d-48a0-aca6-d0be57609383 HTTP/1.1" 404 Not Found
-INFO:     Shutting down
-INFO:     Waiting for application shutdown.
-INFO:run_oracle:Shutting down Oracle Health API...
-INFO:apscheduler.scheduler:Scheduler has been shut down
-INFO:services.background_jobs:Background job scheduler stopped
-INFO:     Application shutdown complete.
-INFO:     Finished server process [81849]
