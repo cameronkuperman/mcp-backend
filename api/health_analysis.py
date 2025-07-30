@@ -446,6 +446,306 @@ async def trigger_weekly_generation_manual(user_id: Optional[str] = None):
         logging.error(f"Manual trigger failed: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Trigger failed: {str(e)}")
 
+@router.post("/generate-insights/{user_id}")
+async def generate_insights_only(user_id: str):
+    """
+    Generate only key insights for the current week
+    """
+    try:
+        week_of = get_current_week_monday()
+        
+        # Get health data and story
+        health_data = await gather_user_health_data(user_id)
+        
+        story_result = supabase.table('health_stories').select('*').eq(
+            'user_id', user_id
+        ).gte('created_at', week_of.isoformat()).order('created_at.desc').limit(1).execute()
+        
+        if not story_result.data:
+            raise HTTPException(status_code=404, detail="No health story found for this week")
+        
+        story = story_result.data[0]
+        story_content = story.get('story_text') or ""
+        
+        # Generate insights
+        insights = await analyzer.generate_insights(story_content, health_data, user_id)
+        
+        # Store insights
+        stored_insights = []
+        for insight in insights:
+            result = supabase.table('health_insights').insert({
+                'user_id': user_id,
+                'story_id': story['id'],
+                'insight_type': insight['type'],
+                'title': insight['title'],
+                'description': insight['description'],
+                'confidence': insight['confidence'],
+                'week_of': week_of.isoformat(),
+                'metadata': insight.get('metadata', {})
+            }).execute()
+            if result.data:
+                stored_insights.append(result.data[0])
+        
+        return {
+            'status': 'success',
+            'insights': stored_insights,
+            'count': len(stored_insights)
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to generate insights: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/generate-predictions/{user_id}")
+async def generate_predictions_only(user_id: str):
+    """
+    Generate only health predictions for the current week
+    """
+    try:
+        week_of = get_current_week_monday()
+        
+        # Get health data and story
+        health_data = await gather_user_health_data(user_id)
+        
+        story_result = supabase.table('health_stories').select('*').eq(
+            'user_id', user_id
+        ).gte('created_at', week_of.isoformat()).order('created_at.desc').limit(1).execute()
+        
+        if not story_result.data:
+            raise HTTPException(status_code=404, detail="No health story found for this week")
+        
+        story = story_result.data[0]
+        story_content = story.get('story_text') or ""
+        
+        # Generate predictions
+        predictions = await analyzer.generate_predictions(story_content, health_data, user_id)
+        
+        # Store predictions
+        stored_predictions = []
+        for pred in predictions:
+            result = supabase.table('health_predictions').insert({
+                'user_id': user_id,
+                'story_id': story['id'],
+                'event_description': pred['event'],
+                'probability': pred['probability'],
+                'timeframe': pred['timeframe'],
+                'preventable': pred.get('preventable', False),
+                'reasoning': pred.get('reasoning', ''),
+                'suggested_actions': pred.get('actions', []),
+                'week_of': week_of.isoformat()
+            }).execute()
+            if result.data:
+                stored_predictions.append(result.data[0])
+        
+        return {
+            'status': 'success',
+            'predictions': stored_predictions,
+            'count': len(stored_predictions)
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to generate predictions: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/generate-shadow-patterns/{user_id}")
+async def generate_shadow_patterns_only(user_id: str):
+    """
+    Generate only shadow patterns (not mentioned) for the current week
+    """
+    try:
+        week_of = get_current_week_monday()
+        
+        # Get health data
+        health_data = await gather_user_health_data(user_id)
+        
+        # Generate shadow patterns
+        shadow_patterns = await analyzer.detect_shadow_patterns(health_data, user_id)
+        
+        # Store shadow patterns
+        stored_patterns = []
+        for pattern in shadow_patterns:
+            result = supabase.table('shadow_patterns').insert({
+                'user_id': user_id,
+                'pattern_name': pattern['name'],
+                'pattern_category': pattern.get('category', 'other'),
+                'last_seen_description': pattern['last_seen'],
+                'significance': pattern['significance'],
+                'last_mentioned_date': pattern.get('last_date'),
+                'days_missing': pattern.get('days_missing', 0),
+                'week_of': week_of.isoformat()
+            }).execute()
+            if result.data:
+                stored_patterns.append(result.data[0])
+        
+        return {
+            'status': 'success',
+            'shadow_patterns': stored_patterns,
+            'count': len(stored_patterns)
+        }
+        
+    except Exception as e:
+        logger.error(f"Failed to generate shadow patterns: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/generate-strategies/{user_id}")
+async def generate_strategies_only(user_id: str):
+    """
+    Generate only strategic moves for the current week
+    """
+    try:
+        week_of = get_current_week_monday()
+        
+        # Get existing analysis components
+        insights_result = supabase.table('health_insights').select('*').eq(
+            'user_id', user_id
+        ).eq('week_of', week_of.isoformat()).execute()
+        
+        predictions_result = supabase.table('health_predictions').select('*').eq(
+            'user_id', user_id
+        ).eq('week_of', week_of.isoformat()).execute()
+        
+        patterns_result = supabase.table('shadow_patterns').select('*').eq(
+            'user_id', user_id
+        ).eq('week_of', week_of.isoformat()).execute()
+        
+        # Convert back to the format the AI expects
+        insights = []
+        for i in (insights_result.data or []):
+            insights.append({
+                'type': i['insight_type'],
+                'title': i['title'],
+                'description': i['description'],
+                'confidence': i['confidence']
+            })
+        
+        predictions = []
+        for p in (predictions_result.data or []):
+            predictions.append({
+                'event': p['event_description'],
+                'probability': p['probability'],
+                'timeframe': p['timeframe'],
+                'preventable': p.get('preventable', False),
+                'reasoning': p.get('reasoning', ''),
+                'actions': p.get('suggested_actions', [])
+            })
+        
+        shadow_patterns = []
+        for sp in (patterns_result.data or []):
+            shadow_patterns.append({
+                'name': sp['pattern_name'],
+                'category': sp.get('pattern_category', 'other'),
+                'last_seen': sp['last_seen_description'],
+                'significance': sp['significance'],
+                'last_date': sp.get('last_mentioned_date'),
+                'days_missing': sp.get('days_missing', 0)
+            })
+        
+        # Generate strategies
+        strategies = await analyzer.generate_strategies(
+            insights, predictions, shadow_patterns, user_id
+        )
+        
+        # Store strategies
+        stored_strategies = []
+        for strategy in strategies:
+            result = supabase.table('strategic_moves').insert({
+                'user_id': user_id,
+                'strategy': strategy['strategy'],
+                'strategy_type': strategy['type'],
+                'priority': strategy['priority'],
+                'rationale': strategy.get('rationale', ''),
+                'expected_outcome': strategy.get('outcome', ''),
+                'week_of': week_of.isoformat()
+            }).execute()
+            if result.data:
+                stored_strategies.append(result.data[0])
+        
+        return {
+            'status': 'success',
+            'strategies': stored_strategies,
+            'count': len(stored_strategies)
+        }
+        
+    except Exception as e:
+        logger.error(f"Failed to generate strategies: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/insights/{user_id}")
+async def get_insights(user_id: str, week_of: Optional[str] = None):
+    """
+    Get key insights for a specific week
+    """
+    if not week_of:
+        week_of = get_current_week_monday().isoformat()
+    
+    insights = supabase.table('health_insights').select('*').eq(
+        'user_id', user_id
+    ).eq('week_of', week_of).order('confidence.desc').execute()
+    
+    return {
+        'status': 'success',
+        'insights': insights.data or [],
+        'week_of': week_of
+    }
+
+@router.get("/predictions/{user_id}")
+async def get_predictions(user_id: str, week_of: Optional[str] = None):
+    """
+    Get health predictions for a specific week
+    """
+    if not week_of:
+        week_of = get_current_week_monday().isoformat()
+    
+    predictions = supabase.table('health_predictions').select('*').eq(
+        'user_id', user_id
+    ).eq('week_of', week_of).order('probability.desc').execute()
+    
+    return {
+        'status': 'success',
+        'predictions': predictions.data or [],
+        'week_of': week_of
+    }
+
+@router.get("/shadow-patterns/{user_id}")
+async def get_shadow_patterns(user_id: str, week_of: Optional[str] = None):
+    """
+    Get shadow patterns (not mentioned) for a specific week
+    """
+    if not week_of:
+        week_of = get_current_week_monday().isoformat()
+    
+    patterns = supabase.table('shadow_patterns').select('*').eq(
+        'user_id', user_id
+    ).eq('week_of', week_of).order('significance').execute()
+    
+    return {
+        'status': 'success',
+        'shadow_patterns': patterns.data or [],
+        'week_of': week_of
+    }
+
+@router.get("/strategies/{user_id}")
+async def get_strategies(user_id: str, week_of: Optional[str] = None):
+    """
+    Get strategic moves for a specific week
+    """
+    if not week_of:
+        week_of = get_current_week_monday().isoformat()
+    
+    strategies = supabase.table('strategic_moves').select('*').eq(
+        'user_id', user_id
+    ).eq('week_of', week_of).order('priority.desc').execute()
+    
+    return {
+        'status': 'success',
+        'strategies': strategies.data or [],
+        'week_of': week_of
+    }
+
 @router.get("/analysis-history/{user_id}")
 async def get_analysis_history(user_id: str, weeks: int = 4):
     """

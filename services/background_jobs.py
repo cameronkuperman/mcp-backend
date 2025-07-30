@@ -19,10 +19,7 @@ import json
 from api.health_analysis import generate_weekly_analysis, GenerateAnalysisRequest
 # Remove direct import - we'll call the endpoint instead
 from utils.data_gathering import gather_user_health_data
-from api.ai_predictions import (
-    generate_dashboard_alert, generate_ai_predictions, 
-    generate_pattern_questions, analyze_body_patterns
-)
+# Import AI prediction functions will be done dynamically to avoid circular imports
 
 # Initialize logging
 logging.basicConfig(level=logging.INFO)
@@ -208,6 +205,222 @@ async def generate_user_weekly_content(user_id: str) -> Dict:
             'error': str(e),
             'week_of': get_current_week_monday().isoformat()
         }
+
+async def generate_weekly_ai_predictions_for_user(user_id: str) -> Dict:
+    """Generate and store weekly AI predictions for a single user"""
+    try:
+        logger.info(f"Generating AI predictions for user {user_id}")
+        
+        # Check if user has preferences
+        prefs_result = supabase.table('user_ai_preferences').select('*').eq('user_id', user_id).execute()
+        
+        if not prefs_result.data:
+            # Create default preferences
+            supabase.table('user_ai_preferences').insert({
+                'user_id': user_id,
+                'initial_predictions_generated': True,
+                'initial_generation_date': datetime.utcnow().isoformat()
+            }).execute()
+        
+        # Mark old predictions as not current (handled by trigger, but just in case)
+        supabase.table('weekly_ai_predictions').update({
+            'is_current': False
+        }).eq('user_id', user_id).eq('is_current', True).execute()
+        
+        # Create new prediction record
+        prediction_record = {
+            'user_id': user_id,
+            'generation_status': 'pending',
+            'generated_at': datetime.utcnow().isoformat()
+        }
+        
+        result = supabase.table('weekly_ai_predictions').insert(prediction_record).execute()
+        prediction_id = result.data[0]['id']
+        
+        try:
+            # Generate all AI predictions via HTTP calls
+            import httpx
+            api_url = os.getenv("API_URL", "http://localhost:8000")
+            
+            async with httpx.AsyncClient(timeout=300.0) as client:  # 5 minute timeout
+                # 1. Dashboard Alert
+                alert_response = await client.get(f"{api_url}/api/ai/dashboard-alert/{user_id}")
+                alert_data = alert_response.json() if alert_response.status_code == 200 else {}
+                dashboard_alert = alert_data.get('alert') if alert_data else None
+                
+                # 2. Predictions
+                predictions_response = await client.get(f"{api_url}/api/ai/predictions/{user_id}")
+                predictions_data = predictions_response.json() if predictions_response.status_code == 200 else {}
+                predictions = predictions_data.get('predictions', []) if predictions_data else []
+                data_quality_score = predictions_data.get('data_quality_score', 0) if predictions_data else 0
+                
+                # 3. Pattern Questions
+                questions_response = await client.get(f"{api_url}/api/ai/pattern-questions/{user_id}")
+                questions_data = questions_response.json() if questions_response.status_code == 200 else {}
+                pattern_questions = questions_data.get('questions', []) if questions_data else []
+                
+                # 4. Body Patterns
+                patterns_response = await client.get(f"{api_url}/api/ai/body-patterns/{user_id}")
+                patterns_data = patterns_response.json() if patterns_response.status_code == 200 else {}
+                body_patterns = patterns_data.get('patterns', {}) if patterns_data else {}
+            
+            # Update the record with all data
+            update_data = {
+                'dashboard_alert': dashboard_alert,
+                'predictions': predictions,
+                'pattern_questions': pattern_questions,
+                'body_patterns': body_patterns,
+                'data_quality_score': data_quality_score,
+                'generation_status': 'completed',
+                'updated_at': datetime.utcnow().isoformat()
+            }
+            
+            supabase.table('weekly_ai_predictions').update(update_data).eq('id', prediction_id).execute()
+            
+            # Update user preferences
+            supabase.table('user_ai_preferences').update({
+                'last_generation_date': datetime.utcnow().isoformat(),
+                'generation_failure_count': 0
+            }).eq('user_id', user_id).execute()
+            
+            logger.info(f"Successfully generated AI predictions for user {user_id}")
+            return {
+                'user_id': user_id,
+                'status': 'success',
+                'prediction_id': prediction_id
+            }
+            
+        except Exception as e:
+            # Update record with error
+            supabase.table('weekly_ai_predictions').update({
+                'generation_status': 'failed',
+                'error_message': str(e),
+                'updated_at': datetime.utcnow().isoformat()
+            }).eq('id', prediction_id).execute()
+            
+            # Increment failure count
+            supabase.table('user_ai_preferences').update({
+                'generation_failure_count': supabase.raw('generation_failure_count + 1')
+            }).eq('user_id', user_id).execute()
+            
+            raise
+            
+    except Exception as e:
+        logger.error(f"Failed to generate AI predictions for user {user_id}: {str(e)}")
+        return {
+            'user_id': user_id,
+            'status': 'error',
+            'error': str(e)
+        }
+
+
+@scheduler.scheduled_job(CronTrigger(day_of_week='wed', hour=17, minute=0), id='weekly_ai_predictions')
+async def weekly_ai_predictions_job():
+    """
+    Weekly AI predictions generation job - runs every Wednesday at 5 PM UTC
+    Generates and stores AI predictions for all active users
+    """
+    logger.info(f"========== WEEKLY AI PREDICTIONS STARTED at {datetime.utcnow()} ==========")
+    
+    try:
+        # Get users due for generation based on their preferences
+        users_result = supabase.rpc('get_users_due_for_generation').execute()
+        users_to_process = users_result.data if users_result.data else []
+        
+        if not users_to_process:
+            logger.info("No users due for AI predictions generation")
+            return
+        
+        total_users = len(users_to_process)
+        successful = 0
+        failed = 0
+        
+        # Process in batches
+        batch_size = 5  # Smaller batch size for AI operations
+        
+        for i in range(0, total_users, batch_size):
+            batch = users_to_process[i:i + batch_size]
+            
+            # Process batch concurrently
+            tasks = []
+            for user in batch:
+                task = generate_weekly_ai_predictions_for_user(user['user_id'])
+                tasks.append(task)
+            
+            # Wait for batch to complete
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+            
+            # Process results
+            for user, result in zip(batch, results):
+                if isinstance(result, Exception):
+                    logger.error(f"AI prediction generation failed for user {user['user_id']}: {result}")
+                    failed += 1
+                elif isinstance(result, dict) and result.get('status') == 'success':
+                    successful += 1
+                else:
+                    failed += 1
+            
+            # Log progress
+            logger.info(f"AI Predictions Progress: {i + len(batch)}/{total_users} users processed")
+            
+            # Delay between batches to avoid API rate limits
+            if i + batch_size < total_users:
+                await asyncio.sleep(10)
+        
+        # Log summary
+        logger.info(
+            f"Weekly AI predictions completed. "
+            f"Successful: {successful}, Failed: {failed}, Total: {total_users}"
+        )
+        
+        # Store summary
+        supabase.table('generation_summaries').insert({
+            'job_type': 'weekly_ai_predictions',
+            'total_users': total_users,
+            'successful': successful,
+            'failed': failed,
+            'completed_at': datetime.utcnow().isoformat()
+        }).execute()
+        
+    except Exception as e:
+        logger.error(f"Weekly AI predictions job failed: {str(e)}")
+
+
+# Add function to process users at specific times based on their timezone
+@scheduler.scheduled_job(CronTrigger(minute='0'), id='hourly_ai_predictions_check')
+async def hourly_ai_predictions_check():
+    """
+    Hourly check for users whose preferred generation time has arrived
+    This handles timezone-specific generation
+    """
+    try:
+        current_hour = datetime.utcnow().hour
+        current_day = datetime.utcnow().weekday()
+        
+        # Get users who prefer generation at this hour
+        users_result = supabase.table('user_ai_preferences').select('*').eq(
+            'weekly_generation_enabled', True
+        ).eq('preferred_hour', current_hour).eq(
+            'preferred_day_of_week', current_day
+        ).execute()
+        
+        if users_result.data:
+            logger.info(f"Processing {len(users_result.data)} users for hourly AI predictions")
+            
+            for user_pref in users_result.data:
+                # Check if already generated this week
+                last_gen = user_pref.get('last_generation_date')
+                if last_gen:
+                    last_gen_date = datetime.fromisoformat(last_gen.replace('Z', '+00:00'))
+                    if (datetime.utcnow() - last_gen_date).days < 6:
+                        continue
+                
+                # Generate predictions for this user
+                await generate_weekly_ai_predictions_for_user(user_pref['user_id'])
+                
+    except Exception as e:
+        logger.error(f"Hourly AI predictions check failed: {str(e)}")
+
 
 @scheduler.scheduled_job(CronTrigger(day_of_week='mon', hour=9, minute=0), id='weekly_generation')
 async def weekly_health_generation_job():

@@ -72,6 +72,23 @@ class BodyPatterns(BaseModel):
     tendencies: List[str]
     positiveResponses: List[str]
 
+class WeeklyPredictions(BaseModel):
+    id: str
+    dashboard_alert: Optional[Dict[str, Any]]
+    predictions: List[Dict[str, Any]]
+    pattern_questions: List[Dict[str, Any]]
+    body_patterns: Dict[str, Any]
+    generated_at: str
+    data_quality_score: Optional[int]
+    is_current: bool
+    viewed_at: Optional[str]
+
+class UserPreferences(BaseModel):
+    weekly_generation_enabled: bool = True
+    preferred_day_of_week: int = 3  # Wednesday
+    preferred_hour: int = 17  # 5 PM
+    timezone: str = "UTC"
+
 
 @router.get("/dashboard-alert/{user_id}")
 async def generate_dashboard_alert(user_id: str):
@@ -688,3 +705,335 @@ def get_upcoming_season() -> str:
         return "summer"
     else:
         return "fall"
+
+
+async def _generate_weekly_predictions_inline(user_id: str) -> Dict:
+    """Generate weekly predictions inline to avoid circular imports"""
+    try:
+        # Mark old predictions as not current
+        supabase.table('weekly_ai_predictions').update({
+            'is_current': False
+        }).eq('user_id', user_id).eq('is_current', True).execute()
+        
+        # Create new prediction record
+        prediction_record = {
+            'user_id': user_id,
+            'generation_status': 'pending',
+            'generated_at': datetime.utcnow().isoformat()
+        }
+        
+        result = supabase.table('weekly_ai_predictions').insert(prediction_record).execute()
+        prediction_id = result.data[0]['id']
+        
+        try:
+            # Generate all predictions
+            alert_data = await generate_dashboard_alert(user_id)
+            dashboard_alert = alert_data.get('alert') if alert_data else None
+            
+            predictions_data = await generate_ai_predictions(user_id)
+            predictions = predictions_data.get('predictions', []) if predictions_data else []
+            data_quality_score = predictions_data.get('data_quality_score', 0) if predictions_data else 0
+            
+            questions_data = await generate_pattern_questions(user_id)
+            pattern_questions = questions_data.get('questions', []) if questions_data else []
+            
+            patterns_data = await analyze_body_patterns(user_id)
+            body_patterns = patterns_data.get('patterns', {}) if patterns_data else {}
+            
+            # Update the record
+            update_data = {
+                'dashboard_alert': dashboard_alert,
+                'predictions': predictions,
+                'pattern_questions': pattern_questions,
+                'body_patterns': body_patterns,
+                'data_quality_score': data_quality_score,
+                'generation_status': 'completed',
+                'updated_at': datetime.utcnow().isoformat()
+            }
+            
+            supabase.table('weekly_ai_predictions').update(update_data).eq('id', prediction_id).execute()
+            
+            # Update user preferences
+            supabase.table('user_ai_preferences').update({
+                'last_generation_date': datetime.utcnow().isoformat(),
+                'generation_failure_count': 0
+            }).eq('user_id', user_id).execute()
+            
+            return {
+                'user_id': user_id,
+                'status': 'success',
+                'prediction_id': prediction_id
+            }
+            
+        except Exception as e:
+            # Update record with error
+            supabase.table('weekly_ai_predictions').update({
+                'generation_status': 'failed',
+                'error_message': str(e),
+                'updated_at': datetime.utcnow().isoformat()
+            }).eq('id', prediction_id).execute()
+            
+            # Increment failure count
+            supabase.table('user_ai_preferences').update({
+                'generation_failure_count': supabase.raw('generation_failure_count + 1')
+            }).eq('user_id', user_id).execute()
+            
+            raise
+            
+    except Exception as e:
+        logger.error(f"Failed to generate weekly predictions: {str(e)}")
+        return {
+            'user_id': user_id,
+            'status': 'error',
+            'error': str(e)
+        }
+
+
+# New endpoints for proactive weekly generation
+
+@router.post("/generate-initial/{user_id}")
+async def generate_initial_predictions(user_id: str):
+    """
+    Generate initial AI predictions when user first downloads the app
+    This is called once during onboarding
+    """
+    try:
+        logger.info(f"Generating initial AI predictions for new user {user_id}")
+        
+        # Check if already generated
+        prefs_result = supabase.table('user_ai_preferences').select('initial_predictions_generated').eq('user_id', user_id).execute()
+        
+        if prefs_result.data and prefs_result.data[0].get('initial_predictions_generated'):
+            return {
+                "status": "already_generated",
+                "message": "Initial predictions have already been generated for this user"
+            }
+        
+        # Create user preferences if not exists
+        if not prefs_result.data:
+            supabase.table('user_ai_preferences').insert({
+                'user_id': user_id,
+                'weekly_generation_enabled': True,
+                'preferred_day_of_week': 3,  # Wednesday
+                'preferred_hour': 17,  # 5 PM
+                'timezone': 'UTC'
+            }).execute()
+        
+        # Generate and store predictions via direct function call
+        result = await _generate_weekly_predictions_inline(user_id)
+        
+        if result['status'] == 'success':
+            # Mark initial generation as complete
+            supabase.table('user_ai_preferences').update({
+                'initial_predictions_generated': True,
+                'initial_generation_date': datetime.now().isoformat()
+            }).eq('user_id', user_id).execute()
+            
+            return {
+                "status": "success",
+                "prediction_id": result['prediction_id'],
+                "message": "Initial predictions generated successfully"
+            }
+        else:
+            return {
+                "status": "error",
+                "message": "Failed to generate initial predictions",
+                "error": result.get('error')
+            }
+            
+    except Exception as e:
+        logger.error(f"Error generating initial predictions: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/weekly/{user_id}")
+async def get_weekly_predictions(user_id: str):
+    """
+    Get the current weekly AI predictions for a user
+    Returns stored predictions instead of generating new ones
+    """
+    try:
+        # Get current predictions
+        result = supabase.table('weekly_ai_predictions').select('*').eq(
+            'user_id', user_id
+        ).eq('is_current', True).eq('generation_status', 'completed').execute()
+        
+        if not result.data:
+            # Check if user needs initial generation
+            needs_initial = supabase.rpc('user_needs_initial_predictions', {'p_user_id': user_id}).execute()
+            
+            if needs_initial.data:
+                return {
+                    "status": "needs_initial",
+                    "message": "User needs initial prediction generation",
+                    "predictions": None
+                }
+            else:
+                return {
+                    "status": "not_found",
+                    "message": "No current predictions found. They will be generated on the next scheduled run.",
+                    "predictions": None
+                }
+        
+        prediction = result.data[0]
+        
+        # Mark as viewed if not already
+        if not prediction.get('viewed_at'):
+            supabase.table('weekly_ai_predictions').update({
+                'viewed_at': datetime.now().isoformat()
+            }).eq('id', prediction['id']).execute()
+        
+        # Format response
+        return {
+            "status": "success",
+            "predictions": {
+                "id": prediction['id'],
+                "dashboard_alert": prediction['dashboard_alert'],
+                "predictions": prediction['predictions'],
+                "pattern_questions": prediction['pattern_questions'],
+                "body_patterns": prediction['body_patterns'],
+                "generated_at": prediction['generated_at'],
+                "data_quality_score": prediction.get('data_quality_score', 0),
+                "is_current": prediction['is_current'],
+                "viewed_at": prediction.get('viewed_at') or datetime.now().isoformat()
+            }
+        }
+        
+    except Exception as e:
+        logger.error(f"Error fetching weekly predictions: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/weekly/{user_id}/alert")
+async def get_weekly_dashboard_alert(user_id: str):
+    """
+    Get just the dashboard alert from weekly predictions
+    Lightweight endpoint for dashboard use
+    """
+    try:
+        result = supabase.table('weekly_ai_predictions').select(
+            'id, dashboard_alert, generated_at'
+        ).eq('user_id', user_id).eq('is_current', True).eq('generation_status', 'completed').execute()
+        
+        if not result.data or not result.data[0].get('dashboard_alert'):
+            return {"alert": None}
+        
+        return {"alert": result.data[0]['dashboard_alert']}
+        
+    except Exception as e:
+        logger.error(f"Error fetching weekly alert: {str(e)}")
+        return {"alert": None}
+
+
+@router.put("/preferences/{user_id}")
+async def update_user_preferences(user_id: str, preferences: UserPreferences):
+    """
+    Update user's AI generation preferences
+    """
+    try:
+        # Check if preferences exist
+        existing = supabase.table('user_ai_preferences').select('user_id').eq('user_id', user_id).execute()
+        
+        update_data = {
+            'weekly_generation_enabled': preferences.weekly_generation_enabled,
+            'preferred_day_of_week': preferences.preferred_day_of_week,
+            'preferred_hour': preferences.preferred_hour,
+            'timezone': preferences.timezone,
+            'updated_at': datetime.now().isoformat()
+        }
+        
+        if existing.data:
+            # Update existing
+            supabase.table('user_ai_preferences').update(update_data).eq('user_id', user_id).execute()
+        else:
+            # Insert new
+            update_data['user_id'] = user_id
+            supabase.table('user_ai_preferences').insert(update_data).execute()
+        
+        return {
+            "status": "success",
+            "message": "Preferences updated successfully",
+            "preferences": preferences.dict()
+        }
+        
+    except Exception as e:
+        logger.error(f"Error updating preferences: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/preferences/{user_id}")
+async def get_user_preferences(user_id: str):
+    """
+    Get user's AI generation preferences
+    """
+    try:
+        result = supabase.table('user_ai_preferences').select('*').eq('user_id', user_id).execute()
+        
+        if not result.data:
+            # Return defaults
+            return {
+                "preferences": {
+                    "weekly_generation_enabled": True,
+                    "preferred_day_of_week": 3,
+                    "preferred_hour": 17,
+                    "timezone": "UTC",
+                    "initial_predictions_generated": False,
+                    "last_generation_date": None
+                }
+            }
+        
+        prefs = result.data[0]
+        return {
+            "preferences": {
+                "weekly_generation_enabled": prefs['weekly_generation_enabled'],
+                "preferred_day_of_week": prefs['preferred_day_of_week'],
+                "preferred_hour": prefs['preferred_hour'],
+                "timezone": prefs['timezone'],
+                "initial_predictions_generated": prefs['initial_predictions_generated'],
+                "last_generation_date": prefs['last_generation_date']
+            }
+        }
+        
+    except Exception as e:
+        logger.error(f"Error fetching preferences: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/regenerate/{user_id}")
+async def regenerate_weekly_predictions(user_id: str):
+    """
+    Manually trigger regeneration of weekly predictions
+    Useful for testing or if user wants fresh predictions
+    """
+    try:
+        # Check rate limiting - allow once per day
+        last_gen = supabase.table('user_ai_preferences').select('last_generation_date').eq('user_id', user_id).execute()
+        
+        if last_gen.data and last_gen.data[0].get('last_generation_date'):
+            last_date = datetime.fromisoformat(last_gen.data[0]['last_generation_date'].replace('Z', '+00:00'))
+            if (datetime.now() - last_date).total_seconds() < 86400:  # 24 hours
+                remaining_hours = 24 - int((datetime.now() - last_date).total_seconds() / 3600)
+                return {
+                    "status": "rate_limited",
+                    "message": f"Predictions can only be regenerated once per day. Try again in {remaining_hours} hours."
+                }
+        
+        # Trigger regeneration
+        result = await _generate_weekly_predictions_inline(user_id)
+        
+        if result['status'] == 'success':
+            return {
+                "status": "success",
+                "prediction_id": result['prediction_id'],
+                "message": "Predictions regenerated successfully"
+            }
+        else:
+            return {
+                "status": "error",
+                "message": "Failed to regenerate predictions",
+                "error": result.get('error')
+            }
+            
+    except Exception as e:
+        logger.error(f"Error regenerating predictions: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
