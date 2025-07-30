@@ -10,6 +10,9 @@ from pydantic import BaseModel
 import json
 import logging
 import asyncio
+
+# Initialize logger
+logger = logging.getLogger(__name__)
 from supabase import create_client, Client
 import os
 

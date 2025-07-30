@@ -6,7 +6,7 @@ from pydantic import BaseModel
 import json
 import logging
 import uuid
-from services.ai_health_analyzer import AIHealthAnalyzer
+from services.ai_health_analyzer import HealthAnalyzer
 from supabase_client import get_supabase_client
 from utils.data_gathering import (
     get_symptom_logs, get_sleep_data, get_mood_data, 
@@ -19,6 +19,16 @@ load_dotenv()
 
 router = APIRouter(prefix="/api/ai", tags=["ai-predictions"])
 logger = logging.getLogger(__name__)
+
+# Create a wrapper class for AI analysis
+class AIHealthAnalyzer(HealthAnalyzer):
+    async def analyze_with_llm(self, prompt: str, model: str = None) -> str:
+        """Wrapper method for LLM analysis"""
+        if model:
+            self.model = model
+        result = await self._call_ai(prompt)
+        return json.dumps(result) if isinstance(result, dict) else result
+
 ai_analyzer = AIHealthAnalyzer()
 
 # Request/Response Models
