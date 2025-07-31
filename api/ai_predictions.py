@@ -85,12 +85,15 @@ async def get_dashboard_alert(user_id: str):
     Get the single most important alert for the dashboard
     """
     try:
+        logger.info(f"Generating dashboard alert for user {user_id}")
+        
         # Gather recent data
         data = await gather_prediction_data(user_id, "dashboard")
         
         # Check if user has enough data
         if data.get("data_quality", 0) < 20:
-            return {"alert": None, "reason": "insufficient_data"}
+            logger.info(f"Insufficient data for user {user_id}: quality score {data.get('data_quality', 0)}")
+            return {"alert": None, "reason": "insufficient_data", "data_quality": data.get("data_quality", 0)}
         
         # Create summarized context for AI
         context = {
@@ -136,29 +139,62 @@ async def get_dashboard_alert(user_id: str):
         }}
         """
         
-        response = await ai_analyzer.analyze_with_llm(
-            prompt=prompt,
-            model="deepseek/deepseek-chat"
-        )
-        
-        alert_data = safe_parse_json(response, "dashboard_alert")
-        
-        if alert_data and alert_data != "null":
-            # Add metadata
-            alert_data["id"] = str(uuid.uuid4())
-            alert_data["actionUrl"] = f"/predictive-insights?focus={alert_data['id']}"
-            alert_data["generated_at"] = datetime.now().isoformat()
+        try:
+            response = await ai_analyzer.analyze_with_llm(
+                prompt=prompt,
+                model="deepseek/deepseek-chat"
+            )
             
-            # Log for analytics
-            await log_alert_generation(user_id, alert_data)
+            alert_data = safe_parse_json(response, "dashboard_alert")
             
-            return {"alert": alert_data}
+            if alert_data and alert_data != "null" and isinstance(alert_data, dict):
+                # Add metadata
+                alert_data["id"] = str(uuid.uuid4())
+                alert_data["actionUrl"] = f"/predictive-insights?focus={alert_data['id']}"
+                alert_data["generated_at"] = datetime.now().isoformat()
+                
+                # Log for analytics and save to database
+                await log_alert_generation(user_id, alert_data)
+                
+                # Ensure weekly predictions exist and save
+                try:
+                    prediction_id = await ensure_weekly_predictions_exist(user_id)
+                    if prediction_id:
+                        supabase.table('weekly_ai_predictions').update({
+                            'dashboard_alert': alert_data,
+                            'updated_at': datetime.now().isoformat()
+                        }).eq('id', prediction_id).execute()
+                except Exception as weekly_error:
+                    logger.warning(f"Failed to update weekly predictions: {str(weekly_error)}")
+                
+                logger.info(f"Successfully generated alert for user {user_id}")
+                return {"alert": alert_data, "status": "success"}
+            else:
+                logger.info(f"No significant patterns found for user {user_id}")
+                return {"alert": None, "status": "no_patterns"}
         
-        return {"alert": None}
+        except Exception as ai_error:
+            logger.error(f"AI analysis failed for user {user_id}: {str(ai_error)}")
+            # Return a fallback alert based on available data
+            if data["symptom_tracking"]["total_entries"] > 5:
+                fallback_alert = {
+                    "id": str(uuid.uuid4()),
+                    "severity": "info",
+                    "title": "Health Tracking Active",
+                    "description": "Continue monitoring your symptoms for pattern detection. More data will enable personalized insights.",
+                    "timeframe": "Ongoing",
+                    "confidence": 60,
+                    "preventionTip": "Keep tracking daily for best results",
+                    "generated_at": datetime.now().isoformat(),
+                    "is_fallback": True
+                }
+                return {"alert": fallback_alert, "status": "fallback"}
+            
+            return {"alert": None, "status": "error", "error": str(ai_error)}
         
     except Exception as e:
-        logger.error(f"Error generating dashboard alert: {str(e)}")
-        return {"alert": None, "error": str(e)}
+        logger.error(f"Error generating dashboard alert: {str(e)}", exc_info=True)
+        return {"alert": None, "status": "error", "error": str(e)}
 
 
 @router.get("/predictions/immediate/{user_id}")
@@ -167,14 +203,18 @@ async def get_immediate_predictions(user_id: str):
     Generate predictions for the next 7 days
     """
     try:
+        logger.info(f"Generating immediate predictions for user {user_id}")
+        
         # Gather recent data
         data = await gather_prediction_data(user_id, "immediate")
         
         if data.get("data_quality", 0) < 30:
+            logger.info(f"Insufficient data for predictions: quality score {data.get('data_quality', 0)}")
             return {
                 "predictions": [],
                 "message": "Need more health data for accurate predictions",
-                "data_quality_score": data.get("data_quality", 0)
+                "data_quality_score": data.get("data_quality", 0),
+                "status": "insufficient_data"
             }
         
         # Prepare context
@@ -231,38 +271,110 @@ async def get_immediate_predictions(user_id: str):
         }}]
         """
         
-        response = await ai_analyzer.analyze_with_llm(
-            prompt=prompt,
-            model="deepseek/deepseek-chat"
-        )
-        
-        predictions_data = safe_parse_json(response, "immediate_predictions")
-        
-        if predictions_data and isinstance(predictions_data, list):
-            # Enrich predictions
-            for pred in predictions_data:
-                pred["id"] = str(uuid.uuid4())
-                pred["type"] = "immediate"
-                pred["gradient"] = get_gradient_for_severity("warning")
-                pred["generated_at"] = datetime.now().isoformat()
+        try:
+            response = await ai_analyzer.analyze_with_llm(
+                prompt=prompt,
+                model="deepseek/deepseek-chat"
+            )
             
+            predictions_data = safe_parse_json(response, "immediate_predictions")
+            
+            if predictions_data and isinstance(predictions_data, list):
+                # Enrich predictions
+                enriched_predictions = []
+                for pred in predictions_data:
+                    if isinstance(pred, dict) and "title" in pred:
+                        pred["id"] = str(uuid.uuid4())
+                        pred["type"] = "immediate"
+                        pred["gradient"] = get_gradient_for_severity("warning")
+                        pred["generated_at"] = datetime.now().isoformat()
+                        enriched_predictions.append(pred)
+                        
+                        # Save to history
+                        try:
+                            supabase.table('ai_predictions_history').insert({
+                                'user_id': user_id,
+                                'prediction_type': 'immediate',
+                                'prediction_data': pred,
+                                'confidence': pred.get('confidence', 70),
+                                'generated_at': datetime.now().isoformat()
+                            }).execute()
+                        except Exception as db_error:
+                            logger.warning(f"Failed to save prediction to history: {str(db_error)}")
+                
+                # Update weekly predictions if exists
+                try:
+                    current_weekly = supabase.table('weekly_ai_predictions').select('id, predictions').eq(
+                        'user_id', user_id
+                    ).eq('is_current', True).execute()
+                    
+                    if current_weekly.data:
+                        supabase.table('weekly_ai_predictions').update({
+                            'predictions': enriched_predictions,
+                            'data_quality_score': data.get("data_quality", 0),
+                            'updated_at': datetime.now().isoformat()
+                        }).eq('id', current_weekly.data[0]['id']).execute()
+                except Exception as weekly_error:
+                    logger.warning(f"Failed to update weekly predictions: {str(weekly_error)}")
+                
+                logger.info(f"Successfully generated {len(enriched_predictions)} predictions for user {user_id}")
+                return {
+                    "predictions": enriched_predictions,
+                    "generated_at": datetime.now().isoformat(),
+                    "data_quality_score": data.get("data_quality", 0),
+                    "status": "success"
+                }
+            else:
+                logger.warning(f"Invalid predictions format for user {user_id}")
+                # Generate fallback predictions based on available data
+                if context["top_symptoms"]:
+                    fallback_predictions = [{
+                        "id": str(uuid.uuid4()),
+                        "title": "Symptom Pattern Monitoring",
+                        "subtitle": f"Watch for changes in your {context['top_symptoms'][0]} symptoms",
+                        "pattern": "Based on recent tracking history",
+                        "trigger_combo": "Historical symptom patterns",
+                        "historical_accuracy": "Building baseline",
+                        "confidence": 65,
+                        "prevention_protocol": [
+                            "Continue daily symptom tracking",
+                            "Note any triggers or patterns",
+                            "Maintain consistent self-care routine",
+                            "Stay hydrated and well-rested"
+                        ],
+                        "type": "immediate",
+                        "gradient": get_gradient_for_severity("info"),
+                        "generated_at": datetime.now().isoformat(),
+                        "is_fallback": True
+                    }]
+                    
+                    return {
+                        "predictions": fallback_predictions,
+                        "generated_at": datetime.now().isoformat(),
+                        "data_quality_score": data.get("data_quality", 0),
+                        "status": "fallback"
+                    }
+                
+                return {
+                    "predictions": [],
+                    "generated_at": datetime.now().isoformat(),
+                    "data_quality_score": data.get("data_quality", 0),
+                    "status": "parse_error"
+                }
+        
+        except Exception as ai_error:
+            logger.error(f"AI analysis failed for immediate predictions: {str(ai_error)}")
             return {
-                "predictions": predictions_data,
+                "predictions": [],
                 "generated_at": datetime.now().isoformat(),
-                "data_quality_score": data.get("data_quality", 0)
+                "data_quality_score": data.get("data_quality", 0),
+                "status": "ai_error",
+                "error": str(ai_error)
             }
         
-        # Return empty predictions if parsing failed
-        return {
-            "predictions": [],
-            "generated_at": datetime.now().isoformat(),
-            "data_quality_score": data.get("data_quality", 0),
-            "parse_error": True
-        }
-        
     except Exception as e:
-        logger.error(f"Error generating immediate predictions: {str(e)}")
-        return {"predictions": [], "error": str(e)}
+        logger.error(f"Error generating immediate predictions: {str(e)}", exc_info=True)
+        return {"predictions": [], "status": "error", "error": str(e)}
 
 
 @router.get("/predictions/seasonal/{user_id}")
@@ -505,10 +617,13 @@ async def get_body_patterns(user_id: str):
     Generate personalized body pattern insights
     """
     try:
+        logger.info(f"Generating body patterns for user {user_id}")
+        
         # Gather pattern data
         data = await gather_prediction_data(user_id, "patterns")
         
         if data.get("data_quality", 0) < 30:
+            logger.info(f"Insufficient data for patterns: quality score {data.get('data_quality', 0)}")
             return {
                 "tendencies": ["Track your symptoms for a week to discover patterns"],
                 "positive_responses": ["Log what makes you feel better"],
@@ -516,7 +631,8 @@ async def get_body_patterns(user_id: str):
                     "total_patterns_analyzed": 0,
                     "confidence_level": "low",
                     "data_span_days": 0
-                }
+                },
+                "status": "insufficient_data"
             }
         
         # Create comprehensive pattern context
@@ -578,45 +694,132 @@ async def get_body_patterns(user_id: str):
         }}
         """
         
-        response = await ai_analyzer.analyze_with_llm(
-            prompt=prompt,
-            model="deepseek/deepseek-chat"
-        )
-        
-        patterns_data = safe_parse_json(response, "body_patterns")
-        
-        if patterns_data and "tendencies" in patterns_data and "positiveResponses" in patterns_data:
-            return {
-                "tendencies": patterns_data["tendencies"],
-                "positive_responses": patterns_data["positiveResponses"],
-                "pattern_metadata": {
-                    "total_patterns_analyzed": len(data["symptom_tracking"]["entries"]),
-                    "confidence_level": "high" if data["data_quality"] > 70 else "medium",
-                    "data_span_days": data["time_window"]["days"]
+        try:
+            response = await ai_analyzer.analyze_with_llm(
+                prompt=prompt,
+                model="deepseek/deepseek-chat"
+            )
+            
+            patterns_data = safe_parse_json(response, "body_patterns")
+            
+            if patterns_data and isinstance(patterns_data, dict) and "tendencies" in patterns_data and "positiveResponses" in patterns_data:
+                result_data = {
+                    "tendencies": patterns_data["tendencies"],
+                    "positive_responses": patterns_data["positiveResponses"],
+                    "pattern_metadata": {
+                        "total_patterns_analyzed": len(data["symptom_tracking"]["entries"]),
+                        "confidence_level": "high" if data["data_quality"] > 70 else "medium",
+                        "data_span_days": data["time_window"]["days"],
+                        "generated_at": datetime.now().isoformat()
+                    }
                 }
-            }
+                
+                # Save to weekly predictions if exists
+                try:
+                    current_weekly = supabase.table('weekly_ai_predictions').select('id').eq(
+                        'user_id', user_id
+                    ).eq('is_current', True).execute()
+                    
+                    if current_weekly.data:
+                        supabase.table('weekly_ai_predictions').update({
+                            'body_patterns': {
+                                'tendencies': patterns_data["tendencies"],
+                                'positiveResponses': patterns_data["positiveResponses"]
+                            },
+                            'updated_at': datetime.now().isoformat()
+                        }).eq('id', current_weekly.data[0]['id']).execute()
+                except Exception as weekly_error:
+                    logger.warning(f"Failed to update weekly predictions: {str(weekly_error)}")
+                
+                logger.info(f"Successfully generated body patterns for user {user_id}")
+                return {**result_data, "status": "success"}
+            else:
+                logger.warning(f"Invalid patterns format for user {user_id}")
+                # Generate fallback patterns based on available data
+                if context["symptom_patterns"]:
+                    top_symptoms = list(context["symptom_patterns"].keys())[:3]
+                    fallback_data = {
+                        "tendencies": [
+                            f"You've tracked {top_symptoms[0]} most frequently",
+                            "Your symptoms vary throughout the week",
+                            "Pattern analysis is building with more data",
+                            "Keep tracking to identify specific triggers",
+                            "Your health data shows active monitoring"
+                        ],
+                        "positive_responses": [
+                            "Regular tracking helps identify patterns",
+                            "Your awareness of symptoms is improving",
+                            "Consistent monitoring enables better insights",
+                            "Each data point helps build your profile"
+                        ],
+                        "pattern_metadata": {
+                            "total_patterns_analyzed": len(data["symptom_tracking"]["entries"]),
+                            "confidence_level": "building",
+                            "data_span_days": data["time_window"]["days"],
+                            "generated_at": datetime.now().isoformat()
+                        },
+                        "status": "fallback"
+                    }
+                    
+                    return fallback_data
+                
+                # Final fallback
+                return {
+                    "tendencies": [
+                        "Patterns are still being analyzed",
+                        "Continue tracking to reveal your unique patterns"
+                    ],
+                    "positive_responses": [
+                        "Your data will reveal what works best for you"
+                    ],
+                    "pattern_metadata": {
+                        "total_patterns_analyzed": 0,
+                        "confidence_level": "low",
+                        "data_span_days": 0
+                    },
+                    "status": "minimal_data"
+                }
         
-        # Fallback patterns
-        return {
-            "tendencies": [
-                "Patterns are still being analyzed",
-                "Continue tracking to reveal your unique patterns"
-            ],
-            "positive_responses": [
-                "Your data will reveal what works best for you"
-            ],
-            "pattern_metadata": {
-                "total_patterns_analyzed": 0,
-                "confidence_level": "low",
-                "data_span_days": 0
+        except Exception as ai_error:
+            logger.error(f"AI analysis failed for body patterns: {str(ai_error)}")
+            # Return basic patterns from raw data
+            if data["symptom_tracking"]["symptom_frequency"]:
+                return {
+                    "tendencies": [
+                        "Your symptom patterns are being analyzed",
+                        f"Most common symptom: {list(data['symptom_tracking']['symptom_frequency'].keys())[0]}",
+                        "Continue tracking for personalized insights"
+                    ],
+                    "positive_responses": [
+                        "Regular health tracking shows commitment",
+                        "Building a comprehensive health profile"
+                    ],
+                    "pattern_metadata": {
+                        "total_patterns_analyzed": len(data["symptom_tracking"]["entries"]),
+                        "confidence_level": "low",
+                        "data_span_days": data["time_window"]["days"]
+                    },
+                    "status": "ai_error"
+                }
+            
+            return {
+                "tendencies": [],
+                "positive_responses": [],
+                "pattern_metadata": {
+                    "total_patterns_analyzed": 0,
+                    "confidence_level": "error",
+                    "data_span_days": 0
+                },
+                "status": "error",
+                "error": str(ai_error)
             }
-        }
         
     except Exception as e:
-        logger.error(f"Error generating body patterns: {str(e)}")
+        logger.error(f"Error generating body patterns: {str(e)}", exc_info=True)
         return {
             "tendencies": [],
             "positive_responses": [],
+            "status": "error",
             "error": str(e)
         }
 
@@ -627,14 +830,18 @@ async def get_pattern_questions(user_id: str):
     Generate personalized questions about health patterns
     """
     try:
+        logger.info(f"Generating pattern questions for user {user_id}")
+        
         # Gather data for questions
         data = await gather_prediction_data(user_id, "questions")
         
         if data.get("data_quality", 0) < 30:
+            logger.info(f"Insufficient data for questions: quality score {data.get('data_quality', 0)}")
             return {
                 "questions": [],
                 "total_questions": 0,
-                "message": "Need more data to generate personalized questions"
+                "message": "Need more data to generate personalized questions",
+                "status": "insufficient_data"
             }
         
         # Find interesting patterns for questions
@@ -916,6 +1123,39 @@ async def generate_all_predictions(user_id: str, prediction_id: str):
         }).eq('id', prediction_id).execute()
 
 
+# Helper function to ensure weekly predictions exist
+async def ensure_weekly_predictions_exist(user_id: str) -> str:
+    """
+    Ensure a weekly predictions record exists for the user
+    Returns the prediction ID
+    """
+    try:
+        # Check for existing current predictions
+        result = supabase.table('weekly_ai_predictions').select('id').eq(
+            'user_id', user_id
+        ).eq('is_current', True).execute()
+        
+        if result.data:
+            return result.data[0]['id']
+        
+        # Create new prediction record
+        new_prediction = {
+            'user_id': user_id,
+            'generation_status': 'pending',
+            'generated_at': datetime.utcnow().isoformat(),
+            'predictions': [],
+            'pattern_questions': [],
+            'body_patterns': {},
+            'is_current': True
+        }
+        
+        result = supabase.table('weekly_ai_predictions').insert(new_prediction).execute()
+        return result.data[0]['id']
+        
+    except Exception as e:
+        logger.error(f"Error ensuring weekly predictions exist: {str(e)}")
+        return None
+
 # Get current weekly predictions
 @router.get("/weekly/{user_id}")
 async def get_weekly_predictions(user_id: str):
@@ -925,7 +1165,22 @@ async def get_weekly_predictions(user_id: str):
     try:
         result = supabase.table('weekly_ai_predictions').select('*').eq(
             'user_id', user_id
-        ).eq('is_current', True).eq('generation_status', 'completed').execute()
+        ).eq('is_current', True).execute()
+        
+        if not result.data:
+            # Try to create one
+            prediction_id = await ensure_weekly_predictions_exist(user_id)
+            if not prediction_id:
+                return {
+                    "status": "not_found",
+                    "message": "No current predictions found",
+                    "predictions": None
+                }
+            
+            # Fetch the newly created record
+            result = supabase.table('weekly_ai_predictions').select('*').eq(
+                'id', prediction_id
+            ).execute()
         
         if not result.data:
             return {
@@ -946,14 +1201,15 @@ async def get_weekly_predictions(user_id: str):
             "status": "success",
             "predictions": {
                 "id": prediction['id'],
-                "dashboard_alert": prediction['dashboard_alert'],
-                "predictions": prediction['predictions'],
-                "pattern_questions": prediction['pattern_questions'],
-                "body_patterns": prediction['body_patterns'],
+                "dashboard_alert": prediction.get('dashboard_alert'),
+                "predictions": prediction.get('predictions', []),
+                "pattern_questions": prediction.get('pattern_questions', []),
+                "body_patterns": prediction.get('body_patterns', {}),
                 "generated_at": prediction['generated_at'],
                 "data_quality_score": prediction.get('data_quality_score', 0),
                 "is_current": prediction['is_current'],
-                "viewed_at": prediction.get('viewed_at') or datetime.now().isoformat()
+                "viewed_at": prediction.get('viewed_at') or datetime.now().isoformat(),
+                "generation_status": prediction.get('generation_status', 'pending')
             }
         }
         
