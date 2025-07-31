@@ -27,7 +27,7 @@ class HealthAnalyzer:
         self.api_key = os.getenv("OPENROUTER_API_KEY")
         self.model = "google/gemini-2.5-pro"
         self.fallback_model = "moonshotai/kimi-k2"  # Fallback if primary fails
-        self.timeout = 30  # 30 seconds timeout per attempt
+        self.timeout = 90  # 90 seconds timeout per attempt
         
     async def _call_ai(self, prompt: str, temperature: float = 0.7, use_fallback: bool = False) -> Dict:
         """Make API call with fallback model support"""
