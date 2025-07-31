@@ -1,13 +1,17 @@
-o# Frontend CORS Fix Instructions
+# Frontend CORS Fix Instructions
 
 ## Problem
-The frontend is sending requests with `credentials: 'include'` but the backend was using wildcard CORS (`*`), which is not allowed when credentials are included.
+The frontend is sending requests with `credentials: 'include'` but the backend was using wildcard CORS (`*`), which is not allowed when credentials are included. This was causing certain endpoints (like `/api/health-intelligence/status`, `/api/deep-dive/ultra-think`) to fail with CORS errors.
 
-## Backend Changes Made
+## Backend Changes Made (Updated 2025-01-31)
 Updated `/core/middleware.py` to:
 - Allow specific origins instead of wildcard
 - Set `allow_credentials=True`
-- Added localhost:3000 and localhost:3001 to allowed origins
+- Added comprehensive list of allowed origins:
+  - localhost:3000, 3001, 3002 (http and https)
+  - Netlify deployment URLs
+  - Production domains (healthoracle.ai)
+- Added support for custom origins via `CORS_ORIGINS` environment variable
 
 ## Frontend Changes Needed
 
