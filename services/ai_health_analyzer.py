@@ -302,6 +302,74 @@ class HealthAnalyzer:
             logger.error(f"Failed to generate predictions: {str(e)}")
             return []
     
+    async def generate_insights_from_context(self, llm_context: str, health_data: Dict, user_id: str) -> List[Dict]:
+        """Generate insights using the same context as Oracle chat"""
+        prompt = f"""
+        Analyze this comprehensive health context and generate 4-6 key insights.
+        
+        HEALTH CONTEXT (same data Oracle uses):
+        {llm_context[:3000]}  # Limit to prevent token issues
+        
+        ADDITIONAL DATA SUMMARY:
+        - Total health interactions: {health_data.get('oracle_sessions', {}).get('total_sessions', 0)}
+        - Recent symptoms tracked: {len(health_data.get('recent_symptoms', []))}
+        - Body parts of concern: {len(health_data.get('body_parts', []))}
+        
+        Generate insights that are:
+        1. Based on patterns in the actual health data
+        2. Specific to what the user has been tracking
+        3. Actionable and supportive
+        4. NOT generic health advice
+        
+        Focus on:
+        - Patterns in symptoms or body parts
+        - Changes from previous weeks
+        - Areas not mentioned recently (shadow patterns)
+        - Correlations between different health aspects
+        
+        Return ONLY a JSON object:
+        {{
+            "insights": [
+                {{
+                    "type": "positive|warning|neutral",
+                    "title": "Brief, specific title (max 10 words)",
+                    "description": "One detailed sentence about the specific pattern observed",
+                    "confidence": 60-95,
+                    "metadata": {{
+                        "based_on": "specific data source (e.g., 'chest pain tracked 3 times')"
+                    }}
+                }}
+            ]
+        }}
+        """
+        
+        try:
+            result = await self._call_ai(prompt, temperature=0.6)
+            insights = result.get('insights', [])
+            
+            # Validate and clean insights
+            valid_insights = []
+            for insight in insights:
+                if all(key in insight for key in ['type', 'title', 'description', 'confidence']):
+                    # Ensure confidence is within range
+                    insight['confidence'] = max(60, min(95, int(insight['confidence'])))
+                    # Ensure it's specific, not generic
+                    if 'drink water' not in insight['description'].lower() and 'see a doctor' not in insight['title'].lower():
+                        valid_insights.append(insight)
+            
+            return valid_insights[:6]
+            
+        except Exception as e:
+            logger.error(f"Failed to generate insights from context: {str(e)}")
+            # Return a context-aware fallback
+            return [{
+                "type": "neutral",
+                "title": "Health tracking active",
+                "description": "Your health data is being analyzed. Continue tracking for personalized insights.",
+                "confidence": 70,
+                "metadata": {"is_fallback": True}
+            }]
+    
     async def detect_shadow_patterns(self, health_data: Dict, user_id: str) -> List[Dict]:
         """Identify patterns that are missing from recent data across ALL health interactions"""
         # Get comprehensive historical data
@@ -374,6 +442,74 @@ class HealthAnalyzer:
         except Exception as e:
             logger.error(f"Failed to detect shadow patterns: {str(e)}")
             return []
+    
+    async def generate_insights_from_context(self, llm_context: str, health_data: Dict, user_id: str) -> List[Dict]:
+        """Generate insights using the same context as Oracle chat"""
+        prompt = f"""
+        Analyze this comprehensive health context and generate 4-6 key insights.
+        
+        HEALTH CONTEXT (same data Oracle uses):
+        {llm_context[:3000]}  # Limit to prevent token issues
+        
+        ADDITIONAL DATA SUMMARY:
+        - Total health interactions: {health_data.get('oracle_sessions', {}).get('total_sessions', 0)}
+        - Recent symptoms tracked: {len(health_data.get('recent_symptoms', []))}
+        - Body parts of concern: {len(health_data.get('body_parts', []))}
+        
+        Generate insights that are:
+        1. Based on patterns in the actual health data
+        2. Specific to what the user has been tracking
+        3. Actionable and supportive
+        4. NOT generic health advice
+        
+        Focus on:
+        - Patterns in symptoms or body parts
+        - Changes from previous weeks
+        - Areas not mentioned recently (shadow patterns)
+        - Correlations between different health aspects
+        
+        Return ONLY a JSON object:
+        {{
+            "insights": [
+                {{
+                    "type": "positive|warning|neutral",
+                    "title": "Brief, specific title (max 10 words)",
+                    "description": "One detailed sentence about the specific pattern observed",
+                    "confidence": 60-95,
+                    "metadata": {{
+                        "based_on": "specific data source (e.g., 'chest pain tracked 3 times')"
+                    }}
+                }}
+            ]
+        }}
+        """
+        
+        try:
+            result = await self._call_ai(prompt, temperature=0.6)
+            insights = result.get('insights', [])
+            
+            # Validate and clean insights
+            valid_insights = []
+            for insight in insights:
+                if all(key in insight for key in ['type', 'title', 'description', 'confidence']):
+                    # Ensure confidence is within range
+                    insight['confidence'] = max(60, min(95, int(insight['confidence'])))
+                    # Ensure it's specific, not generic
+                    if 'drink water' not in insight['description'].lower() and 'see a doctor' not in insight['title'].lower():
+                        valid_insights.append(insight)
+            
+            return valid_insights[:6]
+            
+        except Exception as e:
+            logger.error(f"Failed to generate insights from context: {str(e)}")
+            # Return a context-aware fallback
+            return [{
+                "type": "neutral",
+                "title": "Health tracking active",
+                "description": "Your health data is being analyzed. Continue tracking for personalized insights.",
+                "confidence": 70,
+                "metadata": {"is_fallback": True}
+            }]
     
     async def generate_strategies(self, insights: List[Dict], predictions: List[Dict], 
                                 patterns: List[Dict], user_id: str) -> List[Dict]:

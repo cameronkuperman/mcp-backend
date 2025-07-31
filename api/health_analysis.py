@@ -481,37 +481,28 @@ async def generate_insights_only(user_id: str, force_refresh: bool = False):
                 'user_id', user_id
             ).eq('week_of', week_of.isoformat()).execute()
         
-        # Get health data and story
+        # Import the same function Oracle chat uses
+        from api.chat import get_enhanced_llm_context
+        
+        # Get the same comprehensive health context that Oracle uses
+        llm_context = await get_enhanced_llm_context(user_id, None, "weekly health insights")
+        
+        # Also get basic health data for additional context
         health_data = await gather_user_health_data(user_id)
         
-        story_result = supabase.table('health_stories').select('*').eq(
-            'user_id', user_id
-        ).gte('created_at', week_of.isoformat()).order('created_at.desc').limit(1).execute()
-        
-        if not story_result.data:
-            logger.warning(f"No health story found for user {user_id} this week")
-            # Return empty insights with message
+        # Check if user has any health data at all
+        if not llm_context or llm_context == "No previous health interactions recorded yet.":
+            logger.warning(f"No health data found for user {user_id}")
             return {
-                'status': 'no_story',
+                'status': 'no_data',
                 'insights': [],
                 'count': 0,
-                'message': 'Generate a health story first to get insights'
-            }
-        
-        story = story_result.data[0]
-        story_content = story.get('story_text') or ""
-        
-        if not story_content:
-            return {
-                'status': 'empty_story',
-                'insights': [],
-                'count': 0,
-                'message': 'Health story has no content'
+                'message': 'Start tracking your health to get insights'
             }
         
         try:
-            # Generate insights
-            insights = await analyzer.generate_insights(story_content, health_data, user_id)
+            # Generate insights using the same context as Oracle
+            insights = await analyzer.generate_insights_from_context(llm_context, health_data, user_id)
             
             # Store insights
             stored_insights = []
@@ -520,7 +511,7 @@ async def generate_insights_only(user_id: str, force_refresh: bool = False):
                     try:
                         result = supabase.table('health_insights').insert({
                             'user_id': user_id,
-                            'story_id': story['id'],
+                            'story_id': None,  # No story required
                             'insight_type': insight['type'],
                             'title': insight['title'],
                             'description': insight['description'],
@@ -546,7 +537,7 @@ async def generate_insights_only(user_id: str, force_refresh: bool = False):
             # Return fallback insight
             fallback_insight = {
                 'user_id': user_id,
-                'story_id': story['id'],
+                'story_id': None,
                 'insight_type': 'neutral',
                 'title': 'Health Tracking Active',
                 'description': 'Continue monitoring your health patterns for personalized insights.',
