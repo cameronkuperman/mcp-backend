@@ -241,7 +241,8 @@ async def generate_weekly_analysis(request: GenerateAnalysisRequest, background_
                         'description': insight['description'],
                         'confidence': insight['confidence'],
                         'week_of': week_of.isoformat(),
-                        'metadata': insight.get('metadata', {})
+                        'metadata': insight.get('metadata', {}),
+                        'generation_method': 'weekly'
                     }).execute()
                 except Exception as e:
                     logger.error(f"Failed to insert insight: {str(e)}")
@@ -261,7 +262,8 @@ async def generate_weekly_analysis(request: GenerateAnalysisRequest, background_
                         'preventable': pred.get('preventable', False),
                         'reasoning': pred.get('reasoning', ''),
                         'suggested_actions': pred.get('actions', []),
-                        'week_of': week_of.isoformat()
+                        'week_of': week_of.isoformat(),
+                        'generation_method': 'weekly'
                     }).execute()
                 except Exception as e:
                     logger.error(f"Failed to insert prediction: {str(e)}")
@@ -279,7 +281,8 @@ async def generate_weekly_analysis(request: GenerateAnalysisRequest, background_
                         'significance': pattern['significance'],
                         'last_mentioned_date': pattern.get('last_date'),
                         'days_missing': pattern.get('days_missing', 0),
-                        'week_of': week_of.isoformat()
+                        'week_of': week_of.isoformat(),
+                        'generation_method': 'weekly'
                     }).execute()
                 except Exception as e:
                     logger.error(f"Failed to insert shadow pattern: {str(e)}")
@@ -295,7 +298,8 @@ async def generate_weekly_analysis(request: GenerateAnalysisRequest, background_
                     'priority': strategy['priority'],
                     'rationale': strategy.get('rationale', ''),
                     'expected_outcome': strategy.get('outcome', ''),
-                    'week_of': week_of.isoformat()
+                    'week_of': week_of.isoformat(),
+                    'generation_method': 'weekly'
                 }).execute()
         
         # Update generation log
@@ -447,13 +451,35 @@ async def trigger_weekly_generation_manual(user_id: Optional[str] = None):
         raise HTTPException(status_code=500, detail=f"Trigger failed: {str(e)}")
 
 @router.post("/generate-insights/{user_id}")
-async def generate_insights_only(user_id: str):
+async def generate_insights_only(user_id: str, force_refresh: bool = False):
     """
-    Generate only key insights for the current week
+    Generate only key insights for the current week with caching
     """
     try:
-        logger.info(f"Generating insights for user {user_id}")
+        logger.info(f"Generating insights for user {user_id} (force_refresh={force_refresh})")
         week_of = get_current_week_monday()
+        
+        # Check if we should use cached data
+        if not force_refresh:
+            # Check if insights already exist for this week
+            existing_insights = supabase.table('health_insights').select('*').eq(
+                'user_id', user_id
+            ).eq('week_of', week_of.isoformat()).order('created_at.desc').execute()
+            
+            if existing_insights.data and len(existing_insights.data) > 0:
+                logger.info(f"Returning cached insights for user {user_id}")
+                return {
+                    'status': 'cached',
+                    'insights': existing_insights.data,
+                    'count': len(existing_insights.data),
+                    'cached_from': existing_insights.data[0]['created_at']
+                }
+        
+        # Delete old insights if force refresh
+        if force_refresh:
+            supabase.table('health_insights').delete().eq(
+                'user_id', user_id
+            ).eq('week_of', week_of.isoformat()).execute()
         
         # Get health data and story
         health_data = await gather_user_health_data(user_id)
@@ -500,7 +526,8 @@ async def generate_insights_only(user_id: str):
                             'description': insight['description'],
                             'confidence': insight['confidence'],
                             'week_of': week_of.isoformat(),
-                            'metadata': insight.get('metadata', {})
+                            'metadata': insight.get('metadata', {}),
+                            'generation_method': 'on_demand'
                         }).execute()
                         if result.data:
                             stored_insights.append(result.data[0])
@@ -554,13 +581,35 @@ async def generate_insights_only(user_id: str):
         }
 
 @router.post("/generate-predictions/{user_id}")
-async def generate_predictions_only(user_id: str):
+async def generate_predictions_only(user_id: str, force_refresh: bool = False):
     """
-    Generate only health predictions for the current week
+    Generate only health predictions for the current week with caching
     """
     try:
-        logger.info(f"Generating predictions for user {user_id}")
+        logger.info(f"Generating predictions for user {user_id} (force_refresh={force_refresh})")
         week_of = get_current_week_monday()
+        
+        # Check if we should use cached data
+        if not force_refresh:
+            # Check if predictions already exist for this week
+            existing_predictions = supabase.table('health_predictions').select('*').eq(
+                'user_id', user_id
+            ).eq('week_of', week_of.isoformat()).order('created_at.desc').execute()
+            
+            if existing_predictions.data and len(existing_predictions.data) > 0:
+                logger.info(f"Returning cached predictions for user {user_id}")
+                return {
+                    'status': 'cached',
+                    'predictions': existing_predictions.data,
+                    'count': len(existing_predictions.data),
+                    'cached_from': existing_predictions.data[0]['created_at']
+                }
+        
+        # Delete old predictions if force refresh
+        if force_refresh:
+            supabase.table('health_predictions').delete().eq(
+                'user_id', user_id
+            ).eq('week_of', week_of.isoformat()).execute()
         
         # Get health data and story
         health_data = await gather_user_health_data(user_id)
@@ -607,7 +656,8 @@ async def generate_predictions_only(user_id: str):
                             'preventable': pred.get('preventable', False),
                             'reasoning': pred.get('reasoning', ''),
                             'suggested_actions': pred.get('actions', []),
-                            'week_of': week_of.isoformat()
+                            'week_of': week_of.isoformat(),
+                            'generation_method': 'on_demand'
                         }).execute()
                         if result.data:
                             stored_predictions.append(result.data[0])
@@ -634,7 +684,8 @@ async def generate_predictions_only(user_id: str):
                     'preventable': True,
                     'reasoning': 'Based on your recent health tracking',
                     'suggested_actions': ['Continue daily health monitoring', 'Note any triggers'],
-                    'week_of': week_of.isoformat()
+                    'week_of': week_of.isoformat(),
+                    'generation_method': 'on_demand'
                 }
                 
                 try:
@@ -665,13 +716,35 @@ async def generate_predictions_only(user_id: str):
         }
 
 @router.post("/generate-shadow-patterns/{user_id}")
-async def generate_shadow_patterns_only(user_id: str):
+async def generate_shadow_patterns_only(user_id: str, force_refresh: bool = False):
     """
-    Generate only shadow patterns (not mentioned) for the current week
+    Generate only shadow patterns (not mentioned) for the current week with caching
     """
     try:
-        logger.info(f"Generating shadow patterns for user {user_id}")
+        logger.info(f"Generating shadow patterns for user {user_id} (force_refresh={force_refresh})")
         week_of = get_current_week_monday()
+        
+        # Check if we should use cached data
+        if not force_refresh:
+            # Check if patterns already exist for this week
+            existing_patterns = supabase.table('shadow_patterns').select('*').eq(
+                'user_id', user_id
+            ).eq('week_of', week_of.isoformat()).order('created_at.desc').execute()
+            
+            if existing_patterns.data and len(existing_patterns.data) > 0:
+                logger.info(f"Returning cached shadow patterns for user {user_id}")
+                return {
+                    'status': 'cached',
+                    'shadow_patterns': existing_patterns.data,
+                    'count': len(existing_patterns.data),
+                    'cached_from': existing_patterns.data[0]['created_at']
+                }
+        
+        # Delete old patterns if force refresh
+        if force_refresh:
+            supabase.table('shadow_patterns').delete().eq(
+                'user_id', user_id
+            ).eq('week_of', week_of.isoformat()).execute()
         
         # Get health data
         health_data = await gather_user_health_data(user_id)
@@ -703,7 +776,8 @@ async def generate_shadow_patterns_only(user_id: str):
                             'significance': pattern['significance'],
                             'last_mentioned_date': pattern.get('last_date'),
                             'days_missing': pattern.get('days_missing', 0),
-                            'week_of': week_of.isoformat()
+                            'week_of': week_of.isoformat(),
+                            'generation_method': 'on_demand'
                         }).execute()
                         if result.data:
                             stored_patterns.append(result.data[0])
@@ -738,13 +812,35 @@ async def generate_shadow_patterns_only(user_id: str):
         }
 
 @router.post("/generate-strategies/{user_id}")
-async def generate_strategies_only(user_id: str):
+async def generate_strategies_only(user_id: str, force_refresh: bool = False):
     """
-    Generate only strategic moves for the current week
+    Generate only strategic moves for the current week with caching
     """
     try:
-        logger.info(f"Generating strategies for user {user_id}")
+        logger.info(f"Generating strategies for user {user_id} (force_refresh={force_refresh})")
         week_of = get_current_week_monday()
+        
+        # Check if we should use cached data
+        if not force_refresh:
+            # Check if strategies already exist for this week
+            existing_strategies = supabase.table('strategic_moves').select('*').eq(
+                'user_id', user_id
+            ).eq('week_of', week_of.isoformat()).order('priority.desc').execute()
+            
+            if existing_strategies.data and len(existing_strategies.data) > 0:
+                logger.info(f"Returning cached strategies for user {user_id}")
+                return {
+                    'status': 'cached',
+                    'strategies': existing_strategies.data,
+                    'count': len(existing_strategies.data),
+                    'cached_from': existing_strategies.data[0]['created_at']
+                }
+        
+        # Delete old strategies if force refresh
+        if force_refresh:
+            supabase.table('strategic_moves').delete().eq(
+                'user_id', user_id
+            ).eq('week_of', week_of.isoformat()).execute()
         
         # Get existing analysis components
         insights_result = supabase.table('health_insights').select('*').eq(
@@ -819,7 +915,8 @@ async def generate_strategies_only(user_id: str):
                             'priority': max(1, min(10, int(strategy.get('priority', 5)))),
                             'rationale': strategy.get('rationale', ''),
                             'expected_outcome': strategy.get('outcome', ''),
-                            'week_of': week_of.isoformat()
+                            'week_of': week_of.isoformat(),
+                            'generation_method': 'on_demand'
                         }).execute()
                         if result.data:
                             stored_strategies.append(result.data[0])
@@ -843,7 +940,8 @@ async def generate_strategies_only(user_id: str):
                 'priority': 7,
                 'rationale': 'Consistent tracking enables better insights',
                 'expected_outcome': 'Improved health awareness',
-                'week_of': week_of.isoformat()
+                'week_of': week_of.isoformat(),
+                'generation_method': 'on_demand'
             }
             
             try:
@@ -942,6 +1040,73 @@ async def get_strategies(user_id: str, week_of: Optional[str] = None):
         'strategies': strategies.data or [],
         'week_of': week_of
     }
+
+@router.get("/health-intelligence/status/{user_id}")
+async def get_intelligence_status(user_id: str):
+    """
+    Check what components have been generated for the current week
+    """
+    try:
+        week_of = get_current_week_monday()
+        
+        # Check each component
+        insights = supabase.table('health_insights').select('id, created_at').eq(
+            'user_id', user_id
+        ).eq('week_of', week_of.isoformat()).order('created_at.desc').execute()
+        
+        predictions = supabase.table('health_predictions').select('id, created_at').eq(
+            'user_id', user_id
+        ).eq('week_of', week_of.isoformat()).order('created_at.desc').execute()
+        
+        patterns = supabase.table('shadow_patterns').select('id, created_at').eq(
+            'user_id', user_id
+        ).eq('week_of', week_of.isoformat()).order('created_at.desc').execute()
+        
+        strategies = supabase.table('strategic_moves').select('id, created_at, completion_status').eq(
+            'user_id', user_id
+        ).eq('week_of', week_of.isoformat()).order('created_at.desc').execute()
+        
+        # Check refresh limits
+        refresh_limit = await check_refresh_limit(user_id)
+        
+        # Calculate strategy completion
+        total_strategies = len(strategies.data) if strategies.data else 0
+        completed_strategies = len([s for s in (strategies.data or []) if s['completion_status'] == 'completed'])
+        
+        return {
+            'status': 'success',
+            'week_of': week_of.isoformat(),
+            'components': {
+                'insights': {
+                    'generated': bool(insights.data),
+                    'count': len(insights.data) if insights.data else 0,
+                    'last_generated': insights.data[0]['created_at'] if insights.data else None
+                },
+                'predictions': {
+                    'generated': bool(predictions.data),
+                    'count': len(predictions.data) if predictions.data else 0,
+                    'last_generated': predictions.data[0]['created_at'] if predictions.data else None
+                },
+                'shadow_patterns': {
+                    'generated': bool(patterns.data),
+                    'count': len(patterns.data) if patterns.data else 0,
+                    'last_generated': patterns.data[0]['created_at'] if patterns.data else None
+                },
+                'strategies': {
+                    'generated': bool(strategies.data),
+                    'count': total_strategies,
+                    'completed': completed_strategies,
+                    'completion_rate': round(completed_strategies / total_strategies * 100, 1) if total_strategies > 0 else 0,
+                    'last_generated': strategies.data[0]['created_at'] if strategies.data else None
+                }
+            },
+            'refresh_limits': refresh_limit,
+            'all_generated': all([insights.data, predictions.data, patterns.data, strategies.data])
+        }
+        
+    except Exception as e:
+        logging.error(f"Failed to get intelligence status: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to retrieve intelligence status")
 
 @router.get("/analysis-history/{user_id}")
 async def get_analysis_history(user_id: str, weeks: int = 4):
