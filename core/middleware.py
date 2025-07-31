@@ -15,7 +15,6 @@ def setup_cors(app):
         "https://localhost:3002",
         "https://main--flourishing-taiyaki-fd4e09.netlify.app",
         "https://flourishing-taiyaki-fd4e09.netlify.app",
-        "https://*.netlify.app",  # For preview deploys
         "https://healthoracle.ai",
         "https://www.healthoracle.ai",
         "https://app.healthoracle.ai"
