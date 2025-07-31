@@ -1,4 +1,4 @@
-# Frontend CORS Fix Instructions
+o# Frontend CORS Fix Instructions
 
 ## Problem
 The frontend is sending requests with `credentials: 'include'` but the backend was using wildcard CORS (`*`), which is not allowed when credentials are included.

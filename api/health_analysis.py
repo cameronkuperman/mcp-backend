@@ -509,21 +509,35 @@ async def generate_insights_only(user_id: str, force_refresh: bool = False):
             for insight in insights:
                 if isinstance(insight, dict) and all(key in insight for key in ['type', 'title', 'description', 'confidence']):
                     try:
+                        # Convert user_id to UUID if needed
+                        import uuid
+                        try:
+                            # Validate it's a proper UUID
+                            uuid_obj = uuid.UUID(user_id)
+                            user_id_for_insert = str(uuid_obj)
+                        except ValueError:
+                            logger.error(f"Invalid UUID format for user_id: {user_id}")
+                            user_id_for_insert = user_id  # Use as-is and let DB handle error
+                        
+                        # Create a dummy story_id since it's required by schema
+                        dummy_story_id = str(uuid.uuid4())
+                        
                         result = supabase.table('health_insights').insert({
-                            'user_id': user_id,
-                            'story_id': None,  # No story required
+                            'user_id': user_id_for_insert,
+                            'story_id': dummy_story_id,  # Use dummy UUID since NOT NULL
                             'insight_type': insight['type'],
                             'title': insight['title'],
                             'description': insight['description'],
                             'confidence': insight['confidence'],
                             'week_of': week_of.isoformat(),
-                            'metadata': insight.get('metadata', {}),
+                            'metadata': insight.get('metadata', {'is_standalone': True}),
                             'generation_method': 'on_demand'
                         }).execute()
                         if result.data:
                             stored_insights.append(result.data[0])
                     except Exception as db_error:
                         logger.error(f"Failed to store insight: {str(db_error)}")
+                        logger.error(f"User ID: {user_id}, User ID for insert: {user_id_for_insert}")
             
             logger.info(f"Successfully generated {len(stored_insights)} insights for user {user_id}")
             return {
@@ -535,15 +549,22 @@ async def generate_insights_only(user_id: str, force_refresh: bool = False):
         except Exception as ai_error:
             logger.error(f"AI generation failed for insights: {str(ai_error)}")
             # Return fallback insight
+            import uuid as uuid_module
+            try:
+                uuid_obj = uuid_module.UUID(user_id)
+                user_id_for_insert = str(uuid_obj)
+            except ValueError:
+                user_id_for_insert = user_id
+            
             fallback_insight = {
-                'user_id': user_id,
-                'story_id': None,
+                'user_id': user_id_for_insert,
+                'story_id': str(uuid_module.uuid4()),  # Dummy story ID
                 'insight_type': 'neutral',
                 'title': 'Health Tracking Active',
                 'description': 'Continue monitoring your health patterns for personalized insights.',
                 'confidence': 70,
                 'week_of': week_of.isoformat(),
-                'metadata': {'is_fallback': True}
+                'metadata': {'is_fallback': True, 'is_standalone': True}
             }
             
             try:
@@ -763,8 +784,17 @@ async def generate_shadow_patterns_only(user_id: str, force_refresh: bool = Fals
             for pattern in shadow_patterns:
                 if isinstance(pattern, dict) and 'name' in pattern and 'last_seen' in pattern and 'significance' in pattern:
                     try:
+                        # Convert user_id to UUID if needed
+                        import uuid
+                        try:
+                            uuid_obj = uuid.UUID(user_id)
+                            user_id_for_insert = str(uuid_obj)
+                        except ValueError:
+                            logger.error(f"Invalid UUID format for user_id: {user_id}")
+                            user_id_for_insert = user_id
+                        
                         result = supabase.table('shadow_patterns').insert({
-                            'user_id': user_id,
+                            'user_id': user_id_for_insert,
                             'pattern_name': pattern['name'],
                             'pattern_category': pattern.get('category', 'other'),
                             'last_seen_description': pattern['last_seen'],
@@ -778,6 +808,7 @@ async def generate_shadow_patterns_only(user_id: str, force_refresh: bool = Fals
                             stored_patterns.append(result.data[0])
                     except Exception as db_error:
                         logger.error(f"Failed to store shadow pattern: {str(db_error)}")
+                        logger.error(f"Pattern data: {pattern}, User ID: {user_id}")
             
             logger.info(f"Successfully generated {len(stored_patterns)} shadow patterns for user {user_id}")
             return {
