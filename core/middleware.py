@@ -15,6 +15,8 @@ def setup_cors(app):
         "https://localhost:3002",
         "https://main--flourishing-taiyaki-fd4e09.netlify.app",
         "https://flourishing-taiyaki-fd4e09.netlify.app",
+        "https://proxima-eight-pi.vercel.app",
+        "https://*.vercel.app",
         "https://healthoracle.ai",
         "https://www.healthoracle.ai",
         "https://app.healthoracle.ai"
