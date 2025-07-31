@@ -165,7 +165,7 @@ async def generate_weekly_analysis(request: GenerateAnalysisRequest, background_
         # Get or generate the weekly story
         story_result = supabase.table('health_stories').select('*').eq(
             'user_id', request.user_id
-        ).gte('created_at', week_of.isoformat()).order('created_at.desc').limit(1).execute()
+        ).gte('created_at', week_of.isoformat()).order('created_at', desc=True).limit(1).execute()
         
         if not story_result.data:
             raise HTTPException(
@@ -349,11 +349,11 @@ async def get_health_analysis(user_id: str, week_of: Optional[str] = None):
         # Fetch all components
         insights = supabase.table('health_insights').select('*').eq(
             'user_id', user_id
-        ).eq('week_of', week_of).order('confidence.desc').execute()
+        ).eq('week_of', week_of).order('confidence', desc=True).execute()
         
         predictions = supabase.table('health_predictions').select('*').eq(
             'user_id', user_id
-        ).eq('week_of', week_of).order('probability.desc').execute()
+        ).eq('week_of', week_of).order('probability', desc=True).execute()
         
         shadow_patterns = supabase.table('shadow_patterns').select('*').eq(
             'user_id', user_id
@@ -361,7 +361,7 @@ async def get_health_analysis(user_id: str, week_of: Optional[str] = None):
         
         strategies = supabase.table('strategic_moves').select('*').eq(
             'user_id', user_id
-        ).eq('week_of', week_of).order('priority.desc').execute()
+        ).eq('week_of', week_of).order('priority', desc=True).execute()
         
         # Get story ID if available
         story_id = None
@@ -462,11 +462,15 @@ async def generate_insights_only(user_id: str, force_refresh: bool = False):
         
         # Check cache unless force refresh
         if not force_refresh:
-            existing_insights = supabase.table('health_insights').select('*').eq(
-                'user_id', user_id
-            ).eq('week_of', week_of.isoformat()).order('created_at.desc').execute()
+            try:
+                existing_insights = supabase.table('health_insights').select('*').eq(
+                    'user_id', user_id
+                ).eq('week_of', week_of.isoformat()).order('created_at', desc=True).execute()
+            except Exception as e:
+                logger.error(f"Error checking cache: {e}")
+                existing_insights = None
             
-            if existing_insights.data and len(existing_insights.data) > 0:
+            if existing_insights and existing_insights.data and len(existing_insights.data) > 0:
                 logger.info(f"Returning cached insights for user {user_id}")
                 return {
                     'status': 'cached',
@@ -682,7 +686,7 @@ async def generate_predictions_only(user_id: str, force_refresh: bool = False):
         if not force_refresh:
             existing_predictions = supabase.table('health_predictions').select('*').eq(
                 'user_id', user_id
-            ).eq('week_of', week_of.isoformat()).order('created_at.desc').execute()
+            ).eq('week_of', week_of.isoformat()).order('created_at', desc=True).execute()
             
             if existing_predictions.data and len(existing_predictions.data) > 0:
                 logger.info(f"Returning cached predictions for user {user_id}")
@@ -736,7 +740,7 @@ async def generate_predictions_only(user_id: str, force_refresh: bool = False):
         story_id = None
         story_result = supabase.table('health_stories').select('id').eq(
             'user_id', user_id
-        ).gte('created_at', week_of.isoformat()).order('created_at.desc').limit(1).execute()
+        ).gte('created_at', week_of.isoformat()).order('created_at', desc=True).limit(1).execute()
         if story_result.data:
             story_id = story_result.data[0]['id']
         
@@ -917,7 +921,7 @@ async def generate_shadow_patterns_only(user_id: str, force_refresh: bool = Fals
         if not force_refresh:
             existing_patterns = supabase.table('shadow_patterns').select('*').eq(
                 'user_id', user_id
-            ).eq('week_of', week_of.isoformat()).order('created_at.desc').execute()
+            ).eq('week_of', week_of.isoformat()).order('created_at', desc=True).execute()
             
             if existing_patterns.data and len(existing_patterns.data) > 0:
                 logger.info(f"Returning cached shadow patterns for user {user_id}")
@@ -1147,7 +1151,7 @@ async def generate_strategies_only(user_id: str, force_refresh: bool = False):
         if not force_refresh:
             existing_strategies = supabase.table('strategic_moves').select('*').eq(
                 'user_id', user_id
-            ).eq('week_of', week_of.isoformat()).order('priority.desc').execute()
+            ).eq('week_of', week_of.isoformat()).order('priority', desc=True).execute()
             
             if existing_strategies.data and len(existing_strategies.data) > 0:
                 logger.info(f"Returning cached strategies for user {user_id}")
@@ -1458,7 +1462,7 @@ async def generate_all_intelligence(user_id: str, force_refresh: bool = False):
                 
                 strategies = supabase.table('strategic_moves').select('*').eq(
                     'user_id', user_id
-                ).eq('week_of', week_of.isoformat()).order('priority.desc').execute()
+                ).eq('week_of', week_of.isoformat()).order('priority', desc=True).execute()
                 
                 return {
                     'status': 'cached',
@@ -1621,7 +1625,7 @@ async def get_insights(user_id: str, week_of: Optional[str] = None):
     
     insights = supabase.table('health_insights').select('*').eq(
         'user_id', user_id
-    ).eq('week_of', week_of).order('confidence.desc').execute()
+    ).eq('week_of', week_of).order('confidence', desc=True).execute()
     
     return {
         'status': 'success',
@@ -1639,7 +1643,7 @@ async def get_predictions(user_id: str, week_of: Optional[str] = None):
     
     predictions = supabase.table('health_predictions').select('*').eq(
         'user_id', user_id
-    ).eq('week_of', week_of).order('probability.desc').execute()
+    ).eq('week_of', week_of).order('probability', desc=True).execute()
     
     return {
         'status': 'success',
@@ -1675,7 +1679,7 @@ async def get_strategies(user_id: str, week_of: Optional[str] = None):
     
     strategies = supabase.table('strategic_moves').select('*').eq(
         'user_id', user_id
-    ).eq('week_of', week_of).order('priority.desc').execute()
+    ).eq('week_of', week_of).order('priority', desc=True).execute()
     
     return {
         'status': 'success',
@@ -1694,19 +1698,19 @@ async def get_intelligence_status(user_id: str):
         # Check each component
         insights = supabase.table('health_insights').select('id, created_at').eq(
             'user_id', user_id
-        ).eq('week_of', week_of.isoformat()).order('created_at.desc').execute()
+        ).eq('week_of', week_of.isoformat()).order('created_at', desc=True).execute()
         
         predictions = supabase.table('health_predictions').select('id, created_at').eq(
             'user_id', user_id
-        ).eq('week_of', week_of.isoformat()).order('created_at.desc').execute()
+        ).eq('week_of', week_of.isoformat()).order('created_at', desc=True).execute()
         
         patterns = supabase.table('shadow_patterns').select('id, created_at').eq(
             'user_id', user_id
-        ).eq('week_of', week_of.isoformat()).order('created_at.desc').execute()
+        ).eq('week_of', week_of.isoformat()).order('created_at', desc=True).execute()
         
         strategies = supabase.table('strategic_moves').select('id, created_at, completion_status').eq(
             'user_id', user_id
-        ).eq('week_of', week_of.isoformat()).order('created_at.desc').execute()
+        ).eq('week_of', week_of.isoformat()).order('created_at', desc=True).execute()
         
         # Check refresh limits
         refresh_limit = await check_refresh_limit(user_id)

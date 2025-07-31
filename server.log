@@ -1,6 +1,32 @@
-Traceback (most recent call last):
-  File "/Users/iceca/Documents/mcp-backend/run_oracle.py", line 24, in <module>
-    from api.ai_predictions import router as ai_predictions_router
-  File "/Users/iceca/Documents/mcp-backend/api/ai_predictions.py", line 9, in <module>
-    from services.ai_health_analyzer import HealthAnalyzer
-ModuleNotFoundError: No module named 'services.ai_health_analyzer'
+INFO:apscheduler.scheduler:Adding job tentatively -- it will be properly scheduled when the scheduler starts
+INFO:apscheduler.scheduler:Adding job tentatively -- it will be properly scheduled when the scheduler starts
+INFO:apscheduler.scheduler:Adding job tentatively -- it will be properly scheduled when the scheduler starts
+INFO:apscheduler.scheduler:Adding job tentatively -- it will be properly scheduled when the scheduler starts
+INFO:apscheduler.scheduler:Adding job tentatively -- it will be properly scheduled when the scheduler starts
+INFO:apscheduler.scheduler:Adding job tentatively -- it will be properly scheduled when the scheduler starts
+INFO:apscheduler.scheduler:Adding job tentatively -- it will be properly scheduled when the scheduler starts
+INFO:     Started server process [80761]
+INFO:     Waiting for application startup.
+INFO:run_oracle:Starting Oracle Health API with background scheduler...
+WARNING:services.background_jobs:Redis connection failed: Error Multiple exceptions: [Errno 61] Connect call failed ('::1', 6379, 0, 0), [Errno 61] Connect call failed ('127.0.0.1', 6379) connecting to localhost:6379.. Running without cache.
+INFO:apscheduler.scheduler:Added job "weekly_ai_predictions_job" to job store "default"
+INFO:apscheduler.scheduler:Added job "hourly_ai_predictions_check" to job store "default"
+INFO:apscheduler.scheduler:Added job "weekly_health_generation_job" to job store "default"
+INFO:apscheduler.scheduler:Added job "cleanup_expired_shares" to job store "default"
+INFO:apscheduler.scheduler:Added job "reset_weekly_refresh_limits" to job store "default"
+INFO:apscheduler.scheduler:Added job "weekly_intelligence_generation_job" to job store "default"
+INFO:apscheduler.scheduler:Added job "weekly_health_score_generation" to job store "default"
+INFO:apscheduler.scheduler:Scheduler started
+INFO:services.background_jobs:Background job scheduler started
+INFO:services.background_jobs:Prediction regeneration service started
+INFO:httpx:HTTP Request: POST https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/rpc/regenerate_expired_predictions "HTTP/2 404 Not Found"
+ERROR:services.background_predictions:Error checking expired predictions: {'message': 'Could not find the function public.regenerate_expired_predictions without parameters in the schema cache', 'code': 'PGRST202', 'hint': 'Perhaps you meant to call the function public.get_cached_prediction', 'details': 'Searched for the function public.regenerate_expired_predictions without parameters or with a single unnamed json/jsonb parameter, but no matches were found in the schema cache.'}
+INFO:     Application startup complete.
+ERROR:    [Errno 48] error while attempting to bind on address ('0.0.0.0', 8000): [errno 48] address already in use
+INFO:     Waiting for application shutdown.
+INFO:run_oracle:Shutting down Oracle Health API...
+INFO:apscheduler.scheduler:Scheduler has been shut down
+INFO:services.background_jobs:Background job scheduler stopped
+INFO:     Application shutdown complete.
+CORS: Allowing ALL origins
+CORS: Allowing ALL origins

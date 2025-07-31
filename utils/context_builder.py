@@ -6,8 +6,7 @@ from utils.token_counter import count_tokens
 import requests
 import os
 
-# Define desc if not imported from supabase
-desc = True
+# Using string format for order clauses ("created_at.desc")
 
 async def get_enhanced_llm_context(user_id: str, conversation_id: str, current_query: str = "") -> str:
     """Build comprehensive context from summaries, quick scans, and deep dives"""
