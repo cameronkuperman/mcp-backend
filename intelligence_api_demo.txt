@@ -1,0 +1,226 @@
+================================================================================
+                    HEALTH INTELLIGENCE API ENDPOINTS
+================================================================================
+
+YES\! You can create a manual refresh button on your frontend\!
+
+Here's how it works:
+
+================================================================================
+METHOD 1: SINGLE BUTTON TO REFRESH ALL (RECOMMENDED)
+================================================================================
+
+Frontend Button Code:
+--------------------
+const refreshIntelligence = async () => {
+  const response = await fetch('/api/generate-weekly-analysis', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      user_id: currentUser.id,
+      force_refresh: true,      // Forces new generation
+      include_predictions: true,
+      include_patterns: true,
+      include_strategies: true
+    })
+  });
+  
+  const data = await response.json();
+  // Update your UI with ALL components at once
+}
+
+Expected Response:
+-----------------
+{
+  "status": "success",
+  "story_id": "550e8400-e29b-41d4-a716-446655440000",
+  "insights": [
+    {
+      "type": "positive",
+      "title": "Sleep Quality Improving",
+      "description": "Your sleep patterns show consistent improvement...",
+      "confidence": 85
+    },
+    {
+      "type": "warning",
+      "title": "Stress Levels Rising",
+      "description": "Increased stress markers detected this week...",
+      "confidence": 78
+    }
+  ],
+  "predictions": [
+    {
+      "event": "Energy dip likely mid-week",
+      "probability": 72,
+      "timeframe": "Next 2-3 days",
+      "preventable": true,
+      "reasoning": "Based on your sleep debt accumulation",
+      "actions": ["Prioritize 8 hours sleep", "Morning sunlight exposure"]
+    }
+  ],
+  "shadow_patterns": [
+    {
+      "name": "Morning meditation practice",
+      "category": "wellness",
+      "last_seen": "Used to meditate 5x weekly",
+      "significance": "high",
+      "days_missing": 12
+    }
+  ],
+  "strategies": [
+    {
+      "strategy": "Resume morning meditation for 10 minutes",
+      "type": "optimization",
+      "priority": 9,
+      "rationale": "Previously correlated with 40% stress reduction"
+    }
+  ],
+  "week_of": "2025-01-27",
+  "generated_at": "2025-01-31T10:30:00Z"
+}
+
+================================================================================
+METHOD 2: INDIVIDUAL BUTTONS FOR EACH COMPONENT
+================================================================================
+
+1. Refresh Insights Button:
+   ------------------------
+   POST /api/generate-insights/user-123
+   
+   Response:
+   {
+     "status": "success",
+     "insights": [...4-6 insights...],
+     "count": 5
+   }
+
+2. Refresh Predictions Button:
+   ---------------------------
+   POST /api/generate-predictions/user-123
+   
+   Response:
+   {
+     "status": "success",
+     "predictions": [...2-4 predictions...],
+     "count": 3
+   }
+
+3. Refresh Shadow Patterns Button:
+   --------------------------------
+   POST /api/generate-shadow-patterns/user-123
+   
+   Response:
+   {
+     "status": "success",
+     "shadow_patterns": [...3-5 patterns...],
+     "count": 4
+   }
+
+4. Refresh Strategies Button:
+   --------------------------
+   POST /api/generate-strategies/user-123
+   
+   Response:
+   {
+     "status": "success",
+     "strategies": [...5-7 strategies...],
+     "count": 6
+   }
+
+================================================================================
+LOADING EXISTING DATA (For Initial Page Load)
+================================================================================
+
+GET /api/health-analysis/user-123?week_of=2025-01-27
+
+Response:
+{
+  "status": "success",
+  "story_id": "550e8400-e29b-41d4-a716-446655440000",
+  "insights": [...stored insights...],
+  "predictions": [...stored predictions...],
+  "shadow_patterns": [...stored patterns...],
+  "strategies": [...stored strategies...],
+  "week_of": "2025-01-27",
+  "generated_at": "2025-01-31T09:00:00Z"
+}
+
+================================================================================
+REFRESH LIMITS
+================================================================================
+
+Users have 10 manual refreshes per week. Check with:
+
+Response includes:
+{
+  "refreshes_used": 3,
+  "refreshes_remaining": 7
+}
+
+Show in UI: "7 refreshes remaining this week"
+
+================================================================================
+STATUS HANDLING
+================================================================================
+
+Every response includes a status field:
+
+"status": "success"         → Show the data
+"status": "no_story"        → "Generate health story first"
+"status": "insufficient_data" → "Need more health tracking"
+"status": "fallback"        → "Using simplified analysis"
+"status": "error"           → "Try again later"
+
+================================================================================
+FRONTEND IMPLEMENTATION EXAMPLE
+================================================================================
+
+const IntelligencePage = () => {
+  const [loading, setLoading] = useState(false);
+  const [data, setData] = useState(null);
+  const [refreshesRemaining, setRefreshesRemaining] = useState(10);
+  
+  // Load existing data on mount
+  useEffect(() => {
+    loadExistingData();
+  }, []);
+  
+  const handleRefreshAll = async () => {
+    setLoading(true);
+    
+    try {
+      const response = await api.generateWeeklyAnalysis({
+        user_id: currentUser.id,
+        force_refresh: true,
+        include_predictions: true,
+        include_patterns: true,
+        include_strategies: true
+      });
+      
+      if (response.status === 'success') {
+        setData(response);
+        setRefreshesRemaining(response.refreshes_remaining || 10);
+        showSuccess('Intelligence updated\!');
+      } else {
+        handleStatus(response.status);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  return (
+    <div>
+      <button 
+        onClick={handleRefreshAll}
+        disabled={loading || refreshesRemaining === 0}
+      >
+        {loading ? 'Generating...' : `Refresh All (${refreshesRemaining} left)`}
+      </button>
+      
+      {/* Your intelligence components */}
+    </div>
+  );
+};
+
+================================================================================

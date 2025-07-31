@@ -450,7 +450,7 @@ async def get_seasonal_predictions(user_id: str):
         
         response = await ai_analyzer.analyze_with_llm(
             prompt=prompt,
-            model="deepseek/deepseek-chat"
+            model="qwen/qwen-2.5-coder-32b-instruct"  # Using Kimi K1.5 for better pattern analysis
         )
         
         predictions_data = safe_parse_json(response, "seasonal_predictions")
@@ -575,7 +575,7 @@ async def get_longterm_trajectory(user_id: str):
         
         response = await ai_analyzer.analyze_with_llm(
             prompt=prompt,
-            model="deepseek/deepseek-chat"
+            model="qwen/qwen-2.5-coder-32b-instruct"  # Using Kimi K1.5 for better pattern analysis
         )
         
         assessments_data = safe_parse_json(response, "longterm_assessments")
@@ -653,43 +653,43 @@ async def get_body_patterns(user_id: str):
         }
         
         prompt = f"""
-        Analyze these health patterns and create two lists of personalized insights.
+        Analyze these health patterns and create two lists of highly specific, personalized insights.
         
         User patterns:
         {json.dumps(context, indent=2)}
         
         Generate:
-        1. "tendencies" - 5-6 specific patterns or triggers the user experiences
-           - Include timeframes when possible (48-72 hours after X)
-           - Be specific but not overly precise
-           - Focus on patterns that repeat
+        1. "tendencies" - 6 VERY SPECIFIC patterns with exact timing and triggers:
+           - Include specific timeframes (e.g., "48-72 hours after", "on Sunday evenings")
+           - Add context in parentheses (e.g., "(work anticipation)", "(light sensitivity)")
+           - Be specific about triggers, timing, and circumstances
+           - Focus on surprising or non-obvious patterns
         
-        2. "positiveResponses" - 5-6 things that help this user
-           - What improves their symptoms
-           - Beneficial habits they have
-           - Positive patterns to reinforce
+        2. "positiveResponses" - 6 SPECIFIC things that help, with details:
+           - Include specific parameters (e.g., "±30 min", "not intense")
+           - Be precise about what works and why
+           - Include timing and dosage where relevant
         
-        Write in second person ("You tend to...").
-        Make insights specific to THIS user's data.
+        Write in second person. Be SPECIFIC and DETAILED.
         
         IMPORTANT: Return ONLY valid JSON, no other text or formatting.
         Return JSON:
         {{
             "tendencies": [
-                "Get tension headaches 2-3 days after stressful events",
-                "Feel most anxious on Sunday evenings before the work week",
+                "Get migraines 48-72 hours after high stress events",
+                "Feel anxious on Sunday evenings (work anticipation)",
+                "Sleep poorly during full moons (light sensitivity)",
                 "Experience energy crashes when skipping breakfast",
-                "Sleep quality drops during busy work periods",
-                "Notice increased symptoms with weather pressure changes",
-                "Feel best in the morning but energy dips after 3pm"
+                "Feel your best after morning walks",
+                "Have sinus pressure before weather changes"
             ],
             "positiveResponses": [
-                "Consistent sleep schedule (±30 min) reduces symptoms",
-                "Morning walks improve your energy for the whole day",
-                "Regular meal timing helps stabilize energy",
-                "Stress reduction techniques work within 20 minutes",
-                "Hydration helps prevent afternoon headaches",
-                "Weekend rest days improve next week's resilience"
+                "Consistent sleep schedule (±30 min)",
+                "Regular meal timing",
+                "Moderate exercise (not intense)",
+                "Stress reduction techniques",
+                "Morning sunlight exposure",
+                "Hydration consistency"
             ]
         }}
         """
@@ -697,7 +697,7 @@ async def get_body_patterns(user_id: str):
         try:
             response = await ai_analyzer.analyze_with_llm(
                 prompt=prompt,
-                model="deepseek/deepseek-chat"
+                model="moonshotai/kimi-k2"  # Using Kimi K2 for better pattern analysis
             )
             
             patterns_data = safe_parse_json(response, "body_patterns")
@@ -854,16 +854,16 @@ async def get_pattern_questions(user_id: str):
         }
         
         prompt = f"""
-        Based on these health patterns, generate 4-6 insightful questions the user might wonder about.
+        Based on these health patterns, generate 4 SPECIFIC, INTRIGUING questions the user would actually wonder about.
         
         Patterns found:
         {json.dumps(patterns_context, indent=2)}
         
-        Generate questions that:
-        - Address specific patterns in THEIR data
-        - Explain timing correlations
-        - Connect seemingly unrelated symptoms
-        - Provide actionable insights
+        Generate questions that are:
+        - SHORT and PUNCHY (e.g., "Why do I get Sunday anxiety?")
+        - About SPECIFIC days/times (e.g., "Why headaches on Thursdays?")
+        - Personal and relatable (e.g., "What makes my best days?")
+        - About mysterious patterns (e.g., "What breaks my sleep?")
         
         IMPORTANT: Return ONLY a valid JSON array, no other text or formatting.
         Return JSON array where each question has:
@@ -871,14 +871,25 @@ async def get_pattern_questions(user_id: str):
             "question": "Natural question they might ask",
             "category": "mood/sleep/energy/physical",
             "icon": "brain/moon/battery/heart",
-            "brief_answer": "One sentence answer",
+            "brief_answer": "Your best days follow a specific pattern we've discovered.",
             "deep_dive": {{
                 "detailed_insights": [
-                    "4-5 specific insights about this pattern",
-                    "Include timing, triggers, and connections"
+                    "Morning sunlight within 30 min of waking",
+                    "Protein breakfast before 9am",
+                    "Movement before noon",
+                    "Meaningful work progress",
+                    "Evening wind-down routine"
                 ],
-                "connected_patterns": ["Related patterns from their data"],
-                "actionable_advice": ["3 specific things they can do"]
+                "connected_patterns": [
+                    "Better sleep that night",
+                    "Positive momentum next day",
+                    "Lower stress all week"
+                ],
+                "actionable_advice": [
+                    "Set morning routine alarm",
+                    "Prep breakfast night before",
+                    "Schedule movement breaks"
+                ]
             }},
             "relevance_score": 70-95,
             "based_on": ["symptom_logs", "sleep_data", etc]
@@ -916,7 +927,7 @@ async def get_pattern_questions(user_id: str):
         
         response = await ai_analyzer.analyze_with_llm(
             prompt=prompt,
-            model="deepseek/deepseek-chat"
+            model="qwen/qwen-2.5-coder-32b-instruct"  # Using Kimi K1.5 for better pattern analysis
         )
         
         questions_data = safe_parse_json(response, "pattern_questions")

@@ -1,0 +1,294 @@
+================================================================================
+                    HEALTH INTELLIGENCE FRONTEND IMPLEMENTATION
+================================================================================
+
+ENDPOINT STRUCTURE FOR INTELLIGENCE PAGE
+----------------------------------------
+
+1. MANUAL REFRESH BUTTON (Recommended Approach)
+   ---------------------------------------------
+   Single endpoint to refresh ALL intelligence components:
+   
+   POST /api/generate-weekly-analysis
+   {
+     "user_id": "user-id-here",
+     "force_refresh": true,
+     "include_predictions": true,
+     "include_patterns": true,
+     "include_strategies": true
+   }
+   
+   Returns:
+   {
+     "status": "success",
+     "story_id": "uuid",
+     "insights": [...],
+     "predictions": [...],
+     "shadow_patterns": [...],
+     "strategies": [...],
+     "week_of": "2025-01-27",
+     "generated_at": "2025-01-31T..."
+   }
+
+2. INDIVIDUAL COMPONENT ENDPOINTS (For Granular Control)
+   -----------------------------------------------------
+   
+   a) Generate Insights Only:
+      POST /api/generate-insights/{user_id}
+      Returns: { "status": "success", "insights": [...], "count": 4 }
+   
+   b) Generate Predictions Only:
+      POST /api/generate-predictions/{user_id}
+      Returns: { "status": "success", "predictions": [...], "count": 3 }
+   
+   c) Generate Shadow Patterns Only:
+      POST /api/generate-shadow-patterns/{user_id}
+      Returns: { "status": "success", "shadow_patterns": [...], "count": 5 }
+   
+   d) Generate Strategies Only:
+      POST /api/generate-strategies/{user_id}
+      Returns: { "status": "success", "strategies": [...], "count": 6 }
+
+3. GET STORED DATA (For Initial Page Load)
+   ----------------------------------------
+   GET /api/health-analysis/{user_id}?week_of=2025-01-27
+   
+   Returns all stored components for the week
+
+================================================================================
+
+FRONTEND IMPLEMENTATION EXAMPLE
+-------------------------------
+
+// Button Component
+const RefreshIntelligenceButton = () => {
+  const [loading, setLoading] = useState(false);
+  const [status, setStatus] = useState(null);
+  
+  const refreshAllIntelligence = async () => {
+    setLoading(true);
+    setStatus('Generating insights...');
+    
+    try {
+      const response = await fetch('/api/generate-weekly-analysis', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_id: currentUser.id,
+          force_refresh: true,
+          include_predictions: true,
+          include_patterns: true,
+          include_strategies: true
+        })
+      });
+      
+      const data = await response.json();
+      
+      if (data.status === 'success') {
+        setStatus(`✓ Generated ${data.insights.length} insights, ${data.predictions.length} predictions`);
+        // Update your state/UI with new data
+        updateIntelligenceData(data);
+      }
+    } catch (error) {
+      setStatus('Failed to refresh');
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  return (
+    <button 
+      onClick={refreshAllIntelligence}
+      disabled={loading}
+      className="px-4 py-2 bg-blue-600 text-white rounded"
+    >
+      {loading ? 'Generating...' : 'Refresh Intelligence'}
+    </button>
+  );
+};
+
+================================================================================
+
+STATUS CODES TO HANDLE
+----------------------
+
+Each endpoint returns a status field:
+
+- "success" → Data generated successfully
+- "no_story" → User needs to generate a health story first
+- "insufficient_data" → User needs more tracking data
+- "fallback" → AI failed, using simplified data
+- "error" → Complete failure
+
+Example handling:
+
+switch(response.status) {
+  case 'success':
+    // Update UI with new data
+    break;
+  case 'no_story':
+    showMessage("Generate a health story first");
+    break;
+  case 'insufficient_data':
+    showMessage("Track more health data for better insights");
+    break;
+  case 'fallback':
+    showMessage("Using simplified analysis");
+    // Still show the data
+    break;
+  case 'error':
+    showError("Failed to generate intelligence");
+    break;
+}
+
+================================================================================
+
+DATA STRUCTURE FOR EACH COMPONENT
+----------------------------------
+
+1. INSIGHTS
+   {
+     "id": "uuid",
+     "insight_type": "positive|warning|neutral",
+     "title": "Brief title (max 10 words)",
+     "description": "Detailed explanation",
+     "confidence": 85,
+     "metadata": { "related_symptoms": [...] }
+   }
+
+2. PREDICTIONS
+   {
+     "id": "uuid",
+     "event_description": "What might happen",
+     "probability": 75,
+     "timeframe": "This week",
+     "preventable": true,
+     "reasoning": "Why this might occur",
+     "suggested_actions": ["Action 1", "Action 2"]
+   }
+
+3. SHADOW PATTERNS
+   {
+     "id": "uuid",
+     "pattern_name": "Morning exercise routine",
+     "pattern_category": "exercise",
+     "last_seen_description": "Used to exercise 4x weekly",
+     "significance": "high",
+     "days_missing": 7,
+     "last_mentioned_date": "2025-01-15"
+   }
+
+4. STRATEGIES
+   {
+     "id": "uuid",
+     "strategy": "Track sleep quality daily",
+     "strategy_type": "pattern|discovery|prevention|optimization",
+     "priority": 8,
+     "rationale": "Why this helps",
+     "expected_outcome": "Better health awareness",
+     "completion_status": "pending"
+   }
+
+================================================================================
+
+PROGRESSIVE LOADING PATTERN
+---------------------------
+
+For better UX, load data progressively:
+
+useEffect(() => {
+  // 1. Load cached data immediately
+  loadCachedIntelligence();
+  
+  // 2. Check if refresh needed (>24 hours old)
+  if (needsRefresh()) {
+    // 3. Generate fresh data in background
+    generateFreshIntelligence();
+  }
+}, []);
+
+================================================================================
+
+ERROR HANDLING EXAMPLES
+-----------------------
+
+// Granular error handling for each component
+const generateIntelligence = async () => {
+  const results = {
+    insights: { status: 'loading' },
+    predictions: { status: 'loading' },
+    patterns: { status: 'loading' },
+    strategies: { status: 'loading' }
+  };
+  
+  // Generate each component with individual error handling
+  try {
+    const insights = await generateInsights(userId);
+    results.insights = insights;
+  } catch (e) {
+    results.insights = { status: 'error', message: 'Failed to load insights' };
+  }
+  
+  // Continue for other components...
+  
+  return results;
+};
+
+================================================================================
+
+REFRESH LIMIT TRACKING
+----------------------
+
+The weekly analysis has a 10 refresh/week limit. Track this:
+
+{
+  "refreshes_used": 3,
+  "refreshes_remaining": 7,
+  "can_refresh": true
+}
+
+Show this in UI:
+"7 manual refreshes remaining this week"
+
+================================================================================
+
+LOADING STATES UI
+-----------------
+
+// Component-specific loading
+<div className="intelligence-section">
+  {insights.status === 'loading' ? (
+    <InsightsSkeletonLoader />
+  ) : insights.status === 'error' ? (
+    <ErrorMessage retry={() => generateInsights()} />
+  ) : (
+    <InsightsList data={insights.data} />
+  )}
+</div>
+
+================================================================================
+
+CACHING STRATEGY
+----------------
+
+// Cache in localStorage with timestamp
+const cacheIntelligence = (data) => {
+  localStorage.setItem('health_intelligence', JSON.stringify({
+    data,
+    timestamp: Date.now(),
+    week_of: getCurrentWeekMonday()
+  }));
+};
+
+// Check if cache is valid (same week, <24 hours old)
+const isCacheValid = () => {
+  const cached = JSON.parse(localStorage.getItem('health_intelligence'));
+  if (!cached) return false;
+  
+  const sameWeek = cached.week_of === getCurrentWeekMonday();
+  const fresh = Date.now() - cached.timestamp < 24 * 60 * 60 * 1000;
+  
+  return sameWeek && fresh;
+};
+
+================================================================================
