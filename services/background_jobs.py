@@ -543,6 +543,128 @@ async def reset_weekly_refresh_limits():
     except Exception as e:
         logger.error(f"Failed to reset refresh limits: {str(e)}")
 
+@scheduler.scheduled_job(CronTrigger(day_of_week='mon', hour=8, minute=0, timezone='US/Eastern'), id='weekly_intelligence_generation')
+async def weekly_intelligence_generation_job():
+    """
+    Generate all intelligence components for all users every Monday at 8 AM EST
+    Includes insights, shadow patterns, predictions, and strategies
+    """
+    logger.info(f"========== WEEKLY INTELLIGENCE GENERATION STARTED at {datetime.utcnow()} (8 AM EST) ==========")
+    
+    try:
+        # Get all active users
+        active_users = await get_active_users()
+        
+        if not active_users:
+            logger.warning("No active users found for intelligence generation")
+            return
+        
+        # Track results
+        total_users = len(active_users)
+        successful = 0
+        failed = 0
+        partial = 0
+        
+        # Process users in batches
+        batch_size = 5  # Process 5 users concurrently
+        
+        for i in range(0, total_users, batch_size):
+            batch_users = active_users[i:i + batch_size]
+            batch_tasks = []
+            
+            for user in batch_users:
+                user_id = user.get('user_id') or user.get('id')
+                if user_id:
+                    batch_tasks.append(generate_intelligence_for_user(user_id))
+            
+            # Process batch
+            if batch_tasks:
+                batch_results = await asyncio.gather(*batch_tasks, return_exceptions=True)
+                
+                for result in batch_results:
+                    if isinstance(result, Exception):
+                        failed += 1
+                        logger.error(f"Intelligence generation failed: {result}")
+                    elif result.get('status') == 'success':
+                        successful += 1
+                    elif result.get('status') == 'partial':
+                        partial += 1
+                    else:
+                        failed += 1
+            
+            # Small delay between batches
+            await asyncio.sleep(2)
+        
+        # Log summary
+        logger.info(f"========== WEEKLY INTELLIGENCE GENERATION COMPLETED ==========")
+        logger.info(f"Total users: {total_users}")
+        logger.info(f"Successful: {successful}")
+        logger.info(f"Partial: {partial}")
+        logger.info(f"Failed: {failed}")
+        
+        # Store generation log
+        supabase.table('analysis_generation_log').insert({
+            'user_id': '00000000-0000-0000-0000-000000000000',  # System user
+            'generation_type': 'weekly_auto',
+            'status': 'completed',
+            'insights_count': successful * 4,  # Rough estimate
+            'predictions_count': successful * 3,
+            'patterns_count': successful * 3,
+            'strategies_count': successful * 4,
+            'processing_time_ms': 0,  # Would need actual timing
+            'model_used': 'moonshotai/kimi-k2',
+            'week_of': get_current_week_monday().isoformat(),
+            'created_at': datetime.utcnow().isoformat()
+        }).execute()
+        
+    except Exception as e:
+        logger.error(f"Weekly intelligence generation job failed: {str(e)}")
+
+async def generate_intelligence_for_user(user_id: str, max_retries: int = 3):
+    """
+    Generate all intelligence components for a single user with retry logic
+    """
+    for attempt in range(max_retries):
+        try:
+            logger.info(f"Generating intelligence for user {user_id} (attempt {attempt + 1}/{max_retries})")
+            
+            # Call the intelligence generation endpoint via HTTP
+            import httpx
+            async with httpx.AsyncClient(timeout=300) as client:  # 5 minute timeout
+                api_url = os.getenv("API_URL", "http://localhost:8000")
+                response = await client.post(
+                    f"{api_url}/api/generate-all-intelligence/{user_id}",
+                    params={"force_refresh": True}
+                )
+                
+                if response.status_code == 200:
+                    result = response.json()
+                    
+                    # Log individual user result
+                    if result.get('status') == 'success':
+                        logger.info(f"Successfully generated intelligence for user {user_id}")
+                    elif result.get('status') == 'partial':
+                        logger.warning(f"Partially generated intelligence for user {user_id}: {result.get('errors')}")
+                    else:
+                        logger.error(f"Failed to generate intelligence for user {user_id}: {result.get('error')}")
+                    
+                    return result
+                else:
+                    logger.error(f"HTTP error {response.status_code} for user {user_id}")
+                    if attempt < max_retries - 1:
+                        await asyncio.sleep(10 * (attempt + 1))  # Exponential backoff
+                        continue
+                    return {'status': 'error', 'error': f'HTTP {response.status_code}'}
+                    
+        except Exception as e:
+            logger.error(f"Error generating intelligence for user {user_id}: {str(e)}")
+            if attempt < max_retries - 1:
+                await asyncio.sleep(10 * (attempt + 1))  # Exponential backoff
+                continue
+            return {'status': 'error', 'error': str(e)}
+    
+    return {'status': 'error', 'error': 'Max retries exceeded'}
+
 @scheduler.scheduled_job(CronTrigger(day_of_week='mon', hour=0, minute=0), id='weekly_health_scores')
 async def weekly_health_score_generation():
     """Generate health scores for all active users and clean old scores (>2 weeks)"""
