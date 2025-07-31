@@ -21,6 +21,8 @@ from api.health_analysis import generate_weekly_analysis, GenerateAnalysisReques
 from utils.data_gathering import gather_user_health_data
 # Import AI prediction functions will be done dynamically to avoid circular imports
 from services.background_predictions import regeneration_service
+# Import health score calculation
+from api.health_score import calculate_health_score_with_ai
 
 # Initialize logging
 logging.basicConfig(level=logging.INFO)
@@ -540,6 +542,128 @@ async def reset_weekly_refresh_limits():
         
     except Exception as e:
         logger.error(f"Failed to reset refresh limits: {str(e)}")
+
+@scheduler.scheduled_job(CronTrigger(day_of_week='mon', hour=0, minute=0), id='weekly_health_scores')
+async def weekly_health_score_generation():
+    """Generate health scores for all active users and clean old scores (>2 weeks)"""
+    logger.info(f"========== WEEKLY HEALTH SCORE GENERATION STARTED at {datetime.utcnow()} ==========")
+    
+    try:
+        # Step 1: Clean scores older than 2 weeks
+        two_weeks_ago = datetime.utcnow() - timedelta(days=14)
+        
+        delete_result = supabase.table('health_scores').delete().lt(
+            'created_at', two_weeks_ago.isoformat()
+        ).execute()
+        
+        deleted_count = len(delete_result.data) if delete_result.data else 0
+        logger.info(f"Cleaned up {deleted_count} health scores older than 2 weeks")
+        
+        # Step 2: Get all active users
+        active_users = await get_active_users()
+        
+        if not active_users:
+            logger.warning("No active users found for health score generation")
+            return
+        
+        total_users = len(active_users)
+        successful = 0
+        failed = 0
+        
+        logger.info(f"Generating health scores for {total_users} active users")
+        
+        # Step 3: Process in batches
+        batch_size = 10  # Process 10 users at a time
+        
+        for i in range(0, total_users, batch_size):
+            batch = active_users[i:i + batch_size]
+            
+            # Process batch concurrently
+            tasks = []
+            for user in batch:
+                user_id = user.get('user_id') or user.get('id')
+                if user_id:
+                    task = generate_health_score_for_user(user_id)
+                    tasks.append(task)
+            
+            # Wait for batch to complete
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+            
+            # Process results
+            for user, result in zip(batch, results):
+                if isinstance(result, Exception):
+                    logger.error(f"Health score generation failed for user {user.get('user_id', user.get('id'))}: {result}")
+                    failed += 1
+                elif isinstance(result, dict) and result.get('status') == 'success':
+                    successful += 1
+                else:
+                    failed += 1
+            
+            # Log progress
+            logger.info(f"Health Score Progress: {i + len(batch)}/{total_users} users processed")
+            
+            # Delay between batches to avoid overload
+            if i + batch_size < total_users:
+                await asyncio.sleep(5)
+        
+        # Log summary
+        logger.info(
+            f"Weekly health score generation completed. "
+            f"Successful: {successful}, Failed: {failed}, Total: {total_users}"
+        )
+        
+        # Store summary
+        supabase.table('generation_summaries').insert({
+            'job_type': 'weekly_health_score_generation',
+            'total_users': total_users,
+            'successful': successful,
+            'failed': failed,
+            'scores_deleted': deleted_count,
+            'completed_at': datetime.utcnow().isoformat()
+        }).execute()
+        
+    except Exception as e:
+        logger.error(f"Weekly health score generation job failed: {str(e)}")
+
+
+async def generate_health_score_for_user(user_id: str) -> Dict:
+    """Generate and store health score for a single user"""
+    try:
+        # Calculate the health score using the imported function
+        score_data = await calculate_health_score_with_ai(user_id)
+        
+        # Prepare data for storage
+        generated_at = datetime.now(timezone.utc)
+        expires_at = generated_at + timedelta(hours=24)
+        
+        # Store in database
+        cache_data = {
+            "user_id": user_id,
+            "score": score_data["score"],
+            "actions": score_data["actions"],
+            "reasoning": score_data.get("reasoning", ""),
+            "created_at": generated_at.isoformat(),
+            "expires_at": expires_at.isoformat(),
+            "week_of": generated_at.replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
+        }
+        
+        supabase.table("health_scores").insert(cache_data).execute()
+        
+        logger.info(f"Successfully generated health score for user {user_id}: {score_data['score']}/100")
+        
+        return {
+            'user_id': user_id,
+            'status': 'success',
+            'score': score_data['score']
+        }
+        
+    except Exception as e:
+        logger.error(f"Failed to generate health score for user {user_id}: {str(e)}")
+        return {
+            'user_id': user_id,
+            'status': 'error',
+            'error': str(e)
+        }
 
 async def process_batch_analysis(user_ids: List[str], analysis_type: str = 'full') -> Dict:
     """Process analysis for multiple users in batch"""
