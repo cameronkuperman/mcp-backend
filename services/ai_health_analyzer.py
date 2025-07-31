@@ -26,11 +26,15 @@ class HealthAnalyzer:
         self.base_url = "https://openrouter.ai/api/v1/chat/completions"
         self.api_key = os.getenv("OPENROUTER_API_KEY")
         self.model = "google/gemini-2.5-pro"
-        self.timeout = 900  # 15 minutes timeout for complex analysis
+        self.timeout = 60  # 60 seconds timeout to prevent hanging
         
     async def _call_ai(self, prompt: str, temperature: float = 0.7) -> Dict:
         """Make API call to Gemini 2.5 Pro via OpenRouter"""
         try:
+            # Debug logging
+            logger.info(f"🤖 Calling AI with prompt length: {len(prompt)} chars")
+            logger.info(f"🔧 Model: {self.model}, Temperature: {temperature}")
+            
             async with httpx.AsyncClient(timeout=self.timeout) as client:
                 response = await client.post(
                     self.base_url,
@@ -57,28 +61,48 @@ class HealthAnalyzer:
                     }
                 )
                 
+                logger.info(f"📡 Response status: {response.status_code}")
+                
                 if response.status_code != 200:
-                    logger.error(f"AI API error: {response.status_code} - {response.text}")
-                    raise Exception(f"AI API error: {response.status_code}")
+                    logger.error(f"❌ AI API error: {response.status_code}")
+                    logger.error(f"📄 Response headers: {dict(response.headers)}")
+                    logger.error(f"📄 Response text: {response.text[:500]}")
+                    raise Exception(f"AI API error: {response.status_code} - {response.text[:200]}")
                 
                 result = response.json()
+                
+                # Log successful response
+                logger.info(f"✅ AI response received, extracting JSON...")
+                
                 content = result['choices'][0]['message']['content']
+                logger.debug(f"📄 Raw AI response: {content[:200]}...")
                 
                 # Extract JSON from the response
                 return self._extract_json(content)
                 
+        except httpx.TimeoutException:
+            logger.error(f"⏱️ AI call timed out after {self.timeout} seconds")
+            raise Exception("AI service timeout - try again")
         except Exception as e:
-            logger.error(f"AI call failed: {str(e)}")
+            logger.error(f"❌ AI call failed: {str(e)}")
+            logger.error(f"🔑 API Key present: {bool(self.api_key)}")
+            logger.error(f"🔗 URL: {self.base_url}")
             raise
     
     def _extract_json(self, content: str) -> Dict:
         """Extract JSON from AI response, handling various formats"""
         content = content.strip()
         
+        # Log what we're trying to parse
+        logger.debug(f"🔍 Attempting to extract JSON from content starting with: {content[:100]}...")
+        
         # First, try to parse as-is in case it's already valid JSON
         try:
-            return json.loads(content)
-        except:
+            result = json.loads(content)
+            logger.info("✅ Successfully parsed JSON on first try")
+            return result
+        except json.JSONDecodeError as e:
+            logger.debug(f"❌ Initial JSON parse failed: {e}")
             pass
         
         # If the content has escaped quotes at the JSON structure level, unescape them

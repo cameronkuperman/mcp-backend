@@ -10,6 +10,9 @@ def setup_cors(app):
         "http://localhost:3001",
         "https://localhost:3000",
         "https://localhost:3001",
+        "https://proxima-eight-pi.vercel.app",  # Production Vercel URL
+        "https://proxima-1.health",  # Production domain
+        "https://*.vercel.app",  # All Vercel preview deployments
         # Add your production frontend URL here
         # "https://your-frontend-domain.com"
     ]
