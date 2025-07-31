@@ -737,16 +737,26 @@ async def generate_shadow_patterns_only(user_id: str, force_refresh: bool = Fals
                 'user_id', user_id
             ).eq('week_of', week_of.isoformat()).execute()
         
-        # Get health data
+        # Import the same function Oracle chat uses for consistency
+        from api.chat import get_enhanced_llm_context
+        
+        # Get comprehensive health context - split by time periods
+        current_week_context = await get_enhanced_llm_context(user_id, None, "current week patterns")
+        
+        # Also get historical context (before this week)
+        historical_context = await get_enhanced_llm_context(user_id, None, "historical patterns")
+        
+        # Get basic health data for additional info
         health_data = await gather_user_health_data(user_id)
         
-        # No minimum data requirement - shadow patterns work even with limited history
-        if not health_data:
-            health_data = {'oracle_sessions': {}, 'recent_symptoms': [], 'body_parts': []}
-        
         try:
-            # Generate shadow patterns
-            shadow_patterns = await analyzer.detect_shadow_patterns(health_data, user_id)
+            # Generate shadow patterns using both contexts
+            shadow_patterns = await analyzer.detect_shadow_patterns_from_context(
+                current_week_context, 
+                historical_context, 
+                health_data, 
+                user_id
+            )
             
             # Store shadow patterns
             stored_patterns = []

@@ -370,6 +370,67 @@ class HealthAnalyzer:
                 "metadata": {"is_fallback": True}
             }]
     
+    async def detect_shadow_patterns_from_context(self, current_week_context: str, historical_context: str, health_data: Dict, user_id: str) -> List[Dict]:
+        """Detect patterns by comparing current week vs historical data"""
+        prompt = f"""
+        Analyze what health topics/symptoms the user mentioned BEFORE this week but DIDN'T mention THIS week.
+        
+        CURRENT WEEK HEALTH DATA:
+        {current_week_context[:1500]}
+        
+        HISTORICAL HEALTH DATA (Before This Week):
+        {historical_context[:1500]}
+        
+        SUMMARY STATS:
+        - Total historical interactions: {health_data.get('oracle_sessions', {}).get('total_sessions', 0)}
+        - Body parts tracked historically: {len(health_data.get('body_parts', []))}
+        - Symptoms tracked historically: {len(health_data.get('recent_symptoms', []))}
+        
+        Identify 3-5 things that are MISSING from the current week that appeared in historical data.
+        Look for:
+        1. Symptoms they used to mention but didn't this week (e.g., "headaches" mentioned 5 times before, 0 times this week)
+        2. Body parts they used to track but ignored (e.g., "knee pain" was frequent, now absent)
+        3. Health concerns they stopped discussing (e.g., "anxiety", "sleep issues")
+        4. Treatments/medications they used to mention
+        5. Wellness activities they stopped reporting (exercise, meditation, diet)
+        
+        IMPORTANT: Only report things that were mentioned MULTIPLE times historically but are COMPLETELY absent this week.
+        
+        Return ONLY a JSON object:
+        {{
+            "patterns": [
+                {{
+                    "name": "Brief name (e.g., 'Knee pain updates')",
+                    "category": "symptom|body_part|medication|wellness|mental_health|other",
+                    "last_seen": "Description of how it appeared before (e.g., 'Mentioned knee pain 4 times last month')",
+                    "significance": "high|medium|low",
+                    "days_missing": 7,
+                    "last_date": null
+                }}
+            ]
+        }}
+        
+        If the user has been consistent and nothing significant is missing, return an empty patterns array.
+        """
+        
+        try:
+            result = await self._call_ai(prompt, temperature=0.6)
+            patterns = result.get('patterns', [])
+            
+            # Validate patterns
+            valid_patterns = []
+            for pattern in patterns:
+                if all(key in pattern for key in ['name', 'last_seen', 'significance']):
+                    pattern['category'] = pattern.get('category', 'other')
+                    pattern['days_missing'] = pattern.get('days_missing', 7)
+                    valid_patterns.append(pattern)
+            
+            return valid_patterns[:5]
+            
+        except Exception as e:
+            logger.error(f"Failed to detect shadow patterns from context: {str(e)}")
+            return []
+    
     async def detect_shadow_patterns(self, health_data: Dict, user_id: str) -> List[Dict]:
         """Identify patterns that are missing from recent data across ALL health interactions"""
         # Get comprehensive historical data
