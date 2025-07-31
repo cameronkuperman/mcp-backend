@@ -71,20 +71,37 @@ SCORING RULES:
 - Good engagement = slight boost
 
 ACTION RULES:
-- Generate EXACTLY 3 specific, actionable items for TODAY
-- Base actions on current time of day and user patterns
-- Use simple, clear language
-- Each action should be achievable within the day
-- Choose appropriate emoji icons
+- Generate EXACTLY 3 general wellness tips for daily life
+- These should be universal health advice, NOT app-specific actions
+- Focus on real-world activities: exercise, hydration, nutrition, sleep, stress management
+- Consider time of day for relevance (morning vs evening tips)
+- Make them specific and actionable
+- Use encouraging, positive language
+
+GOOD EXAMPLES:
+- "Take a 20-minute walk in fresh air"
+- "Drink a glass of water every hour until dinner"
+- "Try 5 minutes of deep breathing before bed"
+- "Add a serving of vegetables to your next meal"
+- "Stand up and stretch for 2 minutes"
+- "Get 15 minutes of sunlight today"
+- "Replace one sugary drink with water"
+- "Do 10 squats during your next break"
+
+BAD EXAMPLES (don't use these):
+- "Track your symptoms in the app"
+- "Log your sleep hours"
+- "Update your medical profile"
+- "Check your health insights"
 
 CRITICAL: Return ONLY valid JSON with this exact structure:
 {
     "score": 76,
     "reasoning": "Brief explanation of score",
     "actions": [
-        {"icon": "💧", "text": "Increase water intake by 500ml today"},
-        {"icon": "🧘", "text": "10-minute meditation before bed"},
-        {"icon": "🚶", "text": "Take a 15-minute walk after lunch"}
+        {"icon": "💧", "text": "Drink 8 glasses of water throughout the day"},
+        {"icon": "🚶", "text": "Take a 20-minute walk after lunch"},
+        {"icon": "🧘", "text": "Practice 10 minutes of meditation before bed"}
     ]
 }"""
 
@@ -99,7 +116,7 @@ Current Context:
 
 Medical Profile Available: {'Yes' if context['medical_profile'] else 'No'}
 
-Calculate the health score and provide 3 personalized actions for today."""
+Calculate the health score and provide 3 general wellness tips that would benefit anyone's daily health routine. Make them appropriate for the current time of day."""
 
         # Call LLM with Kimi K2
         llm_response = await call_llm(
@@ -126,8 +143,8 @@ Calculate the health score and provide 3 personalized actions for today."""
                 "reasoning": "Starting baseline health score",
                 "actions": [
                     {"icon": "💧", "text": "Drink 8 glasses of water today"},
-                    {"icon": "🚶", "text": "Take a 20-minute walk"},
-                    {"icon": "😴", "text": "Aim for 8 hours of sleep tonight"}
+                    {"icon": "🚶", "text": "Take a 20-minute walk in fresh air"},
+                    {"icon": "😴", "text": "Wind down 30 minutes before bedtime"}
                 ]
             }
         
@@ -149,9 +166,9 @@ Calculate the health score and provide 3 personalized actions for today."""
             "score": 80,
             "reasoning": "Unable to calculate personalized score",
             "actions": [
-                {"icon": "💧", "text": "Stay hydrated throughout the day"},
-                {"icon": "🏃", "text": "Get 30 minutes of physical activity"},
-                {"icon": "🧘", "text": "Practice stress reduction techniques"}
+                {"icon": "💧", "text": "Drink a glass of water every 2 hours"},
+                {"icon": "🏃", "text": "Go for a 30-minute walk today"},
+                {"icon": "🧘", "text": "Take 5 deep breaths when feeling stressed"}
             ]
         }
 
