@@ -3,7 +3,7 @@ INFO:apscheduler.scheduler:Adding job tentatively -- it will be properly schedul
 INFO:apscheduler.scheduler:Adding job tentatively -- it will be properly scheduled when the scheduler starts
 INFO:apscheduler.scheduler:Adding job tentatively -- it will be properly scheduled when the scheduler starts
 INFO:apscheduler.scheduler:Adding job tentatively -- it will be properly scheduled when the scheduler starts
-INFO:     Started server process [96979]
+INFO:     Started server process [4234]
 INFO:     Waiting for application startup.
 INFO:run_oracle:Starting Oracle Health API with background scheduler...
 WARNING:services.background_jobs:Redis connection failed: Error Multiple exceptions: [Errno 61] Connect call failed ('::1', 6379, 0, 0), [Errno 61] Connect call failed ('127.0.0.1', 6379) connecting to localhost:6379.. Running without cache.
@@ -16,3 +16,24 @@ INFO:apscheduler.scheduler:Scheduler started
 INFO:services.background_jobs:Background job scheduler started
 INFO:     Application startup complete.
 INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/medical?select=%2A&id=eq.45b61b67-175d-48a0-aca6-d0be57609383 "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/symptom_tracking?select=%2A&user_id=eq.45b61b67-175d-48a0-aca6-d0be57609383&occurrence_date=gte.2025-07-17T00%3A09%3A56.120206%2B00%3A00&occurrence_date=lte.2025-07-31T00%3A09%3A56.120206%2B00%3A00&order=occurrence_date.asc "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/quick_scans?select=%2A&user_id=eq.45b61b67-175d-48a0-aca6-d0be57609383&created_at=gte.2025-07-17T00%3A09%3A56.236813%2B00%3A00&created_at=lte.2025-07-31T00%3A09%3A56.236813%2B00%3A00&order=created_at.asc "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/deep_dive_sessions?select=%2A&user_id=eq.45b61b67-175d-48a0-aca6-d0be57609383&created_at=gte.2025-07-17T00%3A09%3A56.409108%2B00%3A00&created_at=lte.2025-07-31T00%3A09%3A56.409108%2B00%3A00&order=created_at.asc "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/symptom_tracking?select=%2A&user_id=eq.45b61b67-175d-48a0-aca6-d0be57609383&symptom_name=ilike.%25sleep%25&occurrence_date=gte.2025-07-17T00%3A09%3A56.611968%2B00%3A00&occurrence_date=lte.2025-07-31T00%3A09%3A56.611968%2B00%3A00&order=occurrence_date.asc "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/symptom_tracking?select=%2A&user_id=eq.45b61b67-175d-48a0-aca6-d0be57609383&or=%28symptom_name.ilike.%25mood%25%2Csymptom_name.ilike.%25anxiety%25%2Csymptom_name.ilike.%25depression%25%29&occurrence_date=gte.2025-07-17T00%3A09%3A56.757116%2B00%3A00&occurrence_date=lte.2025-07-31T00%3A09%3A56.757116%2B00%3A00&order=occurrence_date.asc "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/symptom_tracking?select=%2A&user_id=eq.45b61b67-175d-48a0-aca6-d0be57609383&symptom_name=ilike.%25medication%25&occurrence_date=gte.2025-07-17T00%3A09%3A56.896863%2B00%3A00&occurrence_date=lte.2025-07-31T00%3A09%3A56.896863%2B00%3A00&order=occurrence_date.asc "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"
+INFO:api.ai_predictions:AI Response for dashboard_alert: {"severity": "warning", "title": "Potential Skin and Muscle Concerns", "description": "The presence of lesions, bumps, and localized pain, especially after physical activity, suggests a need for closer monitoring of skin and muscle health. Keep an eye on any changes in these symptoms.", "timeframe": "This week", "confidence": 80, "preventionTip": "Avoid strenuous physical activities and monitor the affected areas for any worsening symptoms."}...
+INFO:httpx:HTTP Request: POST https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/ai_alerts_log "HTTP/2 201 Created"
+CORS: Allowing ALL origins with credentials
+CORS: Allowing ALL origins with credentials
+INFO:     127.0.0.1:52217 - "GET /api/ai/dashboard-alert/45b61b67-175d-48a0-aca6-d0be57609383 HTTP/1.1" 200 OK
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/medical?select=%2A&id=eq.45b61b67-175d-48a0-aca6-d0be57609383 "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/symptom_tracking?select=%2A&user_id=eq.45b61b67-175d-48a0-aca6-d0be57609383&occurrence_date=gte.2025-07-17T00%3A10%3A05.071846%2B00%3A00&occurrence_date=lte.2025-07-31T00%3A10%3A05.071846%2B00%3A00&order=occurrence_date.asc "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/quick_scans?select=%2A&user_id=eq.45b61b67-175d-48a0-aca6-d0be57609383&created_at=gte.2025-07-17T00%3A10%3A05.163192%2B00%3A00&created_at=lte.2025-07-31T00%3A10%3A05.163192%2B00%3A00&order=created_at.asc "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/deep_dive_sessions?select=%2A&user_id=eq.45b61b67-175d-48a0-aca6-d0be57609383&created_at=gte.2025-07-17T00%3A10%3A05.245605%2B00%3A00&created_at=lte.2025-07-31T00%3A10%3A05.245605%2B00%3A00&order=created_at.asc "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/symptom_tracking?select=%2A&user_id=eq.45b61b67-175d-48a0-aca6-d0be57609383&symptom_name=ilike.%25sleep%25&occurrence_date=gte.2025-07-17T00%3A10%3A05.342763%2B00%3A00&occurrence_date=lte.2025-07-31T00%3A10%3A05.342763%2B00%3A00&order=occurrence_date.asc "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/symptom_tracking?select=%2A&user_id=eq.45b61b67-175d-48a0-aca6-d0be57609383&or=%28symptom_name.ilike.%25mood%25%2Csymptom_name.ilike.%25anxiety%25%2Csymptom_name.ilike.%25depression%25%29&occurrence_date=gte.2025-07-17T00%3A10%3A05.429093%2B00%3A00&occurrence_date=lte.2025-07-31T00%3A10%3A05.429093%2B00%3A00&order=occurrence_date.asc "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/symptom_tracking?select=%2A&user_id=eq.45b61b67-175d-48a0-aca6-d0be57609383&symptom_name=ilike.%25medication%25&occurrence_date=gte.2025-07-17T00%3A10%3A05.519989%2B00%3A00&occurrence_date=lte.2025-07-31T00%3A10%3A05.519989%2B00%3A00&order=occurrence_date.asc "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 200 OK"

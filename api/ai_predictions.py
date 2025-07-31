@@ -37,23 +37,31 @@ class UserPreferences(BaseModel):
     timezone: str = "UTC"
 
 # Helper function to extract JSON from AI response
-def safe_parse_json(response: str, context: str = "") -> Any:
+def safe_parse_json(response: Any, context: str = "") -> Any:
     """Safely parse JSON from AI response with logging"""
     try:
-        # First try direct parsing
-        if isinstance(response, dict):
+        # If it's already a dict or list, return it directly
+        if isinstance(response, (dict, list)):
+            logger.info(f"AI Response for {context}: Already parsed as {type(response).__name__}")
             return response
         
         # Log the raw response for debugging
-        logger.info(f"AI Response for {context}: {response[:500]}...")
+        logger.info(f"AI Response for {context}: {str(response)[:500]}...")
         
-        # Try to extract JSON using the utility
-        extracted = extract_json_from_text(response)
-        if extracted:
-            return extracted
+        # If it's a string, try to parse it
+        if isinstance(response, str):
+            # Try to extract JSON using the utility
+            extracted = extract_json_from_text(response)
+            if extracted:
+                return extracted
+            
+            # Try parsing as is
+            return json.loads(response)
         
-        # Try parsing as is
-        return json.loads(response)
+        # If it's neither dict/list nor string, log and return None
+        logger.warning(f"Unexpected response type for {context}: {type(response)}")
+        return None
+        
     except Exception as e:
         logger.error(f"Failed to parse JSON for {context}: {str(e)}")
         logger.error(f"Raw response: {response}")
@@ -104,6 +112,7 @@ async def get_dashboard_alert(user_id: str):
         Generate ONE alert if there's a meaningful pattern. Be vague enough to not be easily disproven.
         Focus on increased risks or concerning patterns, not specific predictions.
         
+        IMPORTANT: Return ONLY valid JSON, no other text or formatting.
         Return ONLY a JSON object:
         {{
             "severity": "info" or "warning" or "critical",
@@ -193,6 +202,7 @@ async def get_immediate_predictions(user_id: str):
         - Focused on "increased risk" rather than certainties
         - Include actionable prevention steps
         
+        IMPORTANT: Return ONLY a valid JSON array, no other text or formatting.
         Return a JSON array of predictions. Each should have:
         {{
             "title": "Risk/pattern title",
@@ -296,6 +306,7 @@ async def get_seasonal_predictions(user_id: str):
         - Seasonal allergies if relevant
         - General seasonal wellness patterns
         
+        IMPORTANT: Return ONLY a valid JSON array, no other text or formatting.
         Return JSON array where each prediction has:
         {{
             "title": "Seasonal pattern title",
@@ -394,6 +405,7 @@ async def get_longterm_trajectory(user_id: str):
         Focus on major health areas where you see patterns or risks.
         Be constructive and focus on improvement potential.
         
+        IMPORTANT: Return ONLY a valid JSON array, no other text or formatting.
         Return JSON array where each assessment has:
         {{
             "condition": "Health area being assessed",
@@ -544,6 +556,7 @@ async def get_body_patterns(user_id: str):
         Write in second person ("You tend to...").
         Make insights specific to THIS user's data.
         
+        IMPORTANT: Return ONLY valid JSON, no other text or formatting.
         Return JSON:
         {{
             "tendencies": [
@@ -645,6 +658,7 @@ async def get_pattern_questions(user_id: str):
         - Connect seemingly unrelated symptoms
         - Provide actionable insights
         
+        IMPORTANT: Return ONLY a valid JSON array, no other text or formatting.
         Return JSON array where each question has:
         {{
             "question": "Natural question they might ask",

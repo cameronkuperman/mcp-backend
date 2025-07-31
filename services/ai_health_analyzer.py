@@ -45,7 +45,7 @@ class HealthAnalyzer:
                         "messages": [
                             {
                                 "role": "system",
-                                "content": "You are an expert health intelligence analyst. Provide supportive, actionable insights based on health data patterns. Never diagnose conditions. Focus on patterns, correlations, and wellness optimization. Always return valid JSON."
+                                "content": "You are an expert health intelligence analyst. Provide supportive, actionable insights based on health data patterns. Never diagnose conditions. Focus on patterns, correlations, and wellness optimization. Always return valid JSON. CRITICAL: When including quotes inside JSON string values, always escape them with backslash (\\\")"
                             },
                             {
                                 "role": "user",
@@ -75,6 +75,21 @@ class HealthAnalyzer:
         """Extract JSON from AI response, handling various formats"""
         content = content.strip()
         
+        # First, try to parse as-is in case it's already valid JSON
+        try:
+            return json.loads(content)
+        except:
+            pass
+        
+        # If the content has escaped quotes at the JSON structure level, unescape them
+        # This handles cases where the AI over-escapes the JSON
+        if '\\"' in content and content.startswith('[{') or content.startswith('{'):
+            content = content.replace('\\"', '"')
+            try:
+                return json.loads(content)
+            except:
+                pass
+        
         # Try to find JSON between code blocks
         if "```json" in content:
             start = content.find("```json") + 7
@@ -88,7 +103,8 @@ class HealthAnalyzer:
                 content = content[start:end].strip()
         
         # Clean up common issues
-        content = content.replace("'", '"')  # Replace single quotes
+        # Don't blindly replace single quotes - it breaks strings containing quotes
+        # content = content.replace("'", '"')  # REMOVED - this breaks valid strings
         content = content.strip()
         
         # Try to fix truncated JSON by closing open structures
@@ -101,6 +117,15 @@ class HealthAnalyzer:
             # Count how many closing brackets we need
             missing_brackets = content.count('[') - content.count(']')
             content += ']' * missing_brackets
+        
+        # Fix unescaped quotes within string values
+        # This regex finds strings that contain unescaped quotes
+        import re
+        # Match: "key": "value with "quotes" inside"
+        # Replace with: "key": "value with \"quotes\" inside"
+        pattern = r'("(?:[^"\\]|\\.)*")\s*:\s*"([^"]*)"([^"]*)"([^"]*)"'
+        while re.search(pattern, content):
+            content = re.sub(pattern, r'\1: "\2\"\3\"\4"', content)
         
         # Remove incomplete elements at the end
         # If the JSON ends with a comma, remove everything after the last complete element

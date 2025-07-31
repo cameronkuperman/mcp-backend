@@ -333,8 +333,40 @@ PATIENT PROFILE:
 
         system_prompt = """Generate a detailed cardiology specialist report analyzing the patient's cardiac symptoms and history.
 
+CLINICAL SCALE CALCULATIONS:
+1. Automatically calculate relevant standardized scales based on available data
+2. For each scale:
+   - Provide the calculated score
+   - Include confidence level (0.0-1.0) based on data completeness
+   - Explain your reasoning for each component
+   - List any missing data that would improve accuracy
+3. Use your medical knowledge to infer reasonable values when data is indirect
+4. Always err on the side of caution - when uncertain, indicate lower confidence
+
+For Cardiology, automatically calculate when relevant:
+- CHA₂DS₂-VASc (for any atrial fibrillation or stroke risk assessment)
+- HAS-BLED (if anticoagulation is being considered)
+- NYHA Functional Classification (for heart failure symptoms)
+- Canadian Cardiovascular Society (CCS) Angina Grade
+
+BEST PRACTICES FOR SCALE CALCULATION:
+- If age is mentioned as "elderly" infer 75+ for scoring
+- If "history of stroke" mentioned, count as positive even without dates
+- For functional capacity, use activity descriptions to estimate METs
+- Document all assumptions made in the reasoning field
+
 Return JSON format:
 {
+  "executive_summary": {
+    "one_page_summary": "Comprehensive clinical overview for cardiologist",
+    "key_findings": ["most clinically significant findings"],
+    "patterns_identified": ["temporal or trigger patterns"],
+    "chief_complaints": ["primary cardiac concerns"],
+    "action_items": ["immediate actions needed"],
+    "specialist_focus": "cardiology",
+    "target_audience": "cardiologist"
+  },
+  
   "clinical_summary": {
     "chief_complaint": "Primary cardiac concern in patient's words",
     "hpi": "Detailed history of present illness with timeline",
@@ -466,6 +498,39 @@ Return JSON format:
     "completeness": "good symptom description, missing risk factor data",
     "consistency": "symptoms consistent across reports",
     "gaps": ["family history needed", "BP readings helpful", "prior ECGs if available"]
+  },
+  
+  "clinical_scales": {
+    "CHA2DS2_VASc": {
+      "calculated": "score based on available data",
+      "confidence": 0.0-1.0,
+      "confidence_level": "high/medium/low",
+      "reasoning": "Detailed explanation of how score was calculated",
+      "breakdown": {
+        "age": 0-2,
+        "sex": 0-1,
+        "chf": 0-1,
+        "hypertension": 0-1,
+        "stroke": 0-2,
+        "vascular": 0-1,
+        "diabetes": 0-1
+      },
+      "missing_data": ["specific data points that would improve accuracy"],
+      "interpretation": "Risk level and anticoagulation recommendation",
+      "annual_stroke_risk": "percentage based on score"
+    },
+    "NYHA_Classification": {
+      "class": "I-IV",
+      "confidence": 0.0-1.0,
+      "reasoning": "Based on functional limitations described",
+      "functional_description": "What patient can/cannot do"
+    },
+    "CCS_Angina_Grade": {
+      "grade": "I-IV",
+      "confidence": 0.0-1.0,
+      "reasoning": "Based on angina patterns and limitations",
+      "typical_activities_affected": ["specific examples"]
+    }
   }
 }"""
 
@@ -545,8 +610,39 @@ ASSOCIATED SYMPTOMS:
 
         system_prompt = """Generate a detailed neurology specialist report focusing on neurological symptoms and patterns.
 
+CLINICAL SCALE CALCULATIONS:
+1. Automatically calculate relevant standardized scales based on available data
+2. For each scale:
+   - Provide the calculated score
+   - Include confidence level (0.0-1.0) based on data completeness
+   - Explain your reasoning for each component
+   - List any missing data that would improve accuracy
+3. Use your medical knowledge to infer reasonable values when data is indirect
+
+For Neurology, automatically calculate when relevant:
+- MIDAS (Migraine Disability Assessment) - estimate days affected from symptom reports
+- HIT-6 (Headache Impact Test) - infer from functional limitations
+- ICHD-3 criteria matching - pattern match symptoms to headache types
+- PHQ-9 (if mood symptoms present with neurological complaints)
+
+BEST PRACTICES FOR SCALE CALCULATION:
+- For MIDAS: Count reported days with limitations in work/household/social activities
+- For headache classification: Match patterns to ICHD-3 diagnostic criteria
+- If cognitive complaints present, estimate MoCA/MMSE based on described deficits
+- Document all inferences and assumptions
+
 Return JSON format:
 {
+  "executive_summary": {
+    "one_page_summary": "Comprehensive clinical overview for neurologist",
+    "key_findings": ["most clinically significant neurological findings"],
+    "patterns_identified": ["temporal patterns, triggers, progression"],
+    "chief_complaints": ["primary neurological concerns"],
+    "action_items": ["immediate evaluations or treatments needed"],
+    "specialist_focus": "neurology",
+    "target_audience": "neurologist"
+  },
+  
   "clinical_summary": {
     "chief_complaint": "Primary neurological concern",
     "hpi": "Detailed neurological history with timeline",
@@ -570,23 +666,6 @@ Return JSON format:
         "typical_onset": "time of day patterns",
         "duration": "typical episode length",
         "laterality": "unilateral/bilateral percentages"
-      }
-    },
-    "clinical_scales": {
-      "midas_score": {
-        "calculated": "score if data available",
-        "grade": "I-IV disability level",
-        "breakdown": {
-          "missed_work": "days",
-          "reduced_productivity": "days",
-          "household_impact": "days",
-          "social_impact": "days"
-        }
-      },
-      "functional_impact": {
-        "work_days_affected": "number in past 3 months",
-        "emergency_visits": "if any",
-        "quality_of_life": "specific impacts noted"
       }
     },
     "red_flag_screen": {
@@ -705,6 +784,47 @@ Return JSON format:
     "pattern_recognition": "episodic migraine progressing to chronic",
     "comorbidities": ["anxiety noted in reports", "sleep issues"],
     "prognosis": "good with appropriate prophylaxis"
+  },
+  
+  "clinical_scales": {
+    "MIDAS": {
+      "calculated": "total score based on disability days",
+      "confidence": 0.0-1.0,
+      "confidence_level": "high/medium/low",
+      "grade": "I-IV",
+      "interpretation": "disability level and treatment implications",
+      "reasoning": "How days were calculated from symptom reports",
+      "breakdown": {
+        "missed_work_school": "estimated days",
+        "reduced_productivity_work": "estimated days",
+        "missed_household": "estimated days",
+        "reduced_productivity_household": "estimated days",
+        "missed_social": "estimated days"
+      },
+      "missing_data": ["specific data that would improve accuracy"],
+      "treatment_recommendation": "based on severity grade"
+    },
+    "ICHD3_Classification": {
+      "diagnosis": "Most likely headache type per ICHD-3",
+      "confidence": 0.0-1.0,
+      "criteria_met": ["specific criteria fulfilled"],
+      "criteria_missing": ["criteria that couldn't be assessed"],
+      "differential_diagnoses": ["other possible headache types"],
+      "reasoning": "Why this classification was chosen"
+    },
+    "HIT6_Estimate": {
+      "estimated_score": "score based on functional impact",
+      "confidence": 0.0-1.0,
+      "severity_category": "little/moderate/substantial/severe impact",
+      "reasoning": "How impact was assessed from reports"
+    },
+    "Cognitive_Screen": {
+      "assessment": "if cognitive complaints present",
+      "estimated_MoCA": "score range if applicable",
+      "confidence": 0.0-1.0,
+      "domains_affected": ["memory", "attention", "language", "etc"],
+      "reasoning": "Based on reported cognitive symptoms"
+    }
   }
 }"""
 
@@ -785,8 +905,41 @@ FUNCTIONAL ASSESSMENT:
 
         system_prompt = """Generate a detailed psychiatry specialist report analyzing mental health symptoms and psychosocial factors.
 
+CLINICAL SCALE CALCULATIONS:
+1. Automatically calculate relevant standardized scales based on available data
+2. For each scale:
+   - Provide the calculated score
+   - Include confidence level (0.0-1.0) based on data completeness
+   - Map reported symptoms to questionnaire items
+   - Explain your reasoning for each item score
+   - List any missing data that would improve accuracy
+
+For Psychiatry, automatically calculate when relevant:
+- PHQ-9 (Patient Health Questionnaire) - map symptoms to 9 items
+- GAD-7 (Generalized Anxiety Disorder) - map anxiety symptoms to 7 items
+- Columbia Suicide Severity Rating Scale - if any SI mentioned
+- MADRS (Montgomery-Åsberg Depression Rating Scale) - for detailed depression assessment
+- Mood Disorder Questionnaire (MDQ) - if bipolar symptoms suspected
+
+BEST PRACTICES FOR SCALE CALCULATION:
+- Map "feeling down" to PHQ-9 item 2, "little interest" to item 1
+- For GAD-7, look for worry, restlessness, irritability patterns
+- Always assess suicide risk carefully - err on side of caution
+- Consider frequency: "nearly every day" = 3, "more than half the days" = 2, "several days" = 1
+- Document how each item score was derived
+
 Return JSON format:
 {
+  "executive_summary": {
+    "one_page_summary": "Comprehensive clinical overview for psychiatrist",
+    "key_findings": ["most clinically significant psychiatric findings"],
+    "patterns_identified": ["mood patterns, triggers, cycles"],
+    "chief_complaints": ["primary mental health concerns"],
+    "action_items": ["immediate safety or treatment needs"],
+    "specialist_focus": "psychiatry",
+    "target_audience": "psychiatrist"
+  },
+  
   "clinical_summary": {
     "chief_complaint": "Primary mental health concern",
     "hpi": "Psychiatric history with precipitants and timeline",
@@ -807,16 +960,6 @@ Return JSON format:
       "differential": ["other considerations"],
       "specifiers": ["with anxious distress", "severity", "etc"],
       "timeline": "acute/chronic, first episode/recurrent"
-    },
-    "standardized_assessments": {
-      "phq9_score": {
-        "total": "calculated from symptoms",
-        "interpretation": "severity level",
-        "item_9": "suicide item score",
-        "functional_impact": "last question score"
-      },
-      "gad7_estimate": "if anxiety symptoms present",
-      "other_scales": "as indicated by symptoms"
     },
     "risk_assessment": {
       "suicide_risk": {
@@ -906,6 +1049,66 @@ Return JSON format:
     "positive_indicators": ["help-seeking", "support system", "insight"],
     "challenges": ["chronicity", "comorbidities", "stressors"],
     "expected_trajectory": "with appropriate treatment"
+  },
+  
+  "clinical_scales": {
+    "PHQ9": {
+      "calculated": "total score 0-27",
+      "confidence": 0.0-1.0,
+      "confidence_level": "high/medium/low",
+      "severity": "minimal/mild/moderate/moderately severe/severe",
+      "interpretation": "Depression severity and treatment implications",
+      "reasoning": "How each item was scored based on symptoms",
+      "item_scores": {
+        "little_interest": 0-3,
+        "feeling_down": 0-3,
+        "sleep_problems": 0-3,
+        "tired_no_energy": 0-3,
+        "appetite_problems": 0-3,
+        "feeling_bad_about_self": 0-3,
+        "concentration_problems": 0-3,
+        "moving_slowly_or_restless": 0-3,
+        "suicidal_thoughts": 0-3
+      },
+      "suicide_item_score": 0-3,
+      "suicide_risk": "none/low/moderate/high",
+      "missing_data": ["symptoms not explicitly assessed"],
+      "treatment_recommendation": "based on severity"
+    },
+    "GAD7": {
+      "calculated": "total score 0-21",
+      "confidence": 0.0-1.0,
+      "severity": "minimal/mild/moderate/severe",
+      "interpretation": "Anxiety severity",
+      "reasoning": "How anxiety symptoms mapped to scale items",
+      "item_mapping": {
+        "feeling_nervous": 0-3,
+        "cant_stop_worrying": 0-3,
+        "worrying_too_much": 0-3,
+        "trouble_relaxing": 0-3,
+        "restless": 0-3,
+        "easily_annoyed": 0-3,
+        "feeling_afraid": 0-3
+      },
+      "treatment_recommendation": "based on severity"
+    },
+    "Columbia_SSR": {
+      "calculated": "if SI present",
+      "confidence": 0.0-1.0,
+      "ideation_type": "none/passive/active",
+      "plan": "present/absent",
+      "intent": "present/absent",
+      "risk_level": "low/moderate/high/imminent",
+      "protective_factors": ["identified protective elements"],
+      "reasoning": "How risk was assessed"
+    },
+    "MADRS": {
+      "estimated_score": "if sufficient depression data",
+      "confidence": 0.0-1.0,
+      "severity_category": "based on score ranges",
+      "key_items_assessed": ["apparent sadness", "reported sadness", "inner tension", "etc"],
+      "reasoning": "Items that could be scored from available data"
+    }
   }
 }"""
 
@@ -985,8 +1188,37 @@ PHOTO DOCUMENTATION:
 
         system_prompt = """Generate a detailed dermatology specialist report analyzing skin conditions with photo documentation insights.
 
+CLINICAL SCALE CALCULATIONS:
+1. Automatically calculate relevant standardized scales based on available data
+2. For each scale:
+   - Provide the calculated score
+   - Include confidence level (0.0-1.0) based on data completeness
+   - Explain your reasoning
+   - List any missing data that would improve accuracy
+
+For Dermatology, automatically calculate when relevant:
+- PASI (Psoriasis Area and Severity Index) - for psoriasis
+- DLQI (Dermatology Life Quality Index) - quality of life impact
+- SCORAD (for atopic dermatitis)
+- IGA (Investigator's Global Assessment)
+
+BEST PRACTICES:
+- Use photo analysis to estimate body surface area affected
+- Assess erythema, induration, and desquamation for PASI
+- Map patient-reported impacts to DLQI questions
+- Document visual findings that support scoring
+
 Return JSON format:
 {
+  "executive_summary": {
+    "one_page_summary": "Comprehensive clinical overview for dermatologist",
+    "key_findings": ["most significant dermatological findings"],
+    "patterns_identified": ["distribution patterns, evolution"],
+    "chief_complaints": ["primary skin concerns"],
+    "action_items": ["immediate evaluations or treatments"],
+    "specialist_focus": "dermatology",
+    "target_audience": "dermatologist"
+  },
   "clinical_summary": {
     "chief_complaint": "Primary skin concern",
     "hpi": "Detailed history of skin condition",
@@ -1115,6 +1347,36 @@ Return JSON format:
     "timing": "4-6 weeks for treatment response",
     "photo_documentation": "take photos before starting treatment",
     "treatment_diary": "track what helps/worsens"
+  },
+  
+  "clinical_scales": {
+    "PASI": {
+      "calculated": "score if psoriasis suspected",
+      "confidence": 0.0-1.0,
+      "confidence_level": "high/medium/low",
+      "severity_category": "mild/moderate/severe",
+      "reasoning": "How score was estimated from photos and descriptions",
+      "body_regions": {
+        "head": {"area": 0-6, "erythema": 0-4, "induration": 0-4, "desquamation": 0-4},
+        "trunk": {"area": 0-6, "erythema": 0-4, "induration": 0-4, "desquamation": 0-4},
+        "upper_extremities": {"area": 0-6, "erythema": 0-4, "induration": 0-4, "desquamation": 0-4},
+        "lower_extremities": {"area": 0-6, "erythema": 0-4, "induration": 0-4, "desquamation": 0-4}
+      },
+      "missing_data": ["areas not photographed", "scale/crust detail needed"]
+    },
+    "DLQI": {
+      "estimated_score": "0-30 based on QOL impact",
+      "confidence": 0.0-1.0,
+      "impact_level": "no effect/small/moderate/very large/extremely large",
+      "reasoning": "How life impacts were assessed",
+      "domains_affected": ["symptoms", "daily activities", "leisure", "work/school", "relationships", "treatment"]
+    },
+    "IGA": {
+      "score": "0-4 (clear to severe)",
+      "confidence": 0.0-1.0,
+      "reasoning": "Based on overall lesion appearance",
+      "change_from_baseline": "if follow-up photos available"
+    }
   }
 }"""
 
@@ -1194,8 +1456,33 @@ DIETARY PATTERNS:
 
         system_prompt = """Generate a detailed gastroenterology specialist report analyzing GI symptoms and patterns.
 
+CLINICAL SCALE CALCULATIONS:
+1. Automatically calculate relevant standardized scales based on available data
+2. For each scale, provide score, confidence, reasoning, and missing data
+
+For Gastroenterology, automatically calculate when relevant:
+- Rome IV Criteria (for IBS, functional dyspepsia)
+- Bristol Stool Scale patterns
+- IBS-SSS (IBS Symptom Severity Score)
+- Mayo Score (for UC) or CDAI (for Crohn's) if IBD suspected
+
+BEST PRACTICES:
+- Map bowel patterns to Bristol Stool Scale (1-7)
+- Assess Rome IV criteria for functional disorders
+- Track symptom frequency and severity for IBS-SSS
+- Note alarm features that override functional diagnosis
+
 Return JSON format:
 {
+  "executive_summary": {
+    "one_page_summary": "Comprehensive clinical overview for gastroenterologist",
+    "key_findings": ["most significant GI findings"],
+    "patterns_identified": ["dietary triggers, bowel patterns"],
+    "chief_complaints": ["primary GI concerns"],
+    "action_items": ["immediate evaluations needed"],
+    "specialist_focus": "gastroenterology",
+    "target_audience": "gastroenterologist"
+  },
   "clinical_summary": {
     "chief_complaint": "Primary GI concern",
     "hpi": "Detailed GI history with timeline",
@@ -1321,6 +1608,43 @@ Return JSON format:
       "severe pain",
       "unintended weight loss"
     ]
+  },
+  
+  "clinical_scales": {
+    "Rome_IV_Assessment": {
+      "diagnosis": "IBS/functional dyspepsia/none",
+      "confidence": 0.0-1.0,
+      "criteria_met": ["specific Rome IV criteria fulfilled"],
+      "criteria_missing": ["criteria that need assessment"],
+      "subtype": "IBS-C/IBS-D/IBS-M if applicable",
+      "reasoning": "How diagnosis was determined"
+    },
+    "Bristol_Stool_Pattern": {
+      "predominant_type": "1-7",
+      "range": "types seen",
+      "consistency": "how consistent the pattern is",
+      "confidence": 0.0-1.0,
+      "reasoning": "Based on stool descriptions"
+    },
+    "IBS_SSS": {
+      "estimated_score": "0-500",
+      "severity": "mild/moderate/severe",
+      "confidence": 0.0-1.0,
+      "components": {
+        "pain_severity": "0-100",
+        "pain_frequency": "0-100",
+        "distension_severity": "0-100",
+        "bowel_dissatisfaction": "0-100",
+        "life_interference": "0-100"
+      },
+      "reasoning": "How scores were estimated"
+    },
+    "GERD_Assessment": {
+      "reflux_frequency": "episodes per week",
+      "impact_score": "if GERD symptoms present",
+      "confidence": 0.0-1.0,
+      "alarm_features": ["dysphagia", "weight loss", "anemia"]
+    }
   }
 }"""
 
@@ -1398,21 +1722,130 @@ METABOLIC INDICATORS:
 - Energy fluctuations
 - Sleep quality"""
 
-        system_prompt = """Generate an endocrinology specialist report. Include both general medical sections AND endocrine-specific analysis.
+        system_prompt = """Generate a detailed endocrinology specialist report analyzing metabolic and hormonal symptoms.
 
-Return JSON format with:
-- executive_summary (endocrine focus)
-- patient_story (metabolic/hormonal timeline)
-- medical_analysis (endocrine assessment)
-- endocrinology_specific section with:
-  - suspected_hormonal_imbalances
-  - recommended_labs (thyroid, diabetes, hormones)
-  - metabolic_assessment
-  - treatment_options (hormone replacement, medications)
-  - lifestyle_modifications (diet, exercise, stress)
-  - monitoring_plan
-- action_plan (endocrine focused)
-- billing_optimization"""
+CLINICAL SCALE CALCULATIONS:
+1. Automatically calculate relevant standardized scales based on available data
+2. For each scale, provide score, confidence, reasoning, and missing data
+
+For Endocrinology, automatically calculate when relevant:
+- FINDRISC (Finnish Diabetes Risk Score)
+- Thyroid symptom scores
+- ADAM questionnaire (for male hypogonadism)
+- Cushingoid features assessment
+
+BEST PRACTICES:
+- Assess diabetes risk from weight, family history, activity
+- Map symptoms to thyroid dysfunction (hyper/hypo)
+- Consider hormonal patterns in symptom timing
+- Note metabolic syndrome components
+
+Return JSON format:
+{
+  "executive_summary": {
+    "one_page_summary": "Comprehensive clinical overview for endocrinologist",
+    "key_findings": ["significant metabolic/hormonal findings"],
+    "patterns_identified": ["hormonal cycles, metabolic patterns"],
+    "chief_complaints": ["primary endocrine concerns"],
+    "action_items": ["immediate hormonal evaluations"],
+    "specialist_focus": "endocrinology",
+    "target_audience": "endocrinologist"
+  },
+  
+  "clinical_summary": {
+    "chief_complaint": "Primary endocrine concern",
+    "hpi": "Detailed metabolic/hormonal history",
+    "symptom_timeline": [
+      {
+        "date": "ISO date",
+        "symptoms": "specific endocrine symptoms",
+        "severity": 1-10,
+        "timing": "relation to meals/time of day",
+        "associated_factors": "stress, diet, sleep"
+      }
+    ]
+  },
+  
+  "endocrinology_assessment": {
+    "suspected_disorders": {
+      "primary": "most likely endocrine disorder",
+      "differential": ["other possibilities"],
+      "confidence": "high/medium/low"
+    },
+    "metabolic_status": {
+      "weight_trajectory": "gaining/stable/losing",
+      "glucose_patterns": "if diabetic symptoms",
+      "lipid_concerns": "based on history"
+    },
+    "hormonal_patterns": {
+      "thyroid_symptoms": "hyper/hypo/mixed/none",
+      "adrenal_symptoms": "if present",
+      "reproductive_hormones": "if relevant"
+    }
+  },
+  
+  "diagnostic_priorities": {
+    "immediate": [
+      {
+        "test": "specific hormone panels",
+        "rationale": "clinical reasoning",
+        "timing": "urgency level"
+      }
+    ],
+    "comprehensive_workup": [
+      "metabolic panel",
+      "hormonal assessments",
+      "imaging if indicated"
+    ]
+  },
+  
+  "treatment_recommendations": {
+    "hormonal_therapy": {
+      "indicated": "yes/no",
+      "options": ["specific hormones if deficient"]
+    },
+    "metabolic_management": {
+      "medications": ["if diabetes/lipids"],
+      "lifestyle": "critical for endocrine health"
+    },
+    "monitoring": "hormone levels, metabolic markers"
+  },
+  
+  "clinical_scales": {
+    "FINDRISC": {
+      "calculated": "score 0-26",
+      "confidence": 0.0-1.0,
+      "risk_category": "low/slightly elevated/moderate/high/very high",
+      "10_year_diabetes_risk": "percentage",
+      "reasoning": "How score components were assessed",
+      "components": {
+        "age": "points",
+        "BMI": "points",
+        "waist_circumference": "points",
+        "physical_activity": "points",
+        "vegetable_intake": "points",
+        "hypertension_meds": "points",
+        "high_glucose_history": "points",
+        "family_history": "points"
+      },
+      "missing_data": ["specific measurements needed"]
+    },
+    "Thyroid_Symptom_Score": {
+      "hyperthyroid_score": "0-10+",
+      "hypothyroid_score": "0-10+",
+      "predominant_pattern": "hyper/hypo/mixed/euthyroid",
+      "confidence": 0.0-1.0,
+      "key_symptoms": ["most significant thyroid symptoms"],
+      "reasoning": "Based on symptom pattern"
+    },
+    "Metabolic_Syndrome_Components": {
+      "components_present": "0-5",
+      "meets_criteria": "yes/no (3+ components)",
+      "identified": ["which components present"],
+      "missing_assessment": ["labs needed for full assessment"]
+    }
+  }
+}"""
 
         llm_response = await call_llm(
             messages=[
@@ -1488,22 +1921,136 @@ ENVIRONMENTAL FACTORS:
 - Allergens
 - Air quality"""
 
-        system_prompt = """Generate a pulmonology specialist report. Include both general medical sections AND pulmonary-specific analysis.
+        system_prompt = """Generate a detailed pulmonology specialist report analyzing respiratory symptoms and patterns.
 
-Return JSON format with:
-- executive_summary (pulmonary focus)
-- patient_story (respiratory timeline)
-- medical_analysis (pulmonary assessment)
-- pulmonology_specific section with:
-  - breathing_pattern_analysis
-  - suspected_conditions (asthma, COPD, etc)
-  - recommended_tests (PFTs, chest CT, sleep study)
-  - inhaler_recommendations
-  - oxygen_assessment
-  - pulmonary_rehab_candidacy
-  - environmental_modifications
-- action_plan (pulmonary focused)
-- billing_optimization"""
+CLINICAL SCALE CALCULATIONS:
+1. Automatically calculate relevant standardized scales based on available data
+2. For each scale, provide score, confidence, reasoning, and missing data
+
+For Pulmonology, automatically calculate when relevant:
+- CAT (COPD Assessment Test)
+- mMRC Dyspnea Scale
+- ACT (Asthma Control Test)
+- STOP-BANG (for sleep apnea risk)
+- Borg Scale for exertional dyspnea
+
+BEST PRACTICES:
+- Grade dyspnea based on functional limitations
+- Assess control for asthma symptoms
+- Screen for sleep apnea risk factors
+- Evaluate impact on daily activities
+
+Return JSON format:
+{
+  "executive_summary": {
+    "one_page_summary": "Comprehensive clinical overview for pulmonologist",
+    "key_findings": ["significant respiratory findings"],
+    "patterns_identified": ["triggers, diurnal variation, seasonal patterns"],
+    "chief_complaints": ["primary respiratory concerns"],
+    "action_items": ["immediate pulmonary evaluations"],
+    "specialist_focus": "pulmonology",
+    "target_audience": "pulmonologist"
+  },
+  
+  "clinical_summary": {
+    "chief_complaint": "Primary respiratory concern",
+    "hpi": "Detailed respiratory history with timeline",
+    "symptom_timeline": [
+      {
+        "date": "ISO date",
+        "symptoms": "specific respiratory symptoms",
+        "severity": 1-10,
+        "triggers": "identified precipitants",
+        "relieving_factors": "what helps"
+      }
+    ]
+  },
+  
+  "pulmonology_assessment": {
+    "suspected_diagnosis": {
+      "primary": "most likely pulmonary condition",
+      "differential": ["other considerations"],
+      "phenotype": "if asthma/COPD subtype"
+    },
+    "functional_assessment": {
+      "exercise_tolerance": "specific limitations",
+      "dyspnea_pattern": "at rest/exertion/nocturnal",
+      "impact_on_adls": "specific activities affected"
+    },
+    "environmental_factors": {
+      "exposures": ["smoking, occupational, allergens"],
+      "home_environment": "triggers identified"
+    }
+  },
+  
+  "diagnostic_recommendations": {
+    "pulmonary_function": {
+      "spirometry": "pre/post bronchodilator",
+      "dlco": "if indicated",
+      "lung_volumes": "if restriction suspected"
+    },
+    "imaging": {
+      "chest_xray": "baseline",
+      "hrct": "if ILD or bronchiectasis suspected"
+    },
+    "other_tests": [
+      "sleep study if OSA suspected",
+      "methacholine challenge if asthma unclear"
+    ]
+  },
+  
+  "treatment_plan": {
+    "pharmacotherapy": {
+      "controller_medications": ["ICS/LABA, etc"],
+      "rescue_medications": "SABA frequency",
+      "add_on_therapy": "if needed"
+    },
+    "non_pharmacologic": {
+      "pulmonary_rehab": "candidacy assessment",
+      "oxygen_therapy": "if hypoxemia",
+      "environmental_control": ["specific modifications"]
+    }
+  },
+  
+  "clinical_scales": {
+    "mMRC_Dyspnea": {
+      "grade": "0-4",
+      "confidence": 0.0-1.0,
+      "description": "specific functional limitation",
+      "reasoning": "Based on activity tolerance described"
+    },
+    "CAT_Score": {
+      "estimated_total": "0-40",
+      "confidence": 0.0-1.0,
+      "impact_level": "low/medium/high/very high",
+      "reasoning": "How symptoms mapped to CAT items",
+      "domains": {
+        "cough": "0-5",
+        "phlegm": "0-5",
+        "chest_tightness": "0-5",
+        "breathlessness": "0-5",
+        "activity_limitation": "0-5",
+        "confidence": "0-5",
+        "sleep": "0-5",
+        "energy": "0-5"
+      }
+    },
+    "ACT_Score": {
+      "estimated_total": "5-25",
+      "control_level": "well controlled/not well controlled/very poorly controlled",
+      "confidence": 0.0-1.0,
+      "reasoning": "Based on symptom frequency and impact",
+      "rescue_inhaler_use": "times per week"
+    },
+    "STOP_BANG": {
+      "score": "0-8",
+      "risk_category": "low/intermediate/high",
+      "confidence": 0.0-1.0,
+      "positive_factors": ["which risk factors present"],
+      "reasoning": "How risk was assessed"
+    }
+  }
+}"""
 
         llm_response = await call_llm(
             messages=[
