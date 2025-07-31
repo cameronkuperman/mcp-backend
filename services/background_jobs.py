@@ -20,6 +20,7 @@ from api.health_analysis import generate_weekly_analysis, GenerateAnalysisReques
 # Remove direct import - we'll call the endpoint instead
 from utils.data_gathering import gather_user_health_data
 # Import AI prediction functions will be done dynamically to avoid circular imports
+from services.background_predictions import regeneration_service
 
 # Initialize logging
 logging.basicConfig(level=logging.INFO)
@@ -596,11 +597,16 @@ async def init_scheduler():
     await init_redis()
     scheduler.start()
     logger.info("Background job scheduler started")
+    
+    # Start the prediction regeneration service in the background
+    asyncio.create_task(regeneration_service.run_periodic_tasks())
+    logger.info("Prediction regeneration service started")
 
 async def shutdown_scheduler():
     """Cleanup scheduler and connections"""
     scheduler.shutdown()
     await cleanup_redis()
+    await regeneration_service.close()
     logger.info("Background job scheduler stopped")
 
 # Export functions for use in FastAPI

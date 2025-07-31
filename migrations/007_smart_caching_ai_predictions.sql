@@ -175,18 +175,36 @@ CREATE TABLE IF NOT EXISTS public.ai_prediction_stats (
   CONSTRAINT ai_prediction_stats_pkey PRIMARY KEY (id)
 );
 
--- 10. Add RLS policies if needed
+-- 10. Add RLS policies if needed (check if they exist first)
 ALTER TABLE public.weekly_ai_predictions ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Users can view their own predictions" 
-ON public.weekly_ai_predictions 
-FOR SELECT 
-USING (auth.uid()::text = user_id);
+-- Drop existing policies if they exist and recreate
+DO $$ 
+BEGIN
+    -- Check and create user select policy
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies 
+        WHERE tablename = 'weekly_ai_predictions' 
+        AND policyname = 'Users can view their own predictions'
+    ) THEN
+        CREATE POLICY "Users can view their own predictions" 
+        ON public.weekly_ai_predictions 
+        FOR SELECT 
+        USING (auth.uid()::text = user_id);
+    END IF;
 
-CREATE POLICY "System can manage all predictions" 
-ON public.weekly_ai_predictions 
-FOR ALL 
-USING (auth.role() = 'service_role');
+    -- Check and create service role policy
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies 
+        WHERE tablename = 'weekly_ai_predictions' 
+        AND policyname = 'System can manage all predictions'
+    ) THEN
+        CREATE POLICY "System can manage all predictions" 
+        ON public.weekly_ai_predictions 
+        FOR ALL 
+        USING (auth.role() = 'service_role');
+    END IF;
+END $$;
 
 -- Create index for stats
 CREATE INDEX IF NOT EXISTS idx_prediction_stats_lookup

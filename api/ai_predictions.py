@@ -80,12 +80,40 @@ def get_gradient_for_severity(severity: str) -> str:
 
 
 @router.get("/dashboard-alert/{user_id}")
-async def get_dashboard_alert(user_id: str):
+async def get_dashboard_alert(user_id: str, force_refresh: bool = False):
     """
-    Get the single most important alert for the dashboard
+    Get the single most important alert for the dashboard with smart caching
     """
     try:
-        logger.info(f"Generating dashboard alert for user {user_id}")
+        # Check cache first unless force refresh
+        if not force_refresh:
+            cache_result = supabase.rpc('get_cached_prediction', {
+                'p_user_id': user_id,
+                'p_prediction_type': 'dashboard',
+                'p_force_refresh': False
+            }).execute()
+            
+            if cache_result.data:
+                logger.info(f"Returning cached dashboard alert for user {user_id}")
+                # Track cache hit
+                try:
+                    supabase.table('ai_prediction_stats').insert({
+                        'user_id': user_id,
+                        'prediction_type': 'dashboard',
+                        'cache_hit': True,
+                        'forced_refresh': False
+                    }).execute()
+                except:
+                    pass
+                
+                return {
+                    "alert": cache_result.data['dashboard_alert'],
+                    "status": "cached",
+                    "generated_at": cache_result.data['generated_at'],
+                    "expires_at": cache_result.data['expires_at']
+                }
+        
+        logger.info(f"Generating new dashboard alert for user {user_id}")
         
         # Gather recent data
         data = await gather_prediction_data(user_id, "dashboard")
@@ -153,22 +181,46 @@ async def get_dashboard_alert(user_id: str):
                 alert_data["actionUrl"] = f"/predictive-insights?focus={alert_data['id']}"
                 alert_data["generated_at"] = datetime.now().isoformat()
                 
-                # Log for analytics and save to database
+                # Log for analytics
                 await log_alert_generation(user_id, alert_data)
                 
-                # Ensure weekly predictions exist and save
+                # Save to cache with smart expiry
                 try:
-                    prediction_id = await ensure_weekly_predictions_exist(user_id)
-                    if prediction_id:
-                        supabase.table('weekly_ai_predictions').update({
-                            'dashboard_alert': alert_data,
-                            'updated_at': datetime.now().isoformat()
-                        }).eq('id', prediction_id).execute()
-                except Exception as weekly_error:
-                    logger.warning(f"Failed to update weekly predictions: {str(weekly_error)}")
+                    # First mark old predictions as not current
+                    supabase.table('weekly_ai_predictions').update({
+                        'is_current': False
+                    }).eq('user_id', user_id).eq('prediction_type', 'dashboard').eq('is_current', True).execute()
+                    
+                    # Insert new cached prediction
+                    cache_data = {
+                        'user_id': user_id,
+                        'prediction_type': 'dashboard',
+                        'dashboard_alert': alert_data,
+                        'predictions': [],
+                        'pattern_questions': [],
+                        'body_patterns': {},
+                        'generated_at': datetime.now(timezone.utc).isoformat(),
+                        'generation_status': 'completed',
+                        'data_quality_score': data.get('data_quality', 0),
+                        'is_current': True,
+                        'force_refresh_count': 1 if force_refresh else 0
+                    }
+                    
+                    supabase.table('weekly_ai_predictions').insert(cache_data).execute()
+                    
+                    # Track stats
+                    supabase.table('ai_prediction_stats').insert({
+                        'user_id': user_id,
+                        'prediction_type': 'dashboard',
+                        'generation_time_ms': 0,  # Could track actual time
+                        'cache_hit': False,
+                        'forced_refresh': force_refresh
+                    }).execute()
+                except Exception as cache_error:
+                    logger.warning(f"Failed to save to cache: {str(cache_error)}")
                 
                 logger.info(f"Successfully generated alert for user {user_id}")
-                return {"alert": alert_data, "status": "success"}
+                return {"alert": alert_data, "status": "success", "generated_at": datetime.now().isoformat()}
             else:
                 logger.info(f"No significant patterns found for user {user_id}")
                 return {"alert": None, "status": "no_patterns"}
@@ -198,12 +250,30 @@ async def get_dashboard_alert(user_id: str):
 
 
 @router.get("/predictions/immediate/{user_id}")
-async def get_immediate_predictions(user_id: str):
+async def get_immediate_predictions(user_id: str, force_refresh: bool = False):
     """
-    Generate predictions for the next 7 days
+    Generate predictions for the next 7 days with smart caching
     """
     try:
-        logger.info(f"Generating immediate predictions for user {user_id}")
+        # Check cache first unless force refresh
+        if not force_refresh:
+            cache_result = supabase.rpc('get_cached_prediction', {
+                'p_user_id': user_id,
+                'p_prediction_type': 'immediate',
+                'p_force_refresh': False
+            }).execute()
+            
+            if cache_result.data:
+                logger.info(f"Returning cached immediate predictions for user {user_id}")
+                return {
+                    "predictions": cache_result.data.get('predictions', []),
+                    "generated_at": cache_result.data['generated_at'],
+                    "data_quality_score": cache_result.data.get('data_quality_score', 0),
+                    "status": "cached",
+                    "expires_at": cache_result.data['expires_at']
+                }
+        
+        logger.info(f"Generating new immediate predictions for user {user_id}")
         
         # Gather recent data
         data = await gather_prediction_data(user_id, "immediate")
@@ -302,20 +372,31 @@ async def get_immediate_predictions(user_id: str):
                         except Exception as db_error:
                             logger.warning(f"Failed to save prediction to history: {str(db_error)}")
                 
-                # Update weekly predictions if exists
+                # Save to cache with smart expiry
                 try:
-                    current_weekly = supabase.table('weekly_ai_predictions').select('id, predictions').eq(
-                        'user_id', user_id
-                    ).eq('is_current', True).execute()
+                    # First mark old predictions as not current
+                    supabase.table('weekly_ai_predictions').update({
+                        'is_current': False
+                    }).eq('user_id', user_id).eq('prediction_type', 'immediate').eq('is_current', True).execute()
                     
-                    if current_weekly.data:
-                        supabase.table('weekly_ai_predictions').update({
-                            'predictions': enriched_predictions,
-                            'data_quality_score': data.get("data_quality", 0),
-                            'updated_at': datetime.now().isoformat()
-                        }).eq('id', current_weekly.data[0]['id']).execute()
-                except Exception as weekly_error:
-                    logger.warning(f"Failed to update weekly predictions: {str(weekly_error)}")
+                    # Insert new cached prediction
+                    cache_data = {
+                        'user_id': user_id,
+                        'prediction_type': 'immediate',
+                        'predictions': enriched_predictions,
+                        'dashboard_alert': None,
+                        'pattern_questions': [],
+                        'body_patterns': {},
+                        'generated_at': datetime.now(timezone.utc).isoformat(),
+                        'generation_status': 'completed',
+                        'data_quality_score': data.get("data_quality", 0),
+                        'is_current': True,
+                        'force_refresh_count': 1 if force_refresh else 0
+                    }
+                    
+                    supabase.table('weekly_ai_predictions').insert(cache_data).execute()
+                except Exception as cache_error:
+                    logger.warning(f"Failed to save to cache: {str(cache_error)}")
                 
                 logger.info(f"Successfully generated {len(enriched_predictions)} predictions for user {user_id}")
                 return {
@@ -378,11 +459,27 @@ async def get_immediate_predictions(user_id: str):
 
 
 @router.get("/predictions/seasonal/{user_id}")
-async def get_seasonal_predictions(user_id: str):
+async def get_seasonal_predictions(user_id: str, force_refresh: bool = False):
     """
-    Generate seasonal predictions for the next 3 months
+    Generate seasonal predictions for the next 3 months with smart caching
     """
     try:
+        # Check cache first unless force refresh
+        if not force_refresh:
+            cache_result = supabase.rpc('get_cached_prediction', {
+                'p_user_id': user_id,
+                'p_prediction_type': 'seasonal',
+                'p_force_refresh': False
+            }).execute()
+            
+            if cache_result.data:
+                logger.info(f"Returning cached seasonal predictions for user {user_id}")
+                return {
+                    "predictions": cache_result.data.get('predictions', []),
+                    "current_season": cache_result.data.get('metadata', {}).get('current_season', 'unknown'),
+                    "status": "cached",
+                    "expires_at": cache_result.data['expires_at']
+                }
         # Gather seasonal data
         data = await gather_prediction_data(user_id, "seasonal")
         
@@ -463,10 +560,41 @@ async def get_seasonal_predictions(user_id: str):
                 pred["gradient"] = "from-blue-600/10 to-indigo-600/10"
                 pred["generated_at"] = datetime.now().isoformat()
             
+            # Save to cache with smart expiry
+            try:
+                # First mark old predictions as not current
+                supabase.table('weekly_ai_predictions').update({
+                    'is_current': False
+                }).eq('user_id', user_id).eq('prediction_type', 'seasonal').eq('is_current', True).execute()
+                
+                # Insert new cached prediction
+                cache_data = {
+                    'user_id': user_id,
+                    'prediction_type': 'seasonal',
+                    'predictions': predictions_data,
+                    'dashboard_alert': None,
+                    'pattern_questions': [],
+                    'body_patterns': {},
+                    'metadata': {
+                        'current_season': data["season"],
+                        'next_season_transition': data.get("upcoming_season", {}).get("transition_date")
+                    },
+                    'generated_at': datetime.now(timezone.utc).isoformat(),
+                    'generation_status': 'completed',
+                    'data_quality_score': data.get("data_quality", 0),
+                    'is_current': True,
+                    'force_refresh_count': 1 if force_refresh else 0
+                }
+                
+                supabase.table('weekly_ai_predictions').insert(cache_data).execute()
+            except Exception as cache_error:
+                logger.warning(f"Failed to save to cache: {str(cache_error)}")
+            
             return {
                 "predictions": predictions_data,
                 "current_season": data["season"],
-                "next_season_transition": data.get("upcoming_season", {}).get("transition_date")
+                "next_season_transition": data.get("upcoming_season", {}).get("transition_date"),
+                "status": "success"
             }
         
         return {
@@ -481,11 +609,38 @@ async def get_seasonal_predictions(user_id: str):
 
 
 @router.get("/predictions/longterm/{user_id}")
-async def get_longterm_trajectory(user_id: str):
+async def get_longterm_trajectory(user_id: str, force_refresh: bool = False):
     """
-    Generate long-term health trajectory assessments
+    Generate long-term health trajectory assessments with smart caching
     """
     try:
+        # Check cache first unless force refresh
+        if not force_refresh:
+            cache_result = supabase.rpc('get_cached_prediction', {
+                'p_user_id': user_id,
+                'p_prediction_type': 'longterm',
+                'p_force_refresh': False
+            }).execute()
+            
+            if cache_result.data:
+                logger.info(f"Returning cached longterm predictions for user {user_id}")
+                assessments = cache_result.data.get('predictions', [])
+                # Determine overall trajectory from cached data
+                risk_levels = [a["trajectory"]["current_path"]["risk_level"] for a in assessments if "trajectory" in a]
+                if "high" in risk_levels:
+                    overall = "needs_attention"
+                elif "moderate" in risk_levels:
+                    overall = "stable_with_improvement_potential"
+                else:
+                    overall = "positive"
+                
+                return {
+                    "assessments": assessments,
+                    "overall_health_trajectory": overall,
+                    "key_focus_areas": [a["condition"].lower().replace(" ", "_") for a in assessments],
+                    "status": "cached",
+                    "expires_at": cache_result.data['expires_at']
+                }
         # Gather comprehensive data
         data = await gather_prediction_data(user_id, "longterm")
         
@@ -595,10 +750,41 @@ async def get_longterm_trajectory(user_id: str):
             else:
                 overall = "positive"
             
+            # Save to cache with smart expiry
+            try:
+                # First mark old predictions as not current
+                supabase.table('weekly_ai_predictions').update({
+                    'is_current': False
+                }).eq('user_id', user_id).eq('prediction_type', 'longterm').eq('is_current', True).execute()
+                
+                # Insert new cached prediction
+                cache_data = {
+                    'user_id': user_id,
+                    'prediction_type': 'longterm',
+                    'predictions': assessments_data,
+                    'dashboard_alert': None,
+                    'pattern_questions': [],
+                    'body_patterns': {},
+                    'metadata': {
+                        'overall_health_trajectory': overall,
+                        'key_focus_areas': [a["condition"].lower().replace(" ", "_") for a in assessments_data]
+                    },
+                    'generated_at': datetime.now(timezone.utc).isoformat(),
+                    'generation_status': 'completed',
+                    'data_quality_score': data.get("data_quality", 0),
+                    'is_current': True,
+                    'force_refresh_count': 1 if force_refresh else 0
+                }
+                
+                supabase.table('weekly_ai_predictions').insert(cache_data).execute()
+            except Exception as cache_error:
+                logger.warning(f"Failed to save to cache: {str(cache_error)}")
+            
             return {
                 "assessments": assessments_data,
                 "overall_health_trajectory": overall,
-                "key_focus_areas": [a["condition"].lower().replace(" ", "_") for a in assessments_data]
+                "key_focus_areas": [a["condition"].lower().replace(" ", "_") for a in assessments_data],
+                "status": "success"
             }
         
         return {
@@ -612,12 +798,35 @@ async def get_longterm_trajectory(user_id: str):
 
 
 @router.get("/patterns/{user_id}")
-async def get_body_patterns(user_id: str):
+async def get_body_patterns(user_id: str, force_refresh: bool = False):
     """
-    Generate personalized body pattern insights
+    Generate personalized body pattern insights with smart caching
     """
     try:
-        logger.info(f"Generating body patterns for user {user_id}")
+        # Check cache first unless force refresh
+        if not force_refresh:
+            cache_result = supabase.rpc('get_cached_prediction', {
+                'p_user_id': user_id,
+                'p_prediction_type': 'patterns',
+                'p_force_refresh': False
+            }).execute()
+            
+            if cache_result.data and cache_result.data.get('body_patterns'):
+                logger.info(f"Returning cached body patterns for user {user_id}")
+                patterns = cache_result.data['body_patterns']
+                return {
+                    "tendencies": patterns.get('tendencies', []),
+                    "positive_responses": patterns.get('positiveResponses', []),
+                    "pattern_metadata": cache_result.data.get('metadata', {}).get('pattern_metadata', {
+                        "total_patterns_analyzed": 0,
+                        "confidence_level": "cached",
+                        "data_span_days": 0
+                    }),
+                    "status": "cached",
+                    "expires_at": cache_result.data['expires_at']
+                }
+        
+        logger.info(f"Generating new body patterns for user {user_id}")
         
         # Gather pattern data
         data = await gather_prediction_data(user_id, "patterns")
@@ -714,22 +923,37 @@ async def get_body_patterns(user_id: str):
                     }
                 }
                 
-                # Save to weekly predictions if exists
+                # Save to cache with smart expiry
                 try:
-                    current_weekly = supabase.table('weekly_ai_predictions').select('id').eq(
-                        'user_id', user_id
-                    ).eq('is_current', True).execute()
+                    # First mark old predictions as not current
+                    supabase.table('weekly_ai_predictions').update({
+                        'is_current': False
+                    }).eq('user_id', user_id).eq('prediction_type', 'patterns').eq('is_current', True).execute()
                     
-                    if current_weekly.data:
-                        supabase.table('weekly_ai_predictions').update({
-                            'body_patterns': {
-                                'tendencies': patterns_data["tendencies"],
-                                'positiveResponses': patterns_data["positiveResponses"]
-                            },
-                            'updated_at': datetime.now().isoformat()
-                        }).eq('id', current_weekly.data[0]['id']).execute()
-                except Exception as weekly_error:
-                    logger.warning(f"Failed to update weekly predictions: {str(weekly_error)}")
+                    # Insert new cached prediction
+                    cache_data = {
+                        'user_id': user_id,
+                        'prediction_type': 'patterns',
+                        'predictions': [],
+                        'dashboard_alert': None,
+                        'pattern_questions': [],
+                        'body_patterns': {
+                            'tendencies': patterns_data["tendencies"],
+                            'positiveResponses': patterns_data["positiveResponses"]
+                        },
+                        'metadata': {
+                            'pattern_metadata': result_data["pattern_metadata"]
+                        },
+                        'generated_at': datetime.now(timezone.utc).isoformat(),
+                        'generation_status': 'completed',
+                        'data_quality_score': data.get("data_quality", 0),
+                        'is_current': True,
+                        'force_refresh_count': 1 if force_refresh else 0
+                    }
+                    
+                    supabase.table('weekly_ai_predictions').insert(cache_data).execute()
+                except Exception as cache_error:
+                    logger.warning(f"Failed to save to cache: {str(cache_error)}")
                 
                 logger.info(f"Successfully generated body patterns for user {user_id}")
                 return {**result_data, "status": "success"}
@@ -825,12 +1049,31 @@ async def get_body_patterns(user_id: str):
 
 
 @router.get("/questions/{user_id}")
-async def get_pattern_questions(user_id: str):
+async def get_pattern_questions(user_id: str, force_refresh: bool = False):
     """
-    Generate personalized questions about health patterns
+    Generate personalized questions about health patterns with smart caching
     """
     try:
-        logger.info(f"Generating pattern questions for user {user_id}")
+        # Check cache first unless force refresh
+        if not force_refresh:
+            cache_result = supabase.rpc('get_cached_prediction', {
+                'p_user_id': user_id,
+                'p_prediction_type': 'questions',
+                'p_force_refresh': False
+            }).execute()
+            
+            if cache_result.data and cache_result.data.get('pattern_questions'):
+                logger.info(f"Returning cached pattern questions for user {user_id}")
+                questions = cache_result.data['pattern_questions']
+                return {
+                    "questions": questions,
+                    "total_questions": len(questions),
+                    "categories_covered": list(set(q["category"] for q in questions if "category" in q)),
+                    "status": "cached",
+                    "expires_at": cache_result.data['expires_at']
+                }
+        
+        logger.info(f"Generating new pattern questions for user {user_id}")
         
         # Gather data for questions
         data = await gather_prediction_data(user_id, "questions")
@@ -939,10 +1182,41 @@ async def get_pattern_questions(user_id: str):
             
             categories = list(set(q["category"] for q in questions_data))
             
+            # Save to cache with smart expiry
+            try:
+                # First mark old predictions as not current
+                supabase.table('weekly_ai_predictions').update({
+                    'is_current': False
+                }).eq('user_id', user_id).eq('prediction_type', 'questions').eq('is_current', True).execute()
+                
+                # Insert new cached prediction
+                cache_data = {
+                    'user_id': user_id,
+                    'prediction_type': 'questions',
+                    'predictions': [],
+                    'dashboard_alert': None,
+                    'pattern_questions': questions_data,
+                    'body_patterns': {},
+                    'metadata': {
+                        'total_questions': len(questions_data),
+                        'categories_covered': categories
+                    },
+                    'generated_at': datetime.now(timezone.utc).isoformat(),
+                    'generation_status': 'completed',
+                    'data_quality_score': data.get("data_quality", 0),
+                    'is_current': True,
+                    'force_refresh_count': 1 if force_refresh else 0
+                }
+                
+                supabase.table('weekly_ai_predictions').insert(cache_data).execute()
+            except Exception as cache_error:
+                logger.warning(f"Failed to save to cache: {str(cache_error)}")
+            
             return {
                 "questions": questions_data,
                 "total_questions": len(questions_data),
-                "categories_covered": categories
+                "categories_covered": categories,
+                "status": "success"
             }
         
         return {
