@@ -177,6 +177,14 @@ Before deploying to Railway:
 - **Issue**: Sensitive data in logs or commits
 - **Fix**: IMMEDIATELY rotate keys and update .gitignore
 
+### CORS Errors with Credentials:
+- **Issue**: "The value of the 'Access-Control-Allow-Origin' header in the response must not be the wildcard '*' when the request's credentials mode is 'include'"
+- **Fix**: Updated `core/middleware.py` to use specific allowed origins instead of wildcard
+- **Details**: 
+  - CORS spec doesn't allow `*` with `credentials: 'include'`
+  - Now supports localhost:3000-3002, Netlify URLs, and healthoracle.ai domains
+  - Can add custom origins via `CORS_ORIGINS` env variable (comma-separated)
+
 ## 🛡️ SECURITY BEST PRACTICES
 
 1. **API Key Management**:
