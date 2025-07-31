@@ -749,15 +749,9 @@ async def generate_shadow_patterns_only(user_id: str, force_refresh: bool = Fals
         # Get health data
         health_data = await gather_user_health_data(user_id)
         
-        # Check if user has enough historical data
-        if not health_data or health_data.get('oracle_sessions', {}).get('total_sessions', 0) < 3:
-            logger.warning(f"Insufficient data for shadow patterns for user {user_id}")
-            return {
-                'status': 'insufficient_data',
-                'shadow_patterns': [],
-                'count': 0,
-                'message': 'Need more health tracking history to detect patterns'
-            }
+        # No minimum data requirement - shadow patterns work even with limited history
+        if not health_data:
+            health_data = {'oracle_sessions': {}, 'recent_symptoms': [], 'body_parts': []}
         
         try:
             # Generate shadow patterns
