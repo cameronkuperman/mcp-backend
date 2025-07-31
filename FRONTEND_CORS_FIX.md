@@ -49,17 +49,28 @@ const authenticatedFetch = async (url: string, options: RequestInit = {}) => {
 
 ## Production Deployment Notes
 
-1. Update the backend `core/middleware.py` to include your production frontend URL:
-   ```python
-   allowed_origins = [
-       "http://localhost:3000",
-       "http://localhost:3001", 
-       "https://your-production-frontend.com",  # Add this
-       # ... other origins
-   ]
-   ```
+### Option 1: Use Environment Variable (Recommended)
+Set the `CORS_ORIGINS` environment variable in your production environment:
+```bash
+# In Railway, Heroku, or your deployment platform
+CORS_ORIGINS=https://your-custom-domain.com,https://another-domain.com
+```
 
-2. Make sure your backend environment variables are set correctly in production.
+### Option 2: Update Code
+The allowed origins list in `core/middleware.py` already includes:
+- All localhost ports (3000, 3001, 3002)
+- Netlify deployment URLs
+- healthoracle.ai domains
+
+If you need additional origins, either:
+1. Add them to the `CORS_ORIGINS` environment variable (preferred)
+2. Update the `allowed_origins` list in `core/middleware.py`
+
+### Why This Fix Was Needed
+- Quick Scan and Deep Dive endpoints worked because they might not have been using credentials
+- Health Intelligence endpoints require authentication/credentials
+- CORS spec doesn't allow wildcard origins (`*`) when credentials are included
+- Each endpoint must now explicitly allow the frontend origin
 
 ## Testing
 1. Restart your backend server
