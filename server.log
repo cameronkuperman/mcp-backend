@@ -1,6 +1,6 @@
 Traceback (most recent call last):
-  File "/Users/iceca/Documents/mcp-backend/run_oracle.py", line 16, in <module>
-    from api.health_analysis import router as health_analysis_router
-  File "/Users/iceca/Documents/mcp-backend/api/health_analysis.py", line 20, in <module>
+  File "/Users/iceca/Documents/mcp-backend/run_oracle.py", line 24, in <module>
+    from api.ai_predictions import router as ai_predictions_router
+  File "/Users/iceca/Documents/mcp-backend/api/ai_predictions.py", line 9, in <module>
     from services.ai_health_analyzer import HealthAnalyzer
 ModuleNotFoundError: No module named 'services.ai_health_analyzer'

@@ -6,10 +6,10 @@ from pydantic import BaseModel
 import json
 import logging
 import uuid
-from services.ai_health_analyzer import HealthAnalyzer
 from supabase_client import supabase
 from utils.data_gathering import gather_prediction_data
 from utils.json_parser import extract_json_from_text
+from business_logic import call_llm
 import os
 from dotenv import load_dotenv
 
@@ -18,16 +18,7 @@ load_dotenv()
 router = APIRouter(prefix="/api/ai", tags=["ai-predictions"])
 logger = logging.getLogger(__name__)
 
-# Create a wrapper class for AI analysis
-class AIHealthAnalyzer(HealthAnalyzer):
-    async def analyze_with_llm(self, prompt: str, model: str = None) -> str:
-        """Wrapper method for LLM analysis"""
-        if model:
-            self.model = model
-        result = await self._call_ai(prompt)
-        return json.dumps(result) if isinstance(result, dict) else result
-
-ai_analyzer = AIHealthAnalyzer()
+# Using standard call_llm pattern instead of custom analyzer
 
 # Request/Response Models
 class UserPreferences(BaseModel):
@@ -168,10 +159,16 @@ async def get_dashboard_alert(user_id: str, force_refresh: bool = False):
         """
         
         try:
-            response = await ai_analyzer.analyze_with_llm(
-                prompt=prompt,
-                model="deepseek/deepseek-chat"
+            llm_response = await call_llm(
+                messages=[
+                    {"role": "system", "content": "You are a health prediction AI. Return only valid JSON."},
+                    {"role": "user", "content": prompt}
+                ],
+                model="deepseek/deepseek-chat",
+                temperature=0.3,
+                max_tokens=1024
             )
+            response = json.dumps(llm_response.get("content", {}))
             
             alert_data = safe_parse_json(response, "dashboard_alert")
             
@@ -342,10 +339,16 @@ async def get_immediate_predictions(user_id: str, force_refresh: bool = False):
         """
         
         try:
-            response = await ai_analyzer.analyze_with_llm(
-                prompt=prompt,
-                model="deepseek/deepseek-chat"
+            llm_response = await call_llm(
+                messages=[
+                    {"role": "system", "content": "You are a health prediction AI. Return only valid JSON."},
+                    {"role": "user", "content": prompt}
+                ],
+                model="deepseek/deepseek-chat",
+                temperature=0.3,
+                max_tokens=1024
             )
+            response = json.dumps(llm_response.get("content", {}))
             
             predictions_data = safe_parse_json(response, "immediate_predictions")
             
@@ -545,10 +548,16 @@ async def get_seasonal_predictions(user_id: str, force_refresh: bool = False):
         }}]
         """
         
-        response = await ai_analyzer.analyze_with_llm(
-            prompt=prompt,
-            model="qwen/qwen-2.5-coder-32b-instruct"  # Using Kimi K1.5 for better pattern analysis
+        llm_response = await call_llm(
+            messages=[
+                {"role": "system", "content": "You are a health prediction AI. Return only valid JSON."},
+                {"role": "user", "content": prompt}
+            ],
+            model="qwen/qwen-2.5-coder-32b-instruct",  # Using Kimi K1.5 for better pattern analysis
+            temperature=0.3,
+            max_tokens=2048
         )
+        response = json.dumps(llm_response.get("content", {}))
         
         predictions_data = safe_parse_json(response, "seasonal_predictions")
         
@@ -728,10 +737,16 @@ async def get_longterm_trajectory(user_id: str, force_refresh: bool = False):
         }}]
         """
         
-        response = await ai_analyzer.analyze_with_llm(
-            prompt=prompt,
-            model="qwen/qwen-2.5-coder-32b-instruct"  # Using Kimi K1.5 for better pattern analysis
+        llm_response = await call_llm(
+            messages=[
+                {"role": "system", "content": "You are a health prediction AI. Return only valid JSON."},
+                {"role": "user", "content": prompt}
+            ],
+            model="qwen/qwen-2.5-coder-32b-instruct",  # Using Kimi K1.5 for better pattern analysis
+            temperature=0.3,
+            max_tokens=2048
         )
+        response = json.dumps(llm_response.get("content", {}))
         
         assessments_data = safe_parse_json(response, "longterm_assessments")
         
@@ -904,10 +919,16 @@ async def get_body_patterns(user_id: str, force_refresh: bool = False):
         """
         
         try:
-            response = await ai_analyzer.analyze_with_llm(
-                prompt=prompt,
-                model="moonshotai/kimi-k2"  # Using Kimi K2 for better pattern analysis
+            llm_response = await call_llm(
+                messages=[
+                    {"role": "system", "content": "You are a health prediction AI. Return only valid JSON."},
+                    {"role": "user", "content": prompt}
+                ],
+                model="moonshotai/kimi-k2",  # Using Kimi K2 for better pattern analysis
+                temperature=0.3,
+                max_tokens=2048
             )
+            response = json.dumps(llm_response.get("content", {}))
             
             patterns_data = safe_parse_json(response, "body_patterns")
             
@@ -1168,10 +1189,16 @@ async def get_pattern_questions(user_id: str, force_refresh: bool = False):
         }}]
         """
         
-        response = await ai_analyzer.analyze_with_llm(
-            prompt=prompt,
-            model="qwen/qwen-2.5-coder-32b-instruct"  # Using Kimi K1.5 for better pattern analysis
+        llm_response = await call_llm(
+            messages=[
+                {"role": "system", "content": "You are a health prediction AI. Return only valid JSON."},
+                {"role": "user", "content": prompt}
+            ],
+            model="qwen/qwen-2.5-coder-32b-instruct",  # Using Kimi K1.5 for better pattern analysis
+            temperature=0.3,
+            max_tokens=2048
         )
+        response = json.dumps(llm_response.get("content", {}))
         
         questions_data = safe_parse_json(response, "pattern_questions")
         
