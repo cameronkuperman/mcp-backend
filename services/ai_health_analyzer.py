@@ -26,14 +26,17 @@ class HealthAnalyzer:
         self.base_url = "https://openrouter.ai/api/v1/chat/completions"
         self.api_key = os.getenv("OPENROUTER_API_KEY")
         self.model = "google/gemini-2.5-pro"
-        self.timeout = 60  # 60 seconds timeout to prevent hanging
+        self.fallback_model = "moonshotai/kimi-k2"  # Fallback if primary fails
+        self.timeout = 30  # 30 seconds timeout per attempt
         
-    async def _call_ai(self, prompt: str, temperature: float = 0.7) -> Dict:
-        """Make API call to Gemini 2.5 Pro via OpenRouter"""
+    async def _call_ai(self, prompt: str, temperature: float = 0.7, use_fallback: bool = False) -> Dict:
+        """Make API call with fallback model support"""
+        model_to_use = self.fallback_model if use_fallback else self.model
+        
         try:
             # Debug logging
-            logger.info(f"🤖 Calling AI with prompt length: {len(prompt)} chars")
-            logger.info(f"🔧 Model: {self.model}, Temperature: {temperature}")
+            logger.info(f"🤖 Calling AI with model: {model_to_use}")
+            logger.info(f"📏 Prompt length: {len(prompt)} chars")
             
             async with httpx.AsyncClient(timeout=self.timeout) as client:
                 response = await client.post(
@@ -45,11 +48,18 @@ class HealthAnalyzer:
                         "X-Title": "Proxima-1 Health Intelligence"
                     },
                     json={
-                        "model": self.model,
+                        "model": model_to_use,
                         "messages": [
                             {
                                 "role": "system",
-                                "content": "You are an expert health intelligence analyst. Provide supportive, actionable insights based on health data patterns. Never diagnose conditions. Focus on patterns, correlations, and wellness optimization. Always return valid JSON. CRITICAL: When including quotes inside JSON string values, always escape them with backslash (\\\")"
+                                "content": """You are an expert health intelligence analyst. Provide supportive, actionable insights based on health data patterns. Never diagnose conditions. Focus on patterns, correlations, and wellness optimization. 
+
+CRITICAL INSTRUCTIONS:
+1. ALWAYS return valid JSON
+2. NEVER return empty arrays
+3. If data is limited, provide general wellness insights
+4. Always include at least 2-3 insights/patterns
+5. Escape quotes in JSON strings with backslash (\")"""
                             },
                             {
                                 "role": "user",
@@ -64,30 +74,41 @@ class HealthAnalyzer:
                 logger.info(f"📡 Response status: {response.status_code}")
                 
                 if response.status_code != 200:
-                    logger.error(f"❌ AI API error: {response.status_code}")
-                    logger.error(f"📄 Response headers: {dict(response.headers)}")
-                    logger.error(f"📄 Response text: {response.text[:500]}")
-                    raise Exception(f"AI API error: {response.status_code} - {response.text[:200]}")
+                    logger.error(f"❌ {model_to_use} API error: {response.status_code}")
+                    if not use_fallback:
+                        logger.info("🔄 Trying fallback model...")
+                        return await self._call_ai(prompt, temperature, use_fallback=True)
+                    raise Exception(f"Both models failed: {response.status_code}")
                 
                 result = response.json()
-                
-                # Log successful response
-                logger.info(f"✅ AI response received, extracting JSON...")
-                
                 content = result['choices'][0]['message']['content']
-                logger.debug(f"📄 Raw AI response: {content[:200]}...")
+                logger.info(f"✅ {model_to_use} response received")
                 
                 # Extract JSON from the response
-                return self._extract_json(content)
+                extracted = self._extract_json(content)
+                
+                # Ensure we always have content
+                if not extracted or all(not v for v in extracted.values() if isinstance(v, list)):
+                    logger.warning("⚠️ Empty response, using fallback model")
+                    if not use_fallback:
+                        return await self._call_ai(prompt, temperature, use_fallback=True)
+                    # If even fallback returns empty, generate default content
+                    return self._generate_default_response(prompt)
+                
+                return extracted
                 
         except httpx.TimeoutException:
-            logger.error(f"⏱️ AI call timed out after {self.timeout} seconds")
-            raise Exception("AI service timeout - try again")
+            logger.error(f"⏱️ {model_to_use} timed out after {self.timeout} seconds")
+            if not use_fallback:
+                logger.info("🔄 Trying fallback model due to timeout...")
+                return await self._call_ai(prompt, temperature, use_fallback=True)
+            return self._generate_default_response(prompt)
         except Exception as e:
-            logger.error(f"❌ AI call failed: {str(e)}")
-            logger.error(f"🔑 API Key present: {bool(self.api_key)}")
-            logger.error(f"🔗 URL: {self.base_url}")
-            raise
+            logger.error(f"❌ {model_to_use} failed: {str(e)}")
+            if not use_fallback:
+                logger.info("🔄 Trying fallback model due to error...")
+                return await self._call_ai(prompt, temperature, use_fallback=True)
+            return self._generate_default_response(prompt)
     
     def _extract_json(self, content: str) -> Dict:
         """Extract JSON from AI response, handling various formats"""
@@ -187,6 +208,45 @@ class HealthAnalyzer:
                 return {}
             except:
                 return {}
+    
+    def _generate_default_response(self, prompt: str) -> Dict:
+        """Generate default response when AI fails"""
+        logger.info("🎯 Generating default response")
+        
+        # Check what type of response is needed based on prompt
+        if "insights" in prompt.lower():
+            return {
+                "insights": [
+                    {
+                        "type": "neutral",
+                        "title": "Health Tracking Active",
+                        "description": "Continue tracking your health data to receive personalized insights",
+                        "confidence": 75,
+                        "metadata": {"is_default": True}
+                    },
+                    {
+                        "type": "positive",
+                        "title": "Consistent Monitoring",
+                        "description": "Regular health tracking helps identify patterns over time",
+                        "confidence": 80,
+                        "metadata": {"is_default": True}
+                    }
+                ]
+            }
+        elif "shadow" in prompt.lower() or "pattern" in prompt.lower():
+            return {
+                "patterns": [
+                    {
+                        "name": "Health data still building",
+                        "category": "other",
+                        "last_seen": "Continue tracking to identify patterns",
+                        "significance": "low",
+                        "days_missing": 0
+                    }
+                ]
+            }
+        else:
+            return {"status": "default_response", "message": "Continue tracking for insights"}
     
     async def generate_insights(self, story: str, health_data: Dict, user_id: str) -> List[Dict]:
         """Generate key health insights from the story and data"""
