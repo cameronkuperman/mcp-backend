@@ -17,7 +17,7 @@ from supabase import create_client, Client
 import os
 
 # Import our AI service (to be created)
-from services.ai_health_analyzer import HealthAnalyzer
+# HealthAnalyzer removed - now using standard call_llm pattern
 from utils.data_gathering import gather_user_health_data
 from models.requests import HealthAnalysisRequest, RefreshAnalysisRequest
 
@@ -28,8 +28,7 @@ SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY")
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 
-# Initialize AI analyzer
-analyzer = HealthAnalyzer()
+# Analyzer no longer needed - using call_llm directly
 
 # Request/Response Models
 class GenerateAnalysisRequest(BaseModel):
