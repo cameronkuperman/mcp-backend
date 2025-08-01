@@ -71,14 +71,17 @@ SCORING RULES:
 - Good engagement = slight boost
 
 ACTION RULES:
-- Generate EXACTLY 3 general wellness tips for daily life
-- These should be universal health advice, NOT app-specific actions
+- Generate EXACTLY 3 wellness tips tailored to the user's data
+- CRITICAL: Each action must be 2-10 words maximum
+- Mix general wellness advice with personalized recommendations
+- If user has specific symptoms/patterns, address them directly
+- Consider their tracking consistency and recent health data
 - Focus on real-world activities: exercise, hydration, nutrition, sleep, stress management
 - Consider time of day for relevance (morning vs evening tips)
 - Make them specific and actionable
 - Use encouraging, positive language
 
-GOOD EXAMPLES:
+GOOD EXAMPLES (General):
 - "Take a 20-minute walk in fresh air"
 - "Drink a glass of water every hour until dinner"
 - "Try 5 minutes of deep breathing before bed"
@@ -87,6 +90,14 @@ GOOD EXAMPLES:
 - "Get 15 minutes of sunlight today"
 - "Replace one sugary drink with water"
 - "Do 10 squats during your next break"
+
+GOOD EXAMPLES (Personalized - based on user data):
+- "Track headaches after coffee" (if user reports headaches)
+- "Sleep by 10pm tonight" (if poor sleep patterns)
+- "Avoid screens before bed" (if sleep issues)
+- "Try yoga for back pain" (if back pain reported)
+- "Check blood pressure after meals" (if BP concerns)
+- "Walk after high-stress meetings" (if stress patterns)
 
 BAD EXAMPLES (don't use these):
 - "Track your symptoms in the app"
@@ -175,38 +186,72 @@ Calculate the health score and provide 3 general wellness tips that would benefi
 @router.get("/health-score/{user_id}")
 async def get_health_score(user_id: str, force_refresh: bool = False):
     """
-    Get or calculate user's health score with personalized daily actions
+    Get or calculate user's health score with personalized weekly actions
     """
     try:
-        # Check cache first (unless force refresh)
+        # Calculate current week's Monday
+        today = datetime.now(timezone.utc)
+        days_since_monday = today.weekday()
+        current_monday = today - timedelta(days=days_since_monday)
+        current_monday = current_monday.replace(hour=0, minute=0, second=0, microsecond=0)
+        
+        # Calculate previous week's Monday
+        previous_monday = current_monday - timedelta(days=7)
+        
+        # Check for existing score this week (unless force refresh)
         if not force_refresh:
-            # Look for cached score from today
+            # Look for score from current week
             cache_result = supabase.table("health_scores").select("*").eq(
                 "user_id", user_id
-            ).gte(
-                "created_at", datetime.now(timezone.utc).replace(hour=0, minute=0, second=0).isoformat()
+            ).eq(
+                "week_of", current_monday.isoformat()
             ).order("created_at", desc=True).limit(1).execute()
             
             if cache_result.data and len(cache_result.data) > 0:
                 cached = cache_result.data[0]
-                # Return cached result
+                
+                # Get previous week's score for comparison
+                prev_result = supabase.table("health_scores").select("score").eq(
+                    "user_id", user_id
+                ).eq(
+                    "week_of", previous_monday.isoformat()
+                ).order("created_at", desc=True).limit(1).execute()
+                
+                previous_score = prev_result.data[0]["score"] if prev_result.data else None
+                
+                # Calculate trend
+                trend = None
+                if previous_score is not None:
+                    if cached["score"] > previous_score:
+                        trend = "up"
+                    elif cached["score"] < previous_score:
+                        trend = "down"
+                    else:
+                        trend = "same"
+                
+                # Return cached result with comparison
                 return {
                     "score": cached.get("score", 80),
+                    "previous_score": previous_score,
+                    "trend": trend,
                     "actions": cached.get("actions", []),
                     "reasoning": cached.get("reasoning", ""),
                     "generated_at": cached.get("created_at"),
-                    "expires_at": cached.get("expires_at"),
+                    "week_of": cached.get("week_of"),
                     "cached": True
                 }
         
         # Calculate new score
         score_data = await calculate_health_score_with_ai(user_id)
         
-        # Prepare expiration (24 hours from now)
+        # Prepare dates
         generated_at = datetime.now(timezone.utc)
-        expires_at = generated_at + timedelta(hours=24)
+        # Expires at end of current week (Sunday 23:59:59)
+        days_until_sunday = 6 - generated_at.weekday()
+        expires_at = generated_at + timedelta(days=days_until_sunday)
+        expires_at = expires_at.replace(hour=23, minute=59, second=59)
         
-        # Store in cache
+        # Store in database
         try:
             cache_data = {
                 "user_id": user_id,
@@ -215,21 +260,42 @@ async def get_health_score(user_id: str, force_refresh: bool = False):
                 "reasoning": score_data.get("reasoning", ""),
                 "created_at": generated_at.isoformat(),
                 "expires_at": expires_at.isoformat(),
-                "week_of": generated_at.replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
+                "week_of": current_monday.isoformat()
             }
             
             supabase.table("health_scores").insert(cache_data).execute()
         except Exception as cache_error:
-            print(f"Failed to cache health score: {cache_error}")
-            # Continue even if caching fails
+            print(f"Failed to save health score: {cache_error}")
+            # Continue even if saving fails
         
-        # Return result
+        # Get previous week's score for comparison
+        prev_result = supabase.table("health_scores").select("score").eq(
+            "user_id", user_id
+        ).eq(
+            "week_of", previous_monday.isoformat()
+        ).order("created_at", desc=True).limit(1).execute()
+        
+        previous_score = prev_result.data[0]["score"] if prev_result.data else None
+        
+        # Calculate trend
+        trend = None
+        if previous_score is not None:
+            if score_data["score"] > previous_score:
+                trend = "up"
+            elif score_data["score"] < previous_score:
+                trend = "down"
+            else:
+                trend = "same"
+        
+        # Return result with comparison
         return {
             "score": score_data["score"],
+            "previous_score": previous_score,
+            "trend": trend,
             "actions": score_data["actions"],
             "reasoning": score_data.get("reasoning", ""),
             "generated_at": generated_at.isoformat(),
-            "expires_at": expires_at.isoformat(),
+            "week_of": current_monday.isoformat(),
             "cached": False
         }
         
