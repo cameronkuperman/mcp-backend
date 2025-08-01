@@ -233,3 +233,31 @@ class SpecialtyTriageRequest(BaseModel):
     primary_concern: Optional[str] = None
     symptoms: Optional[List[str]] = None
     urgency: Optional[str] = None
+
+# General Assessment Models
+class FlashAssessmentRequest(BaseModel):
+    user_query: str
+    user_id: Optional[str] = None
+
+class GeneralAssessmentRequest(BaseModel):
+    category: str  # energy, mental, sick, medication, multiple, unsure, physical
+    form_data: Dict[str, Any]
+    user_id: Optional[str] = None
+
+class GeneralDeepDiveStartRequest(BaseModel):
+    category: str
+    form_data: Dict[str, Any]
+    user_id: Optional[str] = None
+    model: Optional[str] = None
+    fallback_model: Optional[str] = None
+
+class GeneralDeepDiveContinueRequest(BaseModel):
+    session_id: str
+    answer: str
+    question_number: int
+    fallback_model: Optional[str] = None
+
+class GeneralDeepDiveCompleteRequest(BaseModel):
+    session_id: str
+    final_answer: Optional[str] = None
+    fallback_model: Optional[str] = None
