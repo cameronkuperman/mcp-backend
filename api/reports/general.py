@@ -241,6 +241,16 @@ async def generate_comprehensive_report(request: ComprehensiveReportRequest):
         # Gather all data
         data = await gather_report_data(request.user_id or analysis["user_id"], config)
         
+        # Get photo analysis data if available
+        photo_analyses = []
+        if hasattr(request, 'photo_session_ids') and request.photo_session_ids:
+            photo_analyses_result = supabase.table('photo_analyses')\
+                .select('*')\
+                .in_('session_id', request.photo_session_ids)\
+                .order('created_at.desc')\
+                .execute()
+            photo_analyses = photo_analyses_result.data or []
+        
         # Build context for LLM
         context = f"""Generate a comprehensive medical report based on the following data:
 
@@ -270,6 +280,19 @@ Symptom Tracking:
     'severity': s['severity'],
     'related_context': s.get('enriched_context')
 } for s in data['symptom_tracking']], indent=2)}"""
+        
+        # Add photo analysis data if available
+        if photo_analyses:
+            context += f"""
+
+Photo Analysis ({len(photo_analyses)} analyses):
+{json.dumps([{
+    'date': pa['created_at'][:10],
+    'visual_assessment': pa['analysis_data'].get('primary_assessment'),
+    'confidence': pa.get('confidence_score'),
+    'visual_observations': pa['analysis_data'].get('visual_observations', [])[:3],
+    'recommendations': pa['analysis_data'].get('recommendations', [])[:2]
+} for pa in photo_analyses[:5]], indent=2)}"""
 
         # Generate report using LLM
         system_prompt = """You are generating a comprehensive medical report. Structure your response as valid JSON matching this format:

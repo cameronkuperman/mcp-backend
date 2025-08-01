@@ -17,13 +17,15 @@ from models.requests import (
     PhotoUploadResponse, 
     PhotoAnalysisRequest,
     PhotoAnalysisResponse,
-    PhotoSessionResponse
+    PhotoSessionResponse,
+    PhotoAnalysisReportRequest
 )
 from utils.json_parser import extract_json_from_text
 
 router = APIRouter(prefix="/api/photo-analysis", tags=["photo-analysis"])
 
 import re
+import asyncio
 
 def sanitize_filename(filename: str) -> str:
     """Sanitize filename by removing special characters and unicode spaces"""
@@ -39,6 +41,27 @@ def sanitize_filename(filename: str) -> str:
     if not filename:
         filename = "photo.jpg"
     return filename
+
+
+async def call_openrouter_with_retry(model: str, messages: List[Dict], max_tokens: int = 1000, 
+                                   temperature: float = 0.3, max_retries: int = 3) -> Dict:
+    """Make API call to OpenRouter with retry logic"""
+    last_error = None
+    
+    for attempt in range(max_retries):
+        try:
+            return await call_openrouter(model, messages, max_tokens, temperature)
+        except Exception as e:
+            last_error = e
+            if attempt < max_retries - 1:
+                # Exponential backoff: 1s, 2s, 4s
+                wait_time = 2 ** attempt
+                print(f"Attempt {attempt + 1} failed, retrying in {wait_time}s: {str(e)}")
+                await asyncio.sleep(wait_time)
+            else:
+                print(f"All {max_retries} attempts failed")
+    
+    raise last_error
 
 @router.get("/health")
 async def health_check():
@@ -283,9 +306,9 @@ async def categorize_photo(
     # Convert to base64
     base64_image = await file_to_base64(photo)
     
-    # Call Mistral for categorization
+    # Call Mistral for categorization with retry
     try:
-        response = await call_openrouter(
+        response = await call_openrouter_with_retry(
             model='mistralai/mistral-small-3.1-24b-instruct',
             messages=[{
                 'role': 'user',
@@ -620,12 +643,12 @@ async def analyze_photos(request: PhotoAnalysisRequest):
     if request.context:
         analysis_prompt += f"\n\nUser context: {request.context}"
     
-    # Call O4-mini for analysis
+    # Call Gemini for analysis with retry
     import time
     start_time = time.time()
     try:
         print(f"Starting AI analysis at {datetime.now()}")
-        response = await call_openrouter(
+        response = await call_openrouter_with_retry(
             model='google/gemini-2.5-pro',
             messages=[{
                 'role': 'user',
@@ -635,7 +658,8 @@ async def analyze_photos(request: PhotoAnalysisRequest):
                 ]
             }],
             max_tokens=2000,
-            temperature=0.1
+            temperature=0.1,
+            max_retries=3
         )
         
         elapsed = time.time() - start_time
@@ -666,7 +690,7 @@ async def analyze_photos(request: PhotoAnalysisRequest):
         
         try:
             print("Falling back to gemini-2.0-flash-exp:free")
-            response = await call_openrouter(
+            response = await call_openrouter_with_retry(
                 model='google/gemini-2.0-flash-exp:free',
                 messages=[{
                     'role': 'user',
@@ -676,7 +700,8 @@ async def analyze_photos(request: PhotoAnalysisRequest):
                     ]
                 }],
                 max_tokens=2000,
-                temperature=0.1
+                temperature=0.1,
+                max_retries=2  # Fewer retries for fallback
             )
             
             content = response['choices'][0]['message']['content']
@@ -995,4 +1020,201 @@ async def approve_tracking_suggestions(
     return {
         'tracking_configs': tracking_configs,
         'dashboard_url': '/dashboard#tracking'
+    }
+
+
+@router.post("/reports/photo-analysis")
+async def generate_photo_analysis_report(request: PhotoAnalysisReportRequest):
+    """Generate comprehensive report from photo analyses"""
+    if not supabase:
+        raise HTTPException(status_code=500, detail="Database connection not configured")
+    if not OPENROUTER_API_KEY:
+        raise HTTPException(status_code=500, detail="OpenRouter API key not configured")
+    
+    print(f"Generating photo analysis report for sessions: {request.session_ids}")
+    
+    # Verify user owns all sessions
+    sessions_result = supabase.table('photo_sessions')\
+        .select('*')\
+        .in_('id', request.session_ids)\
+        .eq('user_id', request.user_id)\
+        .execute()
+    
+    if not sessions_result.data or len(sessions_result.data) != len(request.session_ids):
+        raise HTTPException(status_code=404, detail="One or more sessions not found or unauthorized")
+    
+    sessions = sessions_result.data
+    
+    # Get all analyses for these sessions
+    analyses_result = supabase.table('photo_analyses')\
+        .select('*')\
+        .in_('session_id', request.session_ids)\
+        .order('created_at.desc')\
+        .execute()
+    
+    analyses = analyses_result.data or []
+    
+    # Get all photos for visual timeline (non-sensitive only)
+    photos_result = supabase.table('photo_uploads')\
+        .select('*')\
+        .in_('session_id', request.session_ids)\
+        .neq('category', 'medical_sensitive')\
+        .order('uploaded_at')\
+        .execute()
+    
+    photos = photos_result.data or []
+    
+    # Apply time range filter if specified
+    if request.time_range_days:
+        cutoff_date = (datetime.now() - timedelta(days=request.time_range_days)).isoformat()
+        analyses = [a for a in analyses if a['created_at'] >= cutoff_date]
+        photos = [p for p in photos if p['uploaded_at'] >= cutoff_date]
+    
+    # Get tracking data if requested
+    tracking_data = {}
+    if request.include_tracking_data:
+        # Get photo tracking configurations
+        tracking_configs_result = supabase.table('photo_tracking_configurations')\
+            .select('*')\
+            .in_('session_id', request.session_ids)\
+            .execute()
+        
+        for config in (tracking_configs_result.data or []):
+            # Get data points
+            data_points_result = supabase.table('photo_tracking_data')\
+                .select('*')\
+                .eq('configuration_id', config['id'])\
+                .order('recorded_at')\
+                .execute()
+            
+            tracking_data[config['metric_name']] = {
+                'config': config,
+                'data_points': data_points_result.data or []
+            }
+    
+    # Build comprehensive report data
+    report_data = {
+        'sessions': sessions,
+        'total_analyses': len(analyses),
+        'total_photos': len(photos),
+        'date_range': {
+            'start': min([a['created_at'] for a in analyses]) if analyses else None,
+            'end': max([a['created_at'] for a in analyses]) if analyses else None
+        },
+        'conditions_tracked': [s['condition_name'] for s in sessions],
+        'analyses_timeline': [],
+        'visual_progression': [],
+        'tracking_metrics': tracking_data,
+        'ai_insights': {}
+    }
+    
+    # Build analyses timeline
+    for analysis in analyses:
+        report_data['analyses_timeline'].append({
+            'date': analysis['created_at'],
+            'primary_assessment': analysis['analysis_data'].get('primary_assessment'),
+            'confidence': analysis['confidence_score'],
+            'key_observations': analysis['analysis_data'].get('visual_observations', [])[:3],
+            'recommendations': analysis['analysis_data'].get('recommendations', [])[:2]
+        })
+    
+    # Build visual progression (for non-sensitive photos)
+    if request.include_visual_timeline and photos:
+        for photo in photos:
+            if photo['storage_url']:
+                try:
+                    # Create signed URL
+                    url_data = supabase.storage.from_(STORAGE_BUCKET).create_signed_url(
+                        photo['storage_url'],
+                        3600  # 1 hour
+                    )
+                    preview_url = url_data.get('signedURL') or url_data.get('signedUrl')
+                    
+                    # Find associated analysis
+                    photo_analysis = next(
+                        (a for a in analyses if photo['id'] in a.get('photo_ids', [])),
+                        None
+                    )
+                    
+                    report_data['visual_progression'].append({
+                        'date': photo['uploaded_at'],
+                        'preview_url': preview_url,
+                        'category': photo['category'],
+                        'assessment': photo_analysis['analysis_data'].get('primary_assessment') if photo_analysis else None
+                    })
+                except Exception as e:
+                    print(f"Error creating preview URL: {str(e)}")
+    
+    # Generate AI insights using all the data
+    insights_prompt = f"""Analyze this comprehensive photo-based health tracking data and provide insights:
+
+Conditions tracked: {', '.join(report_data['conditions_tracked'])}
+Total analyses: {report_data['total_analyses']}
+Date range: {report_data['date_range']['start']} to {report_data['date_range']['end']}
+
+Recent assessments:
+{json.dumps(report_data['analyses_timeline'][:5], indent=2)}
+
+Tracking metrics:
+{json.dumps({k: len(v['data_points']) for k, v in tracking_data.items()}, indent=2)}
+
+Provide:
+1. Overall progression summary (improving/stable/worsening)
+2. Key patterns identified
+3. Most significant changes
+4. Recommendations for continued tracking
+5. When to seek medical attention
+
+Format as JSON:
+{{
+  "overall_trend": "improving|stable|worsening",
+  "confidence": 0-100,
+  "key_patterns": ["pattern1", "pattern2"],
+  "significant_changes": ["change1", "change2"],
+  "tracking_recommendations": ["rec1", "rec2"],
+  "medical_attention_indicators": ["indicator1", "indicator2"],
+  "summary": "1-2 sentence summary"
+}}"""
+    
+    try:
+        response = await call_openrouter_with_retry(
+            model='google/gemini-2.5-pro',
+            messages=[
+                {"role": "system", "content": "You are a medical AI analyzing photo-based health tracking data."},
+                {"role": "user", "content": insights_prompt}
+            ],
+            max_tokens=1000,
+            temperature=0.3
+        )
+        
+        insights = extract_json_from_text(response['choices'][0]['message']['content'])
+        report_data['ai_insights'] = insights
+        
+    except Exception as e:
+        print(f"Error generating AI insights: {str(e)}")
+        report_data['ai_insights'] = {
+            "error": "Could not generate AI insights",
+            "summary": "Please review the timeline data manually"
+        }
+    
+    # Create report record
+    report_id = str(uuid.uuid4())
+    report_record = {
+        'id': report_id,
+        'user_id': request.user_id,
+        'report_type': 'photo_analysis',
+        'report_data': report_data,
+        'created_at': datetime.now().isoformat(),
+        'session_ids': request.session_ids
+    }
+    
+    # Save to medical_reports table
+    supabase.table('medical_reports').insert(report_record).execute()
+    
+    return {
+        'report_id': report_id,
+        'report_type': 'photo_analysis',
+        'generated_at': report_record['created_at'],
+        'report_data': report_data,
+        'status': 'success'
     }

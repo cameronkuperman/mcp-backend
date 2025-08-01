@@ -93,6 +93,7 @@ class ReportAnalyzeRequest(BaseModel):
 class ComprehensiveReportRequest(BaseModel):
     analysis_id: str
     user_id: Optional[str] = None
+    photo_session_ids: Optional[List[str]] = None
 
 class UrgentTriageRequest(BaseModel):
     analysis_id: str
@@ -111,6 +112,7 @@ class SpecialistReportRequest(BaseModel):
     analysis_id: str
     user_id: Optional[str] = None
     specialty: Optional[str] = None
+    photo_session_ids: Optional[List[str]] = None
 
 class AnnualSummaryRequest(BaseModel):
     analysis_id: str
@@ -202,6 +204,13 @@ class PhotoSessionResponse(BaseModel):
     is_sensitive: bool
     latest_summary: Optional[str] = None
     thumbnail_url: Optional[str] = None
+
+class PhotoAnalysisReportRequest(BaseModel):
+    user_id: str
+    session_ids: List[str]
+    include_visual_timeline: bool = True
+    include_tracking_data: bool = True
+    time_range_days: Optional[int] = None  # None means all time
 
 # Health Analysis Models
 class HealthAnalysisRequest(BaseModel):

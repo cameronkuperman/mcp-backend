@@ -182,6 +182,16 @@ async def generate_specialist_report(request: SpecialistReportRequest):
         # Gather all data
         data = await gather_report_data(request.user_id or analysis["user_id"], config)
         
+        # Get photo analysis data if available
+        photo_analyses = []
+        if hasattr(request, 'photo_session_ids') and request.photo_session_ids:
+            photo_analyses_result = supabase.table('photo_analyses')\
+                .select('*')\
+                .in_('session_id', request.photo_session_ids)\
+                .order('created_at.desc')\
+                .execute()
+            photo_analyses = photo_analyses_result.data or []
+        
         # Build specialist context
         specialty = request.specialty or "specialist"
         context = f"""Generate a {specialty} referral report.
@@ -204,6 +214,19 @@ Symptom History:
     'symptom': s.get('symptom_name'),
     'severity': s.get('severity')
 } for s in data['symptom_tracking']], indent=2)}"""
+        
+        # Add photo analysis data if available
+        if photo_analyses:
+            context += f"""
+
+Photo Analysis Data:
+{json.dumps([{
+    'date': pa['created_at'][:10],
+    'visual_assessment': pa['analysis_data'].get('primary_assessment'),
+    'visual_observations': pa['analysis_data'].get('visual_observations', [])[:3],
+    'confidence': pa.get('confidence_score'),
+    'red_flags': pa['analysis_data'].get('red_flags', [])
+} for pa in photo_analyses[:5]], indent=2)}"""
 
         system_prompt = f"""Generate a specialist referral report for {specialty}. Return JSON:
 {{
