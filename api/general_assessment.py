@@ -156,8 +156,15 @@ Respond in JSON format with:
             }
         
         # Save to database
+        # Convert user_id to UUID if it's provided as string
+        if user_id and isinstance(user_id, str):
+            try:
+                user_id = uuid.UUID(user_id)
+            except ValueError:
+                pass  # Keep as string if not valid UUID
+        
         flash_result = supabase.table("flash_assessments").insert({
-            "user_id": user_id,
+            "user_id": str(user_id) if user_id else None,
             "user_query": user_query,
             "ai_response": parsed.get("response", ""),
             "main_concern": parsed.get("main_concern", ""),
