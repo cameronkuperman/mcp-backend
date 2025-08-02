@@ -3,12 +3,12 @@ from fastapi import APIRouter
 from datetime import datetime, timezone
 import json
 import uuid
-import os
 
 from models.requests import HealthStoryRequest
 from supabase_client import supabase
 from utils.data_gathering import get_health_story_data
 from utils.token_counter import count_tokens
+from utils.json_parser import extract_json_from_response
 from business_logic import call_llm
 
 router = APIRouter(prefix="/api", tags=["health-story"])
@@ -16,8 +16,6 @@ router = APIRouter(prefix="/api", tags=["health-story"])
 @router.post("/health-story")
 async def generate_health_story(request: HealthStoryRequest):
     """Generate weekly health story analysis"""
-    api_key = os.getenv("OPENROUTER_API_KEY")
-    
     print(f"Health story request received for user_id: '{request.user_id}'")
     print(f"User ID type: {type(request.user_id)}, length: {len(request.user_id)}")
     
@@ -150,7 +148,14 @@ async def generate_health_story(request: HealthStoryRequest):
         # Generate health story with creative title
         system_prompt = """You are a creative health journalist analyzing patterns and trends to create an engaging narrative health story with a compelling title.
 
-        CRITICAL: You MUST return a JSON object with this exact structure:
+        CRITICAL FORMATTING RULES:
+        1. You MUST return ONLY a valid JSON object - nothing before or after
+        2. Do NOT include any text, explanations, or markdown formatting
+        3. Do NOT wrap the JSON in ```json``` code blocks
+        4. The response must start with { and end with }
+        5. Use proper JSON syntax with double quotes for all strings
+        
+        The JSON MUST have this EXACT structure:
         {
             "title": "Creative, engaging title that captures the main health theme",
             "subtitle": "Brief tagline that complements the title",
@@ -192,47 +197,67 @@ async def generate_health_story(request: HealthStoryRequest):
         - Be overly dramatic or flowery
         - Give medical advice
         - Overuse metaphors or abstract language
+        - Include ANY text outside the JSON object
         
-        Remember: Keep it engaging but grounded. The goal is a clear, warm narrative that makes health insights accessible and interesting."""
+        Remember: Keep it engaging but grounded. The goal is a clear, warm narrative that makes health insights accessible and interesting.
+        
+        FINAL REMINDER: Return ONLY the JSON object, no other text."""
         
         messages = [
             {"role": "system", "content": system_prompt},
-            {"role": "user", "content": f"Based on the following health data from the past week, generate a health story:\n\n{context}"}
+            {"role": "user", "content": f"Based on the following health data from the past week, generate a health story. Remember to return ONLY valid JSON with no additional text:\n\n{context}"}
         ]
         
         # Call LLM
+        print(f"Calling Kimi K2 for health story generation...")
+        print(f"System prompt length: {len(system_prompt)} chars")
+        print(f"Context length: {len(context)} chars")
+        
         llm_response = await call_llm(
             messages=messages,
-            model="moonshotai/kimi-k2",  # Using Kimi K2 paid tier for article generation
+            model="moonshotai/kimi-k2",  # Using Kimi K2 for superior creative writing
             user_id=request.user_id,
-            temperature=0.7,
+            temperature=0.8,  # Slightly higher for more creative writing
             max_tokens=1024
         )
+        
+        print(f"LLM Response received. Model used: {llm_response.get('model', 'unknown')}")
+        print(f"Token usage: {llm_response.get('usage', {})}")
         
         # Parse the JSON response to get title and content
         story_response = llm_response.get("content", {})
         
-        # Handle both JSON and string responses
+        # Log raw response
+        print(f"Raw LLM response type: {type(story_response)}")
         if isinstance(story_response, str):
-            # Try to parse as JSON
-            try:
-                story_data = json.loads(story_response)
-                story_title = story_data.get("title", "Your Health Patterns This Week")
-                story_subtitle = story_data.get("subtitle", "An analysis of your wellness trends")
-                story_content = story_data.get("content", "Unable to generate health story at this time.")
-            except:
-                # Fallback if not JSON
-                story_title = "Your Health Patterns This Week"
-                story_subtitle = "An analysis of your wellness trends"
-                story_content = story_response
-        elif isinstance(story_response, dict):
-            story_title = story_response.get("title", "Your Health Patterns This Week")
-            story_subtitle = story_response.get("subtitle", "An analysis of your wellness trends")
-            story_content = story_response.get("content", "Unable to generate health story at this time.")
+            print(f"Raw response (first 500 chars): {story_response[:500]}...")
         else:
+            print(f"Raw response (dict): {story_response}")
+        
+        # Use aggressive JSON extraction
+        story_data = extract_json_from_response(story_response)
+        
+        # Debug logging
+        if not story_data:
+            print(f"ERROR: Failed to extract JSON from Kimi response")
+            print(f"Full raw response: {story_response}")
+        else:
+            print(f"Successfully extracted JSON. Keys: {list(story_data.keys()) if isinstance(story_data, dict) else 'Not a dict'}")
+        
+        if story_data and isinstance(story_data, dict):
+            story_title = story_data.get("title", "Your Health Patterns This Week")
+            story_subtitle = story_data.get("subtitle", "An analysis of your wellness trends")
+            story_content = story_data.get("content", "Unable to generate health story at this time.")
+            
+            print(f"Extracted title: {story_title[:50]}...")
+            print(f"Extracted subtitle: {story_subtitle[:50]}...")
+            print(f"Content length: {len(story_content)} chars")
+        else:
+            # Fallback values
+            print("WARNING: Using fallback values for story")
             story_title = "Your Health Patterns This Week"
             story_subtitle = "An analysis of your wellness trends"
-            story_content = "Unable to generate health story at this time."
+            story_content = str(story_response) if story_response else "Unable to generate health story at this time."
         
         # Generate response
         story_id = str(uuid.uuid4())
