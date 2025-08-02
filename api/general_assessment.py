@@ -156,8 +156,7 @@ Respond in JSON format with:
             }
         
         # Save to database
-        supabase = get_supabase_client()
-        flash_result = await supabase.table("flash_assessments").insert({
+        flash_result = supabase.table("flash_assessments").insert({
             "user_id": user_id,
             "user_query": user_query,
             "ai_response": parsed.get("response", ""),
@@ -253,8 +252,7 @@ Provide a comprehensive analysis in JSON format:
             }
         
         # Save to database
-        supabase = get_supabase_client()
-        assessment_result = await supabase.table("general_assessments").insert({
+        assessment_result = supabase.table("general_assessments").insert({
             "user_id": user_id,
             "category": category,
             "form_data": form_data,
@@ -338,8 +336,7 @@ Respond in JSON format:
             }
         
         # Save session
-        supabase = get_supabase_client()
-        session_result = await supabase.table("general_deepdive_sessions").insert({
+        session_result = supabase.table("general_deepdive_sessions").insert({
             "id": session_id,
             "user_id": user_id,
             "category": category,
@@ -381,8 +378,7 @@ async def continue_general_deepdive(request: Request):
             raise HTTPException(status_code=400, detail="session_id and answer are required")
         
         # Fetch session
-        supabase = get_supabase_client()
-        session_result = await supabase.table("general_deepdive_sessions").select("*").eq("id", session_id).single().execute()
+        session_result = supabase.table("general_deepdive_sessions").select("*").eq("id", session_id).single().execute()
         
         if not session_result.data:
             raise HTTPException(status_code=404, detail="Session not found")
@@ -400,7 +396,7 @@ async def continue_general_deepdive(request: Request):
         # Check if we have enough information
         if question_number >= 5 or (question_number >= 3 and await has_sufficient_confidence(session)):
             # Update session status
-            await supabase.table("general_deepdive_sessions").update({
+            supabase.table("general_deepdive_sessions").update({
                 "answers": session["answers"],
                 "status": "analysis_ready",
                 "current_step": question_number
@@ -452,7 +448,7 @@ Respond in JSON format:
         questions = session.get("questions", [])
         questions.append(question_data)
         
-        await supabase.table("general_deepdive_sessions").update({
+        supabase.table("general_deepdive_sessions").update({
             "questions": questions,
             "answers": session["answers"],
             "current_step": question_number + 1
@@ -482,8 +478,7 @@ async def complete_general_deepdive(request: Request):
             raise HTTPException(status_code=400, detail="session_id is required")
         
         # Fetch complete session
-        supabase = get_supabase_client()
-        session_result = await supabase.table("general_deepdive_sessions").select("*").eq("id", session_id).single().execute()
+        session_result = supabase.table("general_deepdive_sessions").select("*").eq("id", session_id).single().execute()
         
         if not session_result.data:
             raise HTTPException(status_code=404, detail="Session not found")
@@ -560,7 +555,7 @@ Provide a comprehensive final analysis in JSON format:
         session_duration_ms = int((datetime.now() - created_at).total_seconds() * 1000)
         
         # Update session with final analysis
-        await supabase.table("general_deepdive_sessions").update({
+        supabase.table("general_deepdive_sessions").update({
             "final_analysis": analysis_data.get("analysis", {}),
             "final_confidence": analysis_data.get("confidence", 50),
             "key_findings": analysis_data.get("analysis", {}).get("key_findings", []),
