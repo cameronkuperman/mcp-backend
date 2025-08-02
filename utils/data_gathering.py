@@ -490,6 +490,122 @@ async def gather_photo_data(user_id: str, config: dict):
     # For now, return empty list
     return []
 
+async def gather_selected_data(
+    user_id: str, 
+    quick_scan_ids: Optional[List[str]] = None, 
+    deep_dive_ids: Optional[List[str]] = None, 
+    photo_session_ids: Optional[List[str]] = None
+) -> Dict[str, Any]:
+    """
+    Gather only specific selected interactions for specialist reports
+    
+    Args:
+        user_id: User ID for verification
+        quick_scan_ids: List of specific quick scan IDs to fetch
+        deep_dive_ids: List of specific deep dive session IDs to fetch
+        photo_session_ids: List of specific photo session IDs to fetch
+        
+    Returns:
+        Dictionary with selected data matching the structure of gather_comprehensive_data
+    """
+    data = {
+        "quick_scans": [],
+        "deep_dives": [],
+        "photo_analyses": [],
+        "symptom_tracking": [],
+        "tracking_data": [],
+        "llm_summaries": [],
+        "wearables": {}
+    }
+    
+    try:
+        # Get specific quick scans
+        if quick_scan_ids:
+            scans_result = supabase.table("quick_scans")\
+                .select("*")\
+                .in_("id", quick_scan_ids)\
+                .eq("user_id", user_id)\
+                .order("created_at")\
+                .execute()
+            data["quick_scans"] = scans_result.data or []
+            
+            # Get dates for symptom tracking correlation
+            scan_dates = [scan["created_at"][:10] for scan in data["quick_scans"]]
+            
+            # Get symptom tracking entries from same dates
+            if scan_dates:
+                for date in scan_dates:
+                    symptoms_result = supabase.table("symptom_tracking")\
+                        .select("*")\
+                        .eq("user_id", user_id)\
+                        .gte("created_at", f"{date}T00:00:00")\
+                        .lte("created_at", f"{date}T23:59:59")\
+                        .order("created_at")\
+                        .execute()
+                    data["symptom_tracking"].extend(symptoms_result.data or [])
+        
+        # Get specific deep dives
+        if deep_dive_ids:
+            dives_result = supabase.table("deep_dive_sessions")\
+                .select("*")\
+                .in_("id", deep_dive_ids)\
+                .eq("user_id", user_id)\
+                .eq("status", "completed")\
+                .order("created_at")\
+                .execute()
+            data["deep_dives"] = dives_result.data or []
+        
+        # Get photo analyses for specific sessions
+        if photo_session_ids:
+            photo_result = supabase.table("photo_analyses")\
+                .select("*")\
+                .in_("session_id", photo_session_ids)\
+                .order("created_at.desc")\
+                .execute()
+            data["photo_analyses"] = photo_result.data or []
+        
+        # Get any LLM summaries from the same dates
+        all_dates = set()
+        for scan in data["quick_scans"]:
+            all_dates.add(scan["created_at"][:10])
+        for dive in data["deep_dives"]:
+            all_dates.add(dive["created_at"][:10])
+            
+        if all_dates:
+            for date in all_dates:
+                chat_result = supabase.table("oracle_chats")\
+                    .select("*")\
+                    .eq("user_id", user_id)\
+                    .gte("created_at", f"{date}T00:00:00")\
+                    .lte("created_at", f"{date}T23:59:59")\
+                    .order("created_at")\
+                    .execute()
+                data["llm_summaries"].extend(chat_result.data or [])
+        
+        # Remove duplicates from symptom_tracking and llm_summaries
+        seen_symptoms = set()
+        unique_symptoms = []
+        for symptom in data["symptom_tracking"]:
+            symptom_id = symptom.get("id")
+            if symptom_id and symptom_id not in seen_symptoms:
+                seen_symptoms.add(symptom_id)
+                unique_symptoms.append(symptom)
+        data["symptom_tracking"] = unique_symptoms
+        
+        seen_chats = set()
+        unique_chats = []
+        for chat in data["llm_summaries"]:
+            chat_id = chat.get("id")
+            if chat_id and chat_id not in seen_chats:
+                seen_chats.add(chat_id)
+                unique_chats.append(chat)
+        data["llm_summaries"] = unique_chats
+        
+    except Exception as e:
+        print(f"Error in gather_selected_data: {e}")
+        
+    return data
+
 async def gather_user_health_data(user_id: str) -> Dict[str, Any]:
     """
     Gather comprehensive health data for analysis generation

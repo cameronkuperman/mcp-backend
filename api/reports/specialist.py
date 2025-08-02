@@ -10,7 +10,8 @@ from business_logic import call_llm
 from utils.json_parser import extract_json_from_response
 from utils.data_gathering import (
     gather_report_data,
-    gather_comprehensive_data, 
+    gather_comprehensive_data,
+    gather_selected_data,
     extract_cardiac_patterns,
     extract_neuro_patterns,
     extract_mental_health_patterns,

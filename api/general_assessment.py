@@ -106,10 +106,19 @@ async def flash_assessment(request: Request):
         # Fetch user medical data if user_id provided
         user_medical_data = {}
         if user_id:
-            user_medical_data = await get_user_medical_data(user_id)
+            try:
+                user_medical_data = await get_user_medical_data(user_id)
+                logger.info(f"Fetched medical data for user {user_id}")
+            except Exception as e:
+                logger.warning(f"Failed to fetch medical data: {str(e)}")
+                user_medical_data = {}
         
         # Build system prompt
-        medical_context = format_medical_data(user_medical_data) if user_medical_data else "No medical history available"
+        try:
+            medical_context = format_medical_data(user_medical_data) if user_medical_data else "No medical history available"
+        except Exception as e:
+            logger.error(f"Error formatting medical data: {str(e)}")
+            medical_context = "No medical history available"
         
         system_prompt = f"""You are a compassionate health triage assistant performing initial assessment.
         
@@ -144,15 +153,27 @@ Respond in JSON format with:
         )
         
         # Parse response
-        parsed = extract_json_from_text(llm_response)
-        if not parsed:
+        try:
+            parsed = extract_json_from_text(llm_response)
+            if not parsed:
+                logger.warning("Failed to parse JSON from LLM response, using defaults")
+                parsed = {
+                    "response": llm_response if isinstance(llm_response, str) else "I understand your concern. Let me help you with that.",
+                    "main_concern": "Unable to extract",
+                    "urgency": "medium", 
+                    "confidence": 70,
+                    "next_action": "general-assessment",
+                    "action_reason": "Further assessment needed"
+                }
+        except Exception as e:
+            logger.error(f"Error parsing LLM response: {str(e)}")
             parsed = {
-                "response": llm_response,
-                "main_concern": "Unable to extract",
+                "response": "I understand your concern. Let me help assess your situation.",
+                "main_concern": user_query[:100],  # First 100 chars of query
                 "urgency": "medium",
-                "confidence": 70,
-                "next_action": "general-assessment",
-                "action_reason": "Further assessment needed"
+                "confidence": 50,
+                "next_action": "general-assessment", 
+                "action_reason": "Need more information"
             }
         
         # Save to database
@@ -163,18 +184,24 @@ Respond in JSON format with:
             except ValueError:
                 pass  # Keep as string if not valid UUID
         
-        flash_result = supabase.table("flash_assessments").insert({
-            "user_id": str(user_id) if user_id else None,
-            "user_query": user_query,
-            "ai_response": parsed.get("response", ""),
-            "main_concern": parsed.get("main_concern", ""),
-            "urgency": parsed.get("urgency", "medium"),
-            "confidence_score": parsed.get("confidence", 70),
-            "suggested_next_action": parsed.get("next_action", "general-assessment"),
-            "model_used": "google/gemini-2.5-flash-lite"
-        }).execute()
-        
-        flash_id = flash_result.data[0]["id"] if flash_result.data else str(uuid.uuid4())
+        # Save to database with error handling
+        try:
+            flash_result = supabase.table("flash_assessments").insert({
+                "user_id": str(user_id) if user_id else None,
+                "user_query": user_query,
+                "ai_response": parsed.get("response", ""),
+                "main_concern": parsed.get("main_concern", ""),
+                "urgency": parsed.get("urgency", "medium"),
+                "confidence_score": float(parsed.get("confidence", 70)),  # Ensure it's a float
+                "suggested_next_action": parsed.get("next_action", "general-assessment"),
+                "model_used": "google/gemini-2.5-flash-lite"
+            }).execute()
+            
+            flash_id = flash_result.data[0]["id"] if flash_result.data else str(uuid.uuid4())
+        except Exception as e:
+            logger.error(f"Database insert error: {str(e)}")
+            # Return response even if DB save fails
+            flash_id = str(uuid.uuid4())
         
         return {
             "flash_id": flash_id,
