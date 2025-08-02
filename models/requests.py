@@ -112,6 +112,8 @@ class SpecialistReportRequest(BaseModel):
     analysis_id: str
     user_id: Optional[str] = None
     specialty: Optional[str] = None
+    quick_scan_ids: Optional[List[str]] = None
+    deep_dive_ids: Optional[List[str]] = None
     photo_session_ids: Optional[List[str]] = None
 
 class AnnualSummaryRequest(BaseModel):

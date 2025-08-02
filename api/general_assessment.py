@@ -597,14 +597,34 @@ def format_medical_data(medical_data: dict) -> str:
     weight = medical_data.get('weight', 0)
     bmi = calculate_bmi(height, weight) if height and weight else "Unknown"
     
+    # Handle medications which is an array in the DB
+    medications = medical_data.get('medications', [])
+    if medications and isinstance(medications, list):
+        medications_str = ', '.join(medications)
+    else:
+        medications_str = 'None'
+    
+    # Handle allergies and family_history which are JSONB
+    allergies = medical_data.get('allergies', [])
+    if allergies and isinstance(allergies, list):
+        allergies_str = ', '.join(allergies)
+    else:
+        allergies_str = 'None'
+        
+    family_history = medical_data.get('family_history', [])
+    if family_history and isinstance(family_history, list):
+        family_history_str = ', '.join(family_history)
+    else:
+        family_history_str = 'None'
+    
     return f"""
 Age: {medical_data.get('age', 'Unknown')}
 Gender: {'Male' if medical_data.get('is_male') else 'Female' if medical_data.get('is_male') is False else 'Unknown'}
 BMI: {bmi}
-Chronic Conditions: {', '.join(medical_data.get('chronic_conditions', [])) or 'None'}
-Current Medications: {', '.join(medical_data.get('current_medications', [])) or 'None'}
-Allergies: {', '.join(medical_data.get('allergies', [])) or 'None'}
-Relevant Family History: {', '.join(medical_data.get('family_history', [])) or 'None'}
+Health Context: {medical_data.get('personal_health_context', 'None provided')}
+Current Medications: {medications_str}
+Allergies: {allergies_str}
+Family History: {family_history_str}
 """
 
 def calculate_bmi(height_cm: float, weight_kg: float) -> str:
@@ -691,11 +711,17 @@ def build_category_prompt(category: str, medical_data: dict) -> str:
     base_prompt = CATEGORY_PROMPTS.get(category, CATEGORY_PROMPTS["unsure"])
     
     # Replace placeholders with actual medical data
-    medications = ', '.join(medical_data.get('current_medications', [])) or 'None'
-    conditions = ', '.join(medical_data.get('chronic_conditions', [])) or 'None'
+    medications = medical_data.get('medications', [])
+    if medications and isinstance(medications, list):
+        medications_str = ', '.join(medications) or 'None'
+    else:
+        medications_str = 'None'
+    
+    # Use personal_health_context as conditions since there's no chronic_conditions field
+    conditions = medical_data.get('personal_health_context', 'None')
     
     prompt = base_prompt.format(
-        medications=medications,
+        medications=medications_str,
         conditions=conditions
     )
     
