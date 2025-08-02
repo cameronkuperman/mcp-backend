@@ -152,7 +152,7 @@ Respond in JSON format with:
             temperature=0.7
         )
         
-        logger.info(f"LLM Response: {llm_response[:500]}...")  # Log first 500 chars
+        logger.info(f"LLM Response: {str(llm_response)[:500]}...")  # Log first 500 chars
         
         # Parse response
         try:
