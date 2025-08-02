@@ -611,9 +611,15 @@ def calculate_bmi(height_cm: float, weight_kg: float) -> str:
     """Calculate BMI from height and weight"""
     if not height_cm or not weight_kg:
         return "Unknown"
-    height_m = height_cm / 100
-    bmi = weight_kg / (height_m ** 2)
-    return f"{bmi:.1f}"
+    try:
+        # Convert to float if they're strings
+        height_cm = float(height_cm)
+        weight_kg = float(weight_kg)
+        height_m = height_cm / 100
+        bmi = weight_kg / (height_m ** 2)
+        return f"{bmi:.1f}"
+    except (ValueError, TypeError):
+        return "Unknown"
 
 def format_form_data(form_data: dict, category: str) -> str:
     """Format form data based on category"""
