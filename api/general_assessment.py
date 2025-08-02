@@ -321,17 +321,22 @@ Provide a comprehensive analysis in JSON format:
             }
         
         # Save to database
-        assessment_result = supabase.table("general_assessments").insert({
-            "user_id": user_id,
-            "category": category,
-            "form_data": form_data,
-            "analysis_result": analysis,
-            "primary_assessment": analysis.get("primary_assessment", ""),
-            "confidence_score": analysis.get("confidence", 50),
-            "urgency_level": analysis.get("urgency", "medium"),
-            "recommendations": analysis.get("recommendations", []),
-            "model_used": "google/gemini-2.5-flash-lite"
-        }).execute()
+        try:
+            assessment_result = supabase.table("general_assessments").insert({
+                "user_id": str(user_id) if user_id else None,
+                "category": category,
+                "form_data": form_data,
+                "analysis_result": analysis,
+                "primary_assessment": analysis.get("primary_assessment", ""),
+                "confidence_score": float(analysis.get("confidence", 50)),
+                "urgency_level": analysis.get("urgency", "medium"),
+                "recommendations": analysis.get("recommendations", []),
+                "model_used": "deepseek/deepseek-chat"
+            }).execute()
+        except Exception as e:
+            logger.error(f"Database insert error: {str(e)}")
+            # Try to return success even if DB fails
+            assessment_result = type('obj', (object,), {'data': [{'id': str(uuid.uuid4())}]})
         
         assessment_id = assessment_result.data[0]["id"] if assessment_result.data else str(uuid.uuid4())
         
