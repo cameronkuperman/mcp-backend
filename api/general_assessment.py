@@ -154,13 +154,26 @@ Respond in JSON format with:
         
         logger.info(f"LLM Response: {str(llm_response)[:500]}...")  # Log first 500 chars
         
+        # Extract content from response
+        if isinstance(llm_response, dict):
+            llm_content = llm_response.get('content', '')
+        else:
+            llm_content = str(llm_response)
+        
+        # Clean up markdown blocks if present
+        if '```json' in llm_content:
+            llm_content = llm_content.replace('```json', '').replace('```', '').strip()
+        
+        logger.info(f"Cleaned content: {llm_content[:500]}...")
+        
         # Parse response
         try:
-            parsed = extract_json_from_text(llm_response)
+            parsed = extract_json_from_text(llm_content)
+            logger.info(f"Parsed result: {parsed}")
             if not parsed:
                 logger.warning("Failed to parse JSON from LLM response, using defaults")
                 parsed = {
-                    "response": llm_response if isinstance(llm_response, str) else "I understand your concern. Let me help you with that.",
+                    "response": llm_content if llm_content else "I understand your concern. Let me help you with that.",
                     "main_concern": "Unable to extract",
                     "urgency": "medium", 
                     "confidence": 70,
