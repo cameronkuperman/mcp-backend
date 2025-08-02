@@ -194,7 +194,8 @@ Respond in JSON format with:
                 "urgency": parsed.get("urgency", "medium"),
                 "confidence_score": float(parsed.get("confidence", 70)),  # Ensure it's a float
                 "suggested_next_action": parsed.get("next_action", "general-assessment"),
-                "model_used": "google/gemini-2.5-flash-lite"
+                "model_used": "google/gemini-2.5-flash-lite",
+                "category": None  # Flash assessments don't have a specific category
             }).execute()
             
             flash_id = flash_result.data[0]["id"] if flash_result.data else str(uuid.uuid4())
@@ -634,13 +635,29 @@ def format_medical_data(medical_data: dict) -> str:
     # Handle allergies and family_history which are JSONB
     allergies = medical_data.get('allergies', [])
     if allergies and isinstance(allergies, list):
-        allergies_str = ', '.join(allergies)
+        # Handle case where items might be dicts or strings
+        allergies_list = []
+        for item in allergies:
+            if isinstance(item, dict):
+                # Extract relevant field from dict (e.g., 'name' or 'allergy')
+                allergies_list.append(str(item.get('name', item.get('allergy', str(item)))))
+            else:
+                allergies_list.append(str(item))
+        allergies_str = ', '.join(allergies_list) if allergies_list else 'None'
     else:
         allergies_str = 'None'
         
     family_history = medical_data.get('family_history', [])
     if family_history and isinstance(family_history, list):
-        family_history_str = ', '.join(family_history)
+        # Handle case where items might be dicts or strings
+        history_list = []
+        for item in family_history:
+            if isinstance(item, dict):
+                # Extract relevant field from dict
+                history_list.append(str(item.get('condition', item.get('name', str(item)))))
+            else:
+                history_list.append(str(item))
+        family_history_str = ', '.join(history_list) if history_list else 'None'
     else:
         family_history_str = 'None'
     
