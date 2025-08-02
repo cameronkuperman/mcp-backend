@@ -152,6 +152,8 @@ Respond in JSON format with:
             temperature=0.7
         )
         
+        logger.info(f"LLM Response: {llm_response[:500]}...")  # Log first 500 chars
+        
         # Parse response
         try:
             parsed = extract_json_from_text(llm_response)
@@ -204,7 +206,7 @@ Respond in JSON format with:
             # Return response even if DB save fails
             flash_id = str(uuid.uuid4())
         
-        return {
+        response_dict = {
             "flash_id": flash_id,
             "response": parsed.get("response", ""),
             "main_concern": parsed.get("main_concern", ""),
@@ -215,6 +217,9 @@ Respond in JSON format with:
                 "reason": parsed.get("action_reason", "")
             }
         }
+        
+        logger.info(f"Returning response: {json.dumps(response_dict, indent=2)}")
+        return response_dict
         
     except Exception as e:
         logger.error(f"Flash assessment error: {str(e)}")
