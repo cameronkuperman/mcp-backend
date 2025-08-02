@@ -120,26 +120,30 @@ async def flash_assessment(request: Request):
             logger.error(f"Error formatting medical data: {str(e)}")
             medical_context = "No medical history available"
         
-        system_prompt = f"""You are a compassionate health triage assistant performing initial assessment.
+        system_prompt = f"""You are a medical triage AI. Handle symptoms, concerns, and health questions professionally.
         
 User Medical Context:
 {medical_context}
 
-Your task:
-1. Listen to the user's concern
-2. Identify the main health issue
-3. Assess urgency (low/medium/high/emergency)
-4. Recommend the most appropriate next step
-5. Be warm and conversational, not clinical
+For SYMPTOMS (e.g., "my chest hurts"):
+"[Symptom] could indicate [2-3 conditions]. Key factors: [differentiators]. Urgency: [level]. Next: [action]."
 
-Respond in JSON format with:
+For QUESTIONS (e.g., "is this normal after taking medication?"):
+"[Direct answer]. [Medical context/explanation]. [If concerning, what to watch for]. [Action if needed]."
+
+For CONCERNS (e.g., "worried about these symptoms together"):
+"Your symptoms suggest [assessment]. [What makes this more/less concerning]. [Clear recommendation]."
+
+Keep it professional but human - like a skilled triage nurse. Be direct, no fluff.
+
+Respond in JSON format:
 {{
-    "response": "conversational response (1-2 paragraphs)",
-    "main_concern": "extracted primary issue",
+    "response": "Your assessment (2-4 sentences max)",
+    "main_concern": "core issue identified",
     "urgency": "low|medium|high|emergency",
     "confidence": 0-100,
     "next_action": "general-assessment|body-scan|see-doctor|monitor",
-    "action_reason": "brief explanation of why this action"
+    "action_reason": "Why this action (be specific)"
 }}"""
 
         # Call LLM
@@ -291,8 +295,20 @@ Provide a comprehensive analysis in JSON format:
             temperature=0.6
         )
         
+        logger.info(f"General assessment LLM Response: {str(llm_response)[:500]}...")
+        
+        # Extract content from response
+        if isinstance(llm_response, dict):
+            llm_content = llm_response.get('content', '')
+        else:
+            llm_content = str(llm_response)
+        
+        # Clean up markdown blocks if present
+        if '```json' in llm_content:
+            llm_content = llm_content.replace('```json', '').replace('```', '').strip()
+        
         # Parse response
-        analysis = extract_json_from_text(llm_response)
+        analysis = extract_json_from_text(llm_content)
         if not analysis:
             analysis = {
                 "primary_assessment": "Unable to parse response",
@@ -380,7 +396,17 @@ Respond in JSON format:
             temperature=0.5
         )
         
-        question_data = extract_json_from_text(llm_response)
+        # Extract content from response
+        if isinstance(llm_response, dict):
+            llm_content = llm_response.get('content', '')
+        else:
+            llm_content = str(llm_response)
+        
+        # Clean up markdown blocks if present
+        if '```json' in llm_content:
+            llm_content = llm_content.replace('```json', '').replace('```', '').strip()
+        
+        question_data = extract_json_from_text(llm_content)
         if not question_data:
             question_data = {
                 "question": "Can you describe your symptoms in more detail?",
@@ -489,7 +515,17 @@ Respond in JSON format:
             temperature=0.5
         )
         
-        question_data = extract_json_from_text(llm_response)
+        # Extract content from response
+        if isinstance(llm_response, dict):
+            llm_content = llm_response.get('content', '')
+        else:
+            llm_content = str(llm_response)
+        
+        # Clean up markdown blocks if present
+        if '```json' in llm_content:
+            llm_content = llm_content.replace('```json', '').replace('```', '').strip()
+        
+        question_data = extract_json_from_text(llm_content)
         if not question_data:
             question_data = {
                 "question": "Is there anything else you think might be relevant?",
@@ -588,7 +624,17 @@ Provide a comprehensive final analysis in JSON format:
             temperature=0.4
         )
         
-        analysis_data = extract_json_from_text(llm_response)
+        # Extract content from response
+        if isinstance(llm_response, dict):
+            llm_content = llm_response.get('content', '')
+        else:
+            llm_content = str(llm_response)
+        
+        # Clean up markdown blocks if present
+        if '```json' in llm_content:
+            llm_content = llm_content.replace('```json', '').replace('```', '').strip()
+        
+        analysis_data = extract_json_from_text(llm_content)
         if not analysis_data:
             analysis_data = {
                 "analysis": {
