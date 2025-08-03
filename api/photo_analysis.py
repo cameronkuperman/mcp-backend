@@ -18,7 +18,9 @@ from models.requests import (
     PhotoAnalysisRequest,
     PhotoAnalysisResponse,
     PhotoSessionResponse,
-    PhotoAnalysisReportRequest
+    PhotoAnalysisReportRequest,
+    PhotoReminderConfigureRequest,
+    PhotoMonitoringSuggestRequest
 )
 from utils.json_parser import extract_json_from_text
 
@@ -1218,3 +1220,705 @@ Format as JSON:
         'report_data': report_data,
         'status': 'success'
     }
+
+
+@router.post("/session/{session_id}/follow-up")
+async def add_follow_up_photos(
+    session_id: str,
+    photos: List[UploadFile] = File(...),
+    auto_compare: bool = Form(True),
+    notes: Optional[str] = Form(None),
+    compare_with_photo_ids: Optional[str] = Form(None)  # JSON string of photo IDs
+):
+    """Add follow-up photos to an existing session and optionally compare with previous photos"""
+    if not supabase:
+        raise HTTPException(status_code=500, detail="Database connection not configured")
+    if not OPENROUTER_API_KEY:
+        raise HTTPException(status_code=500, detail="OpenRouter API key not configured")
+    
+    print(f"Follow-up photos for session {session_id}, auto_compare={auto_compare}")
+    
+    # Verify session exists
+    session_result = supabase.table('photo_sessions').select('*').eq('id', session_id).single().execute()
+    if not session_result.data:
+        raise HTTPException(status_code=404, detail="Session not found")
+    
+    session = session_result.data
+    user_id = session['user_id']
+    
+    # Parse compare_with_photo_ids if provided
+    comparison_photo_ids = []
+    if compare_with_photo_ids:
+        try:
+            comparison_photo_ids = json.loads(compare_with_photo_ids)
+        except json.JSONDecodeError:
+            comparison_photo_ids = []
+    
+    # Get previous photos for comparison if auto_compare is true and no specific IDs provided
+    if auto_compare and not comparison_photo_ids:
+        # Get the most recent photos from this session
+        prev_photos_result = supabase.table('photo_uploads')\
+            .select('id, uploaded_at')\
+            .eq('session_id', session_id)\
+            .order('uploaded_at.desc')\
+            .limit(3)\
+            .execute()
+        
+        if prev_photos_result.data:
+            comparison_photo_ids = [p['id'] for p in prev_photos_result.data]
+    
+    # Process and upload new photos
+    uploaded_photos = []
+    
+    for photo in photos:
+        # Validate
+        await validate_photo_upload(photo)
+        
+        # Categorize
+        base64_image = await file_to_base64(photo)
+        
+        try:
+            response = await call_openrouter_with_retry(
+                model='mistralai/mistral-small-3.1-24b-instruct',
+                messages=[{
+                    'role': 'user',
+                    'content': [
+                        {'type': 'text', 'text': PHOTO_CATEGORIZATION_PROMPT},
+                        {'type': 'image_url', 'image_url': {'url': f'data:{photo.content_type};base64,{base64_image}'}}
+                    ]
+                }],
+                max_tokens=100,
+                temperature=0.1
+            )
+            
+            content = response['choices'][0]['message']['content']
+            categorization = extract_json_from_text(content)
+            category = categorization['category']
+            
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Categorization failed: {str(e)}")
+        
+        # Upload based on category
+        stored = False
+        storage_url = None
+        photo_id = str(uuid.uuid4())
+        
+        if category in ['medical_normal', 'medical_gore']:
+            # Upload to storage
+            sanitized_filename = sanitize_filename(photo.filename)
+            file_name = f"{user_id}/{session_id}/followup_{datetime.now().timestamp()}_{sanitized_filename}"
+            
+            try:
+                await photo.seek(0)
+                file_data = await photo.read()
+                
+                upload_response = supabase.storage.from_(STORAGE_BUCKET).upload(
+                    file_name,
+                    file_data,
+                    file_options={"content-type": photo.content_type}
+                )
+                
+                storage_url = file_name
+                stored = True
+                
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=f"Storage upload failed: {str(e)}")
+        
+        elif category == 'medical_sensitive':
+            # Store base64 temporarily
+            await photo.seek(0)
+            photo_data = await photo.read()
+            base64_data = base64.b64encode(photo_data).decode('utf-8')
+            stored = False
+        
+        # Save upload record
+        upload_data = {
+            'id': photo_id,
+            'session_id': session_id,
+            'category': category,
+            'storage_url': storage_url,
+            'file_metadata': {
+                'size': photo.size,
+                'mime_type': photo.content_type,
+                'original_name': photo.filename
+            },
+            'is_followup': True,
+            'followup_notes': notes
+        }
+        
+        if category == 'medical_sensitive':
+            upload_data['temporary_data'] = base64_data
+        
+        upload_record = supabase.table('photo_uploads').insert(upload_data).execute()
+        
+        # Get preview URL
+        preview_url = None
+        if stored:
+            try:
+                preview_data = supabase.storage.from_(STORAGE_BUCKET).create_signed_url(
+                    storage_url,
+                    3600
+                )
+                preview_url = preview_data.get('signedURL') or preview_data.get('signedUrl')
+            except Exception as e:
+                print(f"Error creating preview URL: {str(e)}")
+        
+        uploaded_photos.append({
+            'id': photo_id,
+            'category': category,
+            'stored': stored,
+            'preview_url': preview_url
+        })
+    
+    # Update session last_photo_at
+    supabase.table('photo_sessions').update({
+        'last_photo_at': datetime.now().isoformat()
+    }).eq('id', session_id).execute()
+    
+    # Perform comparison if requested
+    comparison_results = None
+    if comparison_photo_ids and uploaded_photos:
+        # Analyze new photos with comparison
+        new_photo_ids = [p['id'] for p in uploaded_photos]
+        
+        analysis_request = PhotoAnalysisRequest(
+            session_id=session_id,
+            photo_ids=new_photo_ids,
+            comparison_photo_ids=comparison_photo_ids,
+            context=f"Follow-up photos. Notes: {notes}" if notes else "Follow-up photos"
+        )
+        
+        try:
+            analysis_response = await analyze_photos(analysis_request)
+            
+            # Calculate days since last photo
+            if comparison_photo_ids:
+                prev_photo = supabase.table('photo_uploads')\
+                    .select('uploaded_at')\
+                    .eq('id', comparison_photo_ids[0])\
+                    .single()\
+                    .execute()
+                
+                if prev_photo.data:
+                    prev_date = datetime.fromisoformat(prev_photo.data['uploaded_at'].replace('Z', '+00:00'))
+                    days_since = (datetime.now(prev_date.tzinfo) - prev_date).days
+                else:
+                    days_since = None
+            else:
+                days_since = None
+            
+            comparison_results = {
+                'compared_with': comparison_photo_ids,
+                'days_since_last': days_since,
+                'analysis': {
+                    'trend': analysis_response.comparison.trend if analysis_response.comparison else 'unknown',
+                    'changes': analysis_response.comparison.changes if analysis_response.comparison else {},
+                    'confidence': analysis_response.analysis.confidence / 100,
+                    'summary': analysis_response.comparison.ai_summary if analysis_response.comparison else "No comparison available"
+                }
+            }
+        except Exception as e:
+            print(f"Comparison failed: {str(e)}")
+            comparison_results = {
+                'error': 'Comparison failed',
+                'message': str(e)
+            }
+    
+    # Generate follow-up suggestions
+    follow_up_suggestion = await generate_follow_up_suggestion(session, uploaded_photos[0] if uploaded_photos else None)
+    
+    return {
+        'uploaded_photos': uploaded_photos,
+        'comparison_results': comparison_results,
+        'follow_up_suggestion': follow_up_suggestion
+    }
+
+
+async def generate_follow_up_suggestion(session: Dict, latest_photo: Optional[Dict]) -> Dict:
+    """Generate AI-based follow-up suggestions based on condition type"""
+    condition_name = session.get('condition_name', '').lower()
+    
+    # Default suggestions based on condition patterns
+    if 'mole' in condition_name or 'skin lesion' in condition_name:
+        return {
+            'benefits_from_tracking': True,
+            'suggested_interval_days': 30,
+            'reasoning': 'Monthly monitoring recommended for moles to detect changes',
+            'priority': 'routine'
+        }
+    elif 'wound' in condition_name or 'injury' in condition_name:
+        return {
+            'benefits_from_tracking': True,
+            'suggested_interval_days': 3,
+            'reasoning': 'Wounds should be monitored every few days until healed',
+            'priority': 'important'
+        }
+    elif 'rash' in condition_name or 'eczema' in condition_name:
+        return {
+            'benefits_from_tracking': True,
+            'suggested_interval_days': 7,
+            'reasoning': 'Weekly tracking helps identify triggers and treatment effectiveness',
+            'priority': 'routine'
+        }
+    elif 'burn' in condition_name:
+        return {
+            'benefits_from_tracking': True,
+            'suggested_interval_days': 2,
+            'reasoning': 'Burns require frequent monitoring for infection signs',
+            'priority': 'urgent'
+        }
+    else:
+        # Generic suggestion
+        return {
+            'benefits_from_tracking': True,
+            'suggested_interval_days': 14,
+            'reasoning': 'Regular monitoring helps track condition progression',
+            'priority': 'routine'
+        }
+
+
+@router.post("/reminders/configure")
+async def configure_photo_reminders(request: PhotoReminderConfigureRequest):
+    """Configure follow-up reminders for a photo analysis session"""
+    if not supabase:
+        raise HTTPException(status_code=500, detail="Database connection not configured")
+    
+    print(f"Configuring reminders for session {request.session_id}, analysis {request.analysis_id}")
+    
+    # Verify session exists and user owns it
+    session_result = supabase.table('photo_sessions').select('*').eq('id', request.session_id).single().execute()
+    if not session_result.data:
+        raise HTTPException(status_code=404, detail="Session not found")
+    
+    session = session_result.data
+    
+    # Verify analysis exists
+    analysis_result = supabase.table('photo_analyses').select('*').eq('id', request.analysis_id).single().execute()
+    if not analysis_result.data:
+        raise HTTPException(status_code=404, detail="Analysis not found")
+    
+    analysis = analysis_result.data
+    
+    # Generate AI reasoning for the reminder interval
+    ai_reasoning = await generate_reminder_reasoning(
+        session['condition_name'],
+        analysis['analysis_data'],
+        request.interval_days
+    )
+    
+    # Check if reminder already exists
+    existing_reminder = supabase.table('photo_reminders')\
+        .select('*')\
+        .eq('session_id', request.session_id)\
+        .single()\
+        .execute()
+    
+    # Calculate next reminder date
+    next_reminder_date = None
+    if request.enabled:
+        next_reminder_date = (datetime.now() + timedelta(days=request.interval_days)).isoformat()
+    
+    reminder_data = {
+        'session_id': request.session_id,
+        'analysis_id': request.analysis_id,
+        'user_id': session['user_id'],
+        'enabled': request.enabled,
+        'interval_days': request.interval_days,
+        'reminder_method': request.reminder_method,
+        'reminder_text': request.reminder_text,
+        'contact_info': request.contact_info,
+        'next_reminder_date': next_reminder_date,
+        'ai_reasoning': ai_reasoning,
+        'last_sent_at': None,
+        'created_at': datetime.now().isoformat(),
+        'updated_at': datetime.now().isoformat()
+    }
+    
+    if existing_reminder.data:
+        # Update existing reminder
+        reminder_id = existing_reminder.data['id']
+        supabase.table('photo_reminders')\
+            .update({
+                **reminder_data,
+                'created_at': existing_reminder.data['created_at']  # Preserve original creation date
+            })\
+            .eq('id', reminder_id)\
+            .execute()
+    else:
+        # Create new reminder
+        reminder_id = str(uuid.uuid4())
+        reminder_data['id'] = reminder_id
+        supabase.table('photo_reminders').insert(reminder_data).execute()
+    
+    return {
+        'reminder_id': reminder_id,
+        'session_id': request.session_id,
+        'next_reminder_date': next_reminder_date,
+        'interval_days': request.interval_days,
+        'method': request.reminder_method,
+        'status': 'active' if request.enabled else 'disabled',
+        'ai_reasoning': ai_reasoning,
+        'can_modify': True
+    }
+
+
+async def generate_reminder_reasoning(condition_name: str, analysis_data: Dict, interval_days: int) -> str:
+    """Generate AI reasoning for the reminder interval"""
+    primary_assessment = analysis_data.get('primary_assessment', '')
+    
+    # Provide context-specific reasoning
+    if interval_days <= 3:
+        return f"Frequent monitoring recommended for {condition_name}. Short intervals help detect rapid changes."
+    elif interval_days <= 7:
+        return f"Weekly monitoring for {primary_assessment} allows tracking of treatment response and progression."
+    elif interval_days <= 30:
+        return f"Monthly checks for {condition_name} provide good balance between monitoring and convenience."
+    else:
+        return f"Extended monitoring interval suitable for stable conditions like {primary_assessment}."
+
+
+@router.post("/monitoring/suggest")
+async def suggest_monitoring_plan(request: PhotoMonitoringSuggestRequest):
+    """Get AI-powered monitoring suggestions based on analysis results"""
+    if not supabase:
+        raise HTTPException(status_code=500, detail="Database connection not configured")
+    if not OPENROUTER_API_KEY:
+        raise HTTPException(status_code=500, detail="OpenRouter API key not configured")
+    
+    print(f"Generating monitoring suggestions for analysis {request.analysis_id}")
+    
+    # Get analysis data
+    analysis_result = supabase.table('photo_analyses')\
+        .select('*')\
+        .eq('id', request.analysis_id)\
+        .single()\
+        .execute()
+    
+    if not analysis_result.data:
+        raise HTTPException(status_code=404, detail="Analysis not found")
+    
+    analysis = analysis_result.data
+    
+    # Get session data
+    session_result = supabase.table('photo_sessions')\
+        .select('*')\
+        .eq('id', analysis['session_id'])\
+        .single()\
+        .execute()
+    
+    if not session_result.data:
+        raise HTTPException(status_code=404, detail="Session not found")
+    
+    session = session_result.data
+    
+    # Build prompt for AI monitoring suggestions
+    monitoring_prompt = f"""Based on this medical photo analysis, provide a monitoring plan:
+
+Condition: {session['condition_name']}
+Primary Assessment: {analysis['analysis_data'].get('primary_assessment', 'Unknown')}
+Confidence: {analysis['analysis_data'].get('confidence', 0)}%
+Visual Observations: {', '.join(analysis['analysis_data'].get('visual_observations', [])[:3])}
+Red Flags: {', '.join(analysis['analysis_data'].get('red_flags', []))}
+
+Context from user:
+{json.dumps(request.condition_context) if request.condition_context else 'No additional context'}
+
+Provide a detailed monitoring plan including:
+1. Recommended interval in days for photo follow-ups
+2. Whether intervals should be fixed or change over time
+3. Specific schedule for the next 6 months
+4. What changes to watch for
+5. When to seek immediate medical attention
+
+Format as JSON:
+{{
+  "monitoring_plan": {{
+    "recommended_interval_days": number,
+    "interval_type": "fixed|decreasing|conditional",
+    "reasoning": "detailed explanation",
+    "schedule": [
+      {{"check_number": 1, "days_from_now": number, "purpose": "string"}},
+      ...
+    ],
+    "red_flags_to_watch": ["specific change 1", "specific change 2"],
+    "when_to_see_doctor": "specific guidance"
+  }},
+  "confidence": 0.0-1.0,
+  "based_on_conditions": ["condition type 1", "condition type 2"]
+}}"""
+    
+    try:
+        # Use Gemini for medical reasoning
+        response = await call_openrouter_with_retry(
+            model='google/gemini-2.5-pro',
+            messages=[
+                {"role": "system", "content": "You are a medical AI specializing in visual monitoring of health conditions."},
+                {"role": "user", "content": monitoring_prompt}
+            ],
+            max_tokens=1500,
+            temperature=0.3
+        )
+        
+        monitoring_data = extract_json_from_text(response['choices'][0]['message']['content'])
+        
+        # Ensure required fields exist
+        if 'monitoring_plan' not in monitoring_data:
+            monitoring_data = {'monitoring_plan': monitoring_data}
+        
+        plan = monitoring_data['monitoring_plan']
+        
+        # Validate and ensure all fields
+        if 'recommended_interval_days' not in plan:
+            plan['recommended_interval_days'] = 14
+        if 'interval_type' not in plan:
+            plan['interval_type'] = 'fixed'
+        if 'schedule' not in plan or not isinstance(plan['schedule'], list):
+            plan['schedule'] = generate_default_schedule(plan['recommended_interval_days'])
+        if 'red_flags_to_watch' not in plan or not isinstance(plan['red_flags_to_watch'], list):
+            plan['red_flags_to_watch'] = ['Rapid size increase', 'Color changes', 'New symptoms']
+        
+        return monitoring_data
+        
+    except Exception as e:
+        print(f"Error generating monitoring suggestions: {str(e)}")
+        # Return sensible defaults
+        return {
+            "monitoring_plan": {
+                "recommended_interval_days": 14,
+                "interval_type": "fixed",
+                "reasoning": "Regular bi-weekly monitoring recommended for most conditions",
+                "schedule": generate_default_schedule(14),
+                "red_flags_to_watch": [
+                    "Rapid changes in size or appearance",
+                    "New pain or discomfort",
+                    "Signs of infection"
+                ],
+                "when_to_see_doctor": "If you notice any rapid changes or concerning symptoms"
+            },
+            "confidence": 0.7,
+            "based_on_conditions": ["general monitoring"]
+        }
+
+
+def generate_default_schedule(interval_days: int) -> List[Dict]:
+    """Generate a default monitoring schedule"""
+    schedule = []
+    for i in range(1, 7):  # 6 check-ins
+        schedule.append({
+            "check_number": i,
+            "days_from_now": interval_days * i,
+            "purpose": f"Regular monitoring check #{i}"
+        })
+    return schedule
+
+
+@router.get("/session/{session_id}/timeline")
+async def get_session_timeline(session_id: str):
+    """Get complete timeline of photos, analyses, and reminders for a session"""
+    if not supabase:
+        raise HTTPException(status_code=500, detail="Database connection not configured")
+    
+    print(f"Getting timeline for session {session_id}")
+    
+    # Get session data
+    session_result = supabase.table('photo_sessions').select('*').eq('id', session_id).single().execute()
+    if not session_result.data:
+        raise HTTPException(status_code=404, detail="Session not found")
+    
+    session = session_result.data
+    
+    # Get all photos for this session
+    photos_result = supabase.table('photo_uploads')\
+        .select('*')\
+        .eq('session_id', session_id)\
+        .order('uploaded_at')\
+        .execute()
+    
+    photos = photos_result.data or []
+    
+    # Get all analyses
+    analyses_result = supabase.table('photo_analyses')\
+        .select('*')\
+        .eq('session_id', session_id)\
+        .order('created_at')\
+        .execute()
+    
+    analyses = analyses_result.data or []
+    
+    # Get reminder configuration
+    reminder_result = supabase.table('photo_reminders')\
+        .select('*')\
+        .eq('session_id', session_id)\
+        .single()\
+        .execute()
+    
+    reminder = reminder_result.data
+    
+    # Build timeline events
+    timeline_events = []
+    
+    # Add photo upload events
+    for i, photo_group in enumerate(group_photos_by_date(photos)):
+        event = {
+            'date': photo_group[0]['uploaded_at'],
+            'type': 'follow_up' if i > 0 else 'photo_upload',
+            'photos': []
+        }
+        
+        # Add photo details
+        for photo in photo_group:
+            photo_detail = {
+                'id': photo['id'],
+                'category': photo['category'],
+                'preview_url': None
+            }
+            
+            # Get preview URL for non-sensitive photos
+            if photo['storage_url'] and photo['category'] != 'medical_sensitive':
+                try:
+                    url_data = supabase.storage.from_(STORAGE_BUCKET).create_signed_url(
+                        photo['storage_url'],
+                        3600
+                    )
+                    photo_detail['preview_url'] = url_data.get('signedURL') or url_data.get('signedUrl')
+                except Exception as e:
+                    print(f"Error creating preview URL: {str(e)}")
+            
+            event['photos'].append(photo_detail)
+        
+        # Find associated analysis
+        event_analysis = find_analysis_for_photos([p['id'] for p in photo_group], analyses)
+        if event_analysis:
+            event['analysis_summary'] = event_analysis['analysis_data'].get('primary_assessment', 'Analysis completed')
+            
+            # Add comparison data for follow-ups
+            if i > 0 and event_analysis.get('comparison'):
+                prev_photos = [p for pg in group_photos_by_date(photos)[:i] for p in pg]
+                if prev_photos:
+                    days_since = calculate_days_between(prev_photos[-1]['uploaded_at'], photo_group[0]['uploaded_at'])
+                    event['comparison'] = {
+                        'days_since_previous': days_since,
+                        'trend': event_analysis['comparison'].get('trend', 'unknown'),
+                        'summary': event_analysis['comparison'].get('ai_summary', 'No comparison available')
+                    }
+        
+        timeline_events.append(event)
+    
+    # Add scheduled reminder event if active
+    if reminder and reminder['enabled'] and reminder['next_reminder_date']:
+        next_date = datetime.fromisoformat(reminder['next_reminder_date'].replace('Z', '+00:00'))
+        if next_date > datetime.now(next_date.tzinfo):
+            timeline_events.append({
+                'date': reminder['next_reminder_date'],
+                'type': 'scheduled_reminder',
+                'status': 'upcoming',
+                'message': reminder['reminder_text']
+            })
+    
+    # Sort timeline by date
+    timeline_events.sort(key=lambda x: x['date'])
+    
+    # Calculate next action
+    next_action = None
+    if reminder and reminder['enabled']:
+        next_date = datetime.fromisoformat(reminder['next_reminder_date'].replace('Z', '+00:00'))
+        days_until = (next_date - datetime.now(next_date.tzinfo)).days
+        next_action = {
+            'type': 'photo_follow_up',
+            'date': reminder['next_reminder_date'],
+            'days_until': max(0, days_until)
+        }
+    
+    # Calculate overall trend
+    overall_trend = calculate_overall_trend(analyses)
+    
+    # Calculate total duration
+    if photos:
+        first_date = datetime.fromisoformat(photos[0]['uploaded_at'].replace('Z', '+00:00'))
+        last_date = datetime.fromisoformat(photos[-1]['uploaded_at'].replace('Z', '+00:00'))
+        total_days = (last_date - first_date).days
+    else:
+        total_days = 0
+    
+    return {
+        'session': {
+            'id': session['id'],
+            'condition_name': session['condition_name'],
+            'created_at': session['created_at'],
+            'is_sensitive': session.get('is_sensitive', False)
+        },
+        'timeline_events': timeline_events,
+        'next_action': next_action,
+        'overall_trend': {
+            'direction': overall_trend,
+            'total_duration_days': total_days,
+            'number_of_checks': len(set(p['uploaded_at'][:10] for p in photos))  # Unique days
+        }
+    }
+
+
+def group_photos_by_date(photos: List[Dict]) -> List[List[Dict]]:
+    """Group photos uploaded on the same day"""
+    if not photos:
+        return []
+    
+    groups = []
+    current_group = [photos[0]]
+    current_date = photos[0]['uploaded_at'][:10]  # Extract date part
+    
+    for photo in photos[1:]:
+        photo_date = photo['uploaded_at'][:10]
+        if photo_date == current_date:
+            current_group.append(photo)
+        else:
+            groups.append(current_group)
+            current_group = [photo]
+            current_date = photo_date
+    
+    if current_group:
+        groups.append(current_group)
+    
+    return groups
+
+
+def find_analysis_for_photos(photo_ids: List[str], analyses: List[Dict]) -> Optional[Dict]:
+    """Find the analysis that includes these photo IDs"""
+    for analysis in analyses:
+        if any(pid in analysis.get('photo_ids', []) for pid in photo_ids):
+            return analysis
+    return None
+
+
+def calculate_days_between(date1_str: str, date2_str: str) -> int:
+    """Calculate days between two ISO date strings"""
+    date1 = datetime.fromisoformat(date1_str.replace('Z', '+00:00'))
+    date2 = datetime.fromisoformat(date2_str.replace('Z', '+00:00'))
+    return abs((date2 - date1).days)
+
+
+def calculate_overall_trend(analyses: List[Dict]) -> str:
+    """Calculate overall trend from multiple analyses"""
+    if len(analyses) < 2:
+        return 'insufficient_data'
+    
+    # Look at comparison data in recent analyses
+    trends = []
+    for analysis in analyses:
+        if analysis.get('comparison') and analysis['comparison'].get('trend'):
+            trends.append(analysis['comparison']['trend'])
+    
+    if not trends:
+        return 'stable'
+    
+    # Count trend occurrences
+    improving = trends.count('improving')
+    worsening = trends.count('worsening')
+    stable = trends.count('stable')
+    
+    # Determine overall trend
+    if worsening > improving + stable:
+        return 'worsening'
+    elif improving > worsening + stable:
+        return 'improving'
+    else:
+        return 'stable'

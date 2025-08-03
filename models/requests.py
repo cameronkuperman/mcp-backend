@@ -263,3 +263,17 @@ class GeneralDeepDiveCompleteRequest(BaseModel):
     session_id: str
     final_answer: Optional[str] = None
     fallback_model: Optional[str] = None
+
+# Photo Reminder and Timeline Models
+class PhotoReminderConfigureRequest(BaseModel):
+    session_id: str
+    analysis_id: str
+    enabled: bool = True
+    interval_days: int = 30
+    reminder_method: str = "email"  # email, sms, in_app, none
+    reminder_text: str  # Generic text like "Time to update on your mole"
+    contact_info: Optional[Dict[str, str]] = None  # {"email": "...", "phone": "..."}
+
+class PhotoMonitoringSuggestRequest(BaseModel):
+    analysis_id: str
+    condition_context: Optional[Dict[str, Any]] = None
