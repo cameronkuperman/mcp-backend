@@ -28,6 +28,166 @@ router = APIRouter(prefix="/api/photo-analysis", tags=["photo-analysis"])
 
 import re
 import asyncio
+from typing import Tuple
+
+class SmartPhotoBatcher:
+    """Intelligently select photos for comparison when total exceeds limit"""
+    
+    def __init__(self, max_photos: int = 40):
+        self.max_photos = max_photos
+        self.reserved_recent = 5  # Always include last 5 photos
+        self.reserved_baseline = 1  # Always include first photo
+        
+    def select_photos_for_comparison(
+        self, 
+        all_photos: List[Dict], 
+        all_analyses: Optional[List[Dict]] = None
+    ) -> Tuple[List[Dict], Dict[str, Any]]:
+        """
+        Select most relevant photos for comparison
+        Returns: (selected_photos, selection_info)
+        """
+        if len(all_photos) <= self.max_photos:
+            return all_photos, {
+                "total_photos": len(all_photos),
+                "photos_shown": len(all_photos),
+                "selection_method": "all_photos",
+                "omitted_periods": []
+            }
+        
+        selected = []
+        selection_info = {
+            "total_photos": len(all_photos),
+            "photos_shown": self.max_photos,
+            "selection_reasoning": [],
+            "omitted_periods": []
+        }
+        
+        # Sort photos by date
+        sorted_photos = sorted(all_photos, key=lambda x: x.get('uploaded_at', ''))
+        
+        # Phase 1: Always include first photo (baseline)
+        if sorted_photos:
+            selected.append(sorted_photos[0])
+            selection_info["selection_reasoning"].append("Included baseline (first) photo")
+        
+        # Phase 2: Always include most recent photos
+        recent_photos = sorted_photos[-self.reserved_recent:]
+        selected.extend(recent_photos)
+        selection_info["selection_reasoning"].append(f"Included {len(recent_photos)} most recent photos")
+        
+        # Phase 3: Fill remaining slots intelligently
+        remaining_slots = self.max_photos - len(selected)
+        middle_photos = sorted_photos[1:-self.reserved_recent] if len(sorted_photos) > self.reserved_recent + 1 else []
+        
+        if middle_photos and remaining_slots > 0:
+            # Calculate importance scores
+            scored_photos = []
+            for i, photo in enumerate(middle_photos):
+                score = self._calculate_photo_importance(photo, i, middle_photos, all_analyses)
+                scored_photos.append((score, photo))
+            
+            # Sort by score and take top photos
+            scored_photos.sort(key=lambda x: x[0], reverse=True)
+            selected_middle = [photo for score, photo in scored_photos[:remaining_slots]]
+            
+            # Insert in chronological order
+            for photo in sorted(selected_middle, key=lambda x: x.get('uploaded_at', '')):
+                # Find correct position to maintain chronological order
+                insert_pos = 1  # After baseline
+                for i in range(1, len(selected) - len(recent_photos)):
+                    if selected[i].get('uploaded_at', '') > photo.get('uploaded_at', ''):
+                        break
+                    insert_pos = i + 1
+                selected.insert(insert_pos, photo)
+            
+            selection_info["selection_reasoning"].append(
+                f"Selected {len(selected_middle)} photos from middle period based on importance"
+            )
+        
+        # Calculate omitted periods
+        selection_info["omitted_periods"] = self._calculate_omitted_periods(sorted_photos, selected)
+        
+        return selected, selection_info
+    
+    def _calculate_photo_importance(
+        self, 
+        photo: Dict, 
+        index: int, 
+        all_middle_photos: List[Dict],
+        all_analyses: Optional[List[Dict]]
+    ) -> float:
+        """Calculate importance score for a photo"""
+        score = 0.0
+        
+        # 1. Temporal distribution - prefer evenly spaced photos
+        total_photos = len(all_middle_photos)
+        ideal_spacing = total_photos / (self.max_photos - self.reserved_recent - self.reserved_baseline)
+        distance_from_ideal = abs(index % ideal_spacing)
+        temporal_score = 100 * (1 - distance_from_ideal / ideal_spacing)
+        score += temporal_score
+        
+        # 2. Quality score if available
+        if photo.get('quality_score'):
+            score += photo['quality_score'] * 0.5
+        
+        # 3. Check if photo has associated analysis with significant findings
+        if all_analyses:
+            photo_analysis = next(
+                (a for a in all_analyses if photo['id'] in a.get('photo_ids', [])), 
+                None
+            )
+            if photo_analysis:
+                # High confidence changes
+                if photo_analysis.get('confidence_score', 0) < 70:
+                    score += 50  # Uncertain cases are important
+                
+                # Red flags present
+                if photo_analysis.get('analysis_data', {}).get('red_flags'):
+                    score += 100
+                
+                # Marked as significant change in comparison
+                if photo_analysis.get('comparison', {}).get('trend') == 'worsening':
+                    score += 80
+        
+        # 4. User notes or follow-up flag
+        if photo.get('followup_notes'):
+            score += 75
+        
+        return score
+    
+    def _calculate_omitted_periods(
+        self, 
+        all_photos: List[Dict], 
+        selected_photos: List[Dict]
+    ) -> List[Dict]:
+        """Calculate time periods that were omitted from selection"""
+        omitted_periods = []
+        selected_dates = {p['uploaded_at'][:10] for p in selected_photos}
+        
+        current_gap_start = None
+        for i, photo in enumerate(all_photos):
+            photo_date = photo['uploaded_at'][:10]
+            
+            if photo_date not in selected_dates:
+                if current_gap_start is None:
+                    current_gap_start = photo_date
+            else:
+                if current_gap_start is not None:
+                    # Gap ended
+                    prev_photo_date = all_photos[i-1]['uploaded_at'][:10] if i > 0 else current_gap_start
+                    omitted_periods.append({
+                        "start": current_gap_start,
+                        "end": prev_photo_date,
+                        "photos_omitted": sum(
+                            1 for p in all_photos 
+                            if current_gap_start <= p['uploaded_at'][:10] <= prev_photo_date
+                        )
+                    })
+                    current_gap_start = None
+        
+        return omitted_periods
+
 
 def sanitize_filename(filename: str) -> str:
     """Sanitize filename by removing special characters and unicode spaces"""
@@ -200,21 +360,24 @@ Respond with ONLY this JSON format:
 {
   "category": "category_name",
   "confidence": 0.95,
-  "subcategory": "specific_condition_type (e.g., 'dermatological_rash', 'orthopedic_fracture', 'vascular_varicose')"
+  "subcategory": "specific_condition_type (e.g., 'dermatological_rash', 'orthopedic_fracture', 'vascular_varicose')",
+  "quality_score": 85
 }"""
 
-PHOTO_ANALYSIS_PROMPT = """You are an expert medical AI analyzing photos for ALL types of health concerns including skin conditions, injuries, fractures, muscle tears, joint problems, and any other visible medical issues. Provide a comprehensive analysis.
+PHOTO_ANALYSIS_PROMPT = """You are an expert medical AI analyzing photos. Provide the most leveraged and trackable observations based on what you can actually see.
 
-IMPORTANT: Consider all types of medical conditions - dermatological, orthopedic, soft tissue injuries, vascular issues, inflammatory conditions, traumatic injuries, etc.
+Focus on what's VISUALLY OBSERVABLE and MEASURABLE over time. Be specific with estimates even without measuring tools.
 
-Analyze the image and provide:
-1. PRIMARY ASSESSMENT: Most likely condition based on visual evidence (be specific - e.g., "grade 2 ankle sprain" not just "ankle injury")
+Analyze and provide:
+1. PRIMARY ASSESSMENT: Most specific diagnosis possible based on visual evidence
 2. CONFIDENCE: Your confidence level (0-100%)
-3. VISUAL OBSERVATIONS: What you specifically see (color, texture, size, deformity, swelling patterns)
-4. DIFFERENTIAL DIAGNOSIS: Other possible conditions this could be
-5. RECOMMENDATIONS: Clear next steps including when to seek medical care
-6. RED FLAGS: Any urgent concerns requiring immediate medical attention
-7. TRACKABLE METRICS: Measurable aspects that can be tracked over time
+3. KEY OBSERVATIONS: Most important visual findings that could change over time
+4. TRACKABLE FEATURES: Identify the 3-5 most important things to monitor for THIS specific condition
+
+For measurements, estimate using visual cues:
+- Size: Compare to common references (fingernail ~10mm, penny ~20mm, etc)
+- Colors: Describe precisely (e.g., "dark brown center, light brown periphery")
+- Changes: What specific visual features would indicate improvement/worsening
 
 Format your response as JSON:
 {
@@ -231,36 +394,87 @@ Format your response as JSON:
       "unit": "string",
       "suggested_tracking": "daily|weekly|monthly"
     }
-  ]
+  ],
+  "key_measurements": {
+    "size_estimate_mm": number,
+    "size_reference": "string",
+    "primary_color": "descriptive string",
+    "secondary_colors": ["string"],
+    "texture_description": "string",
+    "symmetry_observation": "string",
+    "elevation_observation": "string"
+  },
+  "condition_insights": {
+    "most_important_features": ["string"],
+    "progression_indicators": {
+      "improvement_signs": ["string"],
+      "worsening_signs": ["string"],
+      "stability_signs": ["string"]
+    },
+    "optimal_photo_angle": "string",
+    "optimal_lighting": "string"
+  }
 }
 
-Be thorough and consider all medical possibilities. Use your advanced reasoning to provide accurate analysis.
+IMPORTANT: Focus on what YOU can see and track visually. Don't force measurements that aren't possible from the image.
 
-CRITICAL: Output ONLY valid JSON with no text before or after. Do not include markdown formatting or code blocks."""
+CRITICAL: Output ONLY valid JSON with no text before or after."""
 
-PHOTO_COMPARISON_PROMPT = """Compare these medical photos taken at different times. Analyze:
+PHOTO_COMPARISON_PROMPT = """Compare these medical photos to identify the most important changes. Focus on what matters most for tracking this specific condition.
 
-1. SIZE CHANGES: Measure or estimate size differences
-2. COLOR CHANGES: Note any color evolution
-3. TEXTURE CHANGES: Surface characteristics
-4. OVERALL TREND: Is it improving, worsening, or stable?
-5. SPECIFIC OBSERVATIONS: Notable changes
+Analyze what has VISUALLY CHANGED between photos:
+1. Most significant change observed
+2. Rate of change (rapid/gradual/stable)
+3. Clinical significance of changes
+4. What to monitor next
 
-Consider all types of conditions - skin issues, injuries, swelling, etc.
+Provide specific observations:
+- Size: "Increased from fingernail-sized to penny-sized" (not just "bigger")
+- Color: "Center darkened from light brown to dark brown"
+- Shape: "Border became more irregular on left side"
+- Texture: "Surface went from smooth to rough with scaling"
 
 Format as JSON:
 {
   "days_between": number,
-  "changes": {
-    "size": { "from": number, "to": number, "unit": "string", "change": number },
-    "color": { "description": "string" },
-    "texture": { "description": "string" }
+  "primary_change": "string - the MOST important change",
+  "change_significance": "minor|moderate|significant|critical",
+  "visual_changes": {
+    "size": {
+      "description": "string",
+      "estimated_change_percent": number,
+      "clinical_relevance": "string"
+    },
+    "color": {
+      "description": "string", 
+      "areas_affected": ["string"],
+      "concerning": boolean
+    },
+    "shape": {
+      "description": "string",
+      "symmetry_change": "string",
+      "border_changes": ["string"]
+    },
+    "texture": {
+      "description": "string",
+      "new_features": ["string"]
+    }
   },
-  "trend": "improving|worsening|stable",
-  "ai_summary": "string"
+  "progression_analysis": {
+    "overall_trend": "improving|stable|worsening|mixed",
+    "confidence_in_trend": number,
+    "rate_of_change": "rapid|moderate|slow|stable",
+    "key_finding": "string"
+  },
+  "clinical_interpretation": "string - what these changes mean medically",
+  "next_monitoring": {
+    "focus_areas": ["string"],
+    "red_flags_to_watch": ["string"],
+    "optimal_interval_days": number
+  }
 }
 
-CRITICAL: Output ONLY valid JSON with no text before or after. Do not include markdown formatting or code blocks."""
+CRITICAL: Output ONLY valid JSON with no text before or after."""
 
 
 async def file_to_base64(file: UploadFile) -> str:
@@ -324,10 +538,10 @@ async def categorize_photo(
     # Convert to base64
     base64_image = await file_to_base64(photo)
     
-    # Call Mistral for categorization with retry
+    # Call Gemini Flash Lite for faster categorization with retry
     try:
         response = await call_openrouter_with_retry(
-            model='mistralai/mistral-small-3.1-24b-instruct',
+            model='google/gemini-2.5-flash-lite',
             messages=[{
                 'role': 'user',
                 'content': [
@@ -335,7 +549,7 @@ async def categorize_photo(
                     {'type': 'image_url', 'image_url': {'url': f'data:{photo.content_type};base64,{base64_image}'}}
                 ]
             }],
-            max_tokens=100,
+            max_tokens=50,
             temperature=0.1
         )
         
@@ -447,7 +661,7 @@ async def upload_photos(
         
         try:
             response = await call_openrouter(
-                model='mistralai/mistral-small-3.1-24b-instruct',
+                model='google/gemini-2.5-flash-lite',
                 messages=[{
                     'role': 'user',
                     'content': [
@@ -455,7 +669,7 @@ async def upload_photos(
                         {'type': 'image_url', 'image_url': {'url': f'data:{photo.content_type};base64,{base64_image}'}}
                     ]
                 }],
-                max_tokens=100,
+                max_tokens=50,
                 temperature=0.1
             )
             
@@ -1279,17 +1493,33 @@ async def add_follow_up_photos(
             comparison_photo_ids = []
     
     # Get previous photos for comparison if auto_compare is true and no specific IDs provided
+    smart_batching_info = None
     if auto_compare and not comparison_photo_ids:
-        # Get the most recent photos from this session
-        prev_photos_result = supabase.table('photo_uploads')\
-            .select('id, uploaded_at')\
+        # Get ALL photos from this session for smart selection
+        all_prev_photos_result = supabase.table('photo_uploads')\
+            .select('*')\
             .eq('session_id', session_id)\
-            .order('uploaded_at.desc')\
-            .limit(3)\
+            .eq('category', 'medical_normal')\
+            .order('uploaded_at')\
             .execute()
         
-        if prev_photos_result.data:
-            comparison_photo_ids = [p['id'] for p in prev_photos_result.data]
+        if all_prev_photos_result.data:
+            # Use smart batching if there are many photos
+            batcher = SmartPhotoBatcher(max_photos=40)
+            
+            # Get analyses for importance scoring
+            analyses_result = supabase.table('photo_analyses')\
+                .select('*')\
+                .eq('session_id', session_id)\
+                .execute()
+            
+            selected_photos, smart_batching_info = batcher.select_photos_for_comparison(
+                all_prev_photos_result.data,
+                analyses_result.data if analyses_result.data else None
+            )
+            
+            comparison_photo_ids = [p['id'] for p in selected_photos]
+            print(f"Smart batching selected {len(comparison_photo_ids)} photos from {len(all_prev_photos_result.data)} total")
     
     # Process and upload new photos
     uploaded_photos = []
@@ -1303,7 +1533,7 @@ async def add_follow_up_photos(
         
         try:
             response = await call_openrouter_with_retry(
-                model='mistralai/mistral-small-3.1-24b-instruct',
+                model='google/gemini-2.5-flash-lite',
                 messages=[{
                     'role': 'user',
                     'content': [
@@ -1311,7 +1541,7 @@ async def add_follow_up_photos(
                         {'type': 'image_url', 'image_url': {'url': f'data:{photo.content_type};base64,{base64_image}'}}
                     ]
                 }],
-                max_tokens=100,
+                max_tokens=50,
                 temperature=0.1
             )
             
@@ -1439,6 +1669,18 @@ async def add_follow_up_photos(
                     'changes': analysis_response.comparison.changes if analysis_response.comparison else {},
                     'confidence': analysis_response.analysis.confidence / 100,
                     'summary': analysis_response.comparison.ai_summary if analysis_response.comparison else "No comparison available"
+                },
+                'visual_comparison': {
+                    'primary_change': analysis_response.comparison.primary_change if analysis_response.comparison else None,
+                    'change_significance': analysis_response.comparison.change_significance if analysis_response.comparison else None,
+                    'visual_changes': analysis_response.comparison.visual_changes if analysis_response.comparison else {},
+                    'progression_analysis': analysis_response.comparison.progression_analysis if analysis_response.comparison else {},
+                    'clinical_interpretation': analysis_response.comparison.clinical_interpretation if analysis_response.comparison else None,
+                    'next_monitoring': analysis_response.comparison.next_monitoring if analysis_response.comparison else {}
+                },
+                'key_measurements': {
+                    'latest': analysis_response.analysis.key_measurements if hasattr(analysis_response.analysis, 'key_measurements') else {},
+                    'condition_insights': analysis_response.analysis.condition_insights if hasattr(analysis_response.analysis, 'condition_insights') else {}
                 }
             }
         except Exception as e:
@@ -1448,57 +1690,292 @@ async def add_follow_up_photos(
                 'message': str(e)
             }
     
-    # Generate follow-up suggestions
-    follow_up_suggestion = await generate_follow_up_suggestion(session, uploaded_photos[0] if uploaded_photos else None)
+    # Generate follow-up suggestions using full history
+    # Get all analyses for this session to make intelligent suggestions
+    all_analyses = supabase.table('photo_analyses')\
+        .select('*')\
+        .eq('session_id', session_id)\
+        .order('created_at')\
+        .execute()
+    
+    all_photos = supabase.table('photo_uploads')\
+        .select('*')\
+        .eq('session_id', session_id)\
+        .order('uploaded_at')\
+        .execute()
+    
+    follow_up_suggestion = await generate_intelligent_follow_up_suggestion(
+        session, 
+        all_analyses.data if all_analyses.data else [],
+        all_photos.data if all_photos.data else [],
+        analysis_response.analysis if 'analysis_response' in locals() else None
+    )
     
     return {
         'uploaded_photos': uploaded_photos,
         'comparison_results': comparison_results,
-        'follow_up_suggestion': follow_up_suggestion
+        'follow_up_suggestion': follow_up_suggestion,
+        'smart_batching_info': smart_batching_info  # Include batching info if photos were intelligently selected
     }
 
 
-async def generate_follow_up_suggestion(session: Dict, latest_photo: Optional[Dict]) -> Dict:
-    """Generate AI-based follow-up suggestions based on condition type"""
-    condition_name = session.get('condition_name', '').lower()
+async def generate_intelligent_follow_up_suggestion(
+    session: Dict, 
+    all_analyses: List[Dict],
+    all_photos: List[Dict],
+    latest_analysis: Optional[Dict]
+) -> Dict:
+    """Generate intelligent follow-up suggestions based on full session history"""
     
-    # Default suggestions based on condition patterns
-    if 'mole' in condition_name or 'skin lesion' in condition_name:
-        return {
-            'benefits_from_tracking': True,
-            'suggested_interval_days': 30,
-            'reasoning': 'Monthly monitoring recommended for moles to detect changes',
-            'priority': 'routine'
+    # Calculate progression metrics from history
+    progression_data = analyze_progression_history(all_analyses)
+    
+    # Base interval on multiple factors
+    suggested_interval = calculate_optimal_interval(
+        session,
+        progression_data,
+        latest_analysis,
+        len(all_photos)
+    )
+    
+    # Determine priority based on actual data
+    priority = determine_priority(progression_data, latest_analysis)
+    
+    # Generate intelligent reasoning
+    reasoning = generate_contextual_reasoning(
+        session,
+        progression_data,
+        suggested_interval,
+        priority
+    )
+    
+    return {
+        'benefits_from_tracking': True,
+        'suggested_interval_days': suggested_interval,
+        'reasoning': reasoning,
+        'priority': priority,
+        'progression_summary': progression_data,
+        'adaptive_scheduling': {
+            'current_phase': progression_data.get('phase', 'monitoring'),
+            'next_interval': suggested_interval,
+            'adjust_based_on': progression_data.get('key_factors', [])
         }
-    elif 'wound' in condition_name or 'injury' in condition_name:
+    }
+
+
+def analyze_progression_history(analyses: List[Dict]) -> Dict:
+    """Analyze historical progression from all analyses"""
+    if not analyses:
         return {
-            'benefits_from_tracking': True,
-            'suggested_interval_days': 3,
-            'reasoning': 'Wounds should be monitored every few days until healed',
-            'priority': 'important'
+            'trend': 'unknown',
+            'rate_of_change': 'unknown',
+            'phase': 'initial',
+            'confidence_trend': []
         }
-    elif 'rash' in condition_name or 'eczema' in condition_name:
-        return {
-            'benefits_from_tracking': True,
-            'suggested_interval_days': 7,
-            'reasoning': 'Weekly tracking helps identify triggers and treatment effectiveness',
-            'priority': 'routine'
-        }
-    elif 'burn' in condition_name:
-        return {
-            'benefits_from_tracking': True,
-            'suggested_interval_days': 2,
-            'reasoning': 'Burns require frequent monitoring for infection signs',
-            'priority': 'urgent'
-        }
+    
+    # Extract trends from analyses
+    trends = []
+    confidences = []
+    red_flag_count = 0
+    
+    for analysis in analyses:
+        data = analysis.get('analysis_data', {})
+        if data:
+            confidences.append(analysis.get('confidence_score', 0))
+            if data.get('red_flags'):
+                red_flag_count += len(data.get('red_flags', []))
+    
+    # Determine overall trend
+    if len(analyses) >= 2:
+        recent_trend = 'stable'
+        # Check comparisons for trends
+        for analysis in analyses[-3:]:  # Last 3 analyses
+            if analysis.get('comparison', {}).get('trend') == 'worsening':
+                recent_trend = 'worsening'
+                break
+            elif analysis.get('comparison', {}).get('trend') == 'improving':
+                recent_trend = 'improving'
     else:
-        # Generic suggestion
-        return {
-            'benefits_from_tracking': True,
-            'suggested_interval_days': 14,
-            'reasoning': 'Regular monitoring helps track condition progression',
-            'priority': 'routine'
-        }
+        recent_trend = 'initial'
+    
+    # Calculate rate of change
+    if len(analyses) >= 2:
+        first_date = datetime.fromisoformat(analyses[0]['created_at'].replace('Z', '+00:00'))
+        last_date = datetime.fromisoformat(analyses[-1]['created_at'].replace('Z', '+00:00'))
+        days_span = (last_date - first_date).days
+        changes_per_week = len(analyses) / max(days_span / 7, 1)
+        
+        if changes_per_week > 2:
+            rate = 'rapid'
+        elif changes_per_week > 0.5:
+            rate = 'moderate'
+        else:
+            rate = 'slow'
+    else:
+        rate = 'unknown'
+    
+    return {
+        'trend': recent_trend,
+        'rate_of_change': rate,
+        'total_analyses': len(analyses),
+        'red_flags_total': red_flag_count,
+        'confidence_trend': confidences,
+        'phase': determine_monitoring_phase(len(analyses), recent_trend),
+        'key_factors': identify_key_factors(analyses)
+    }
+
+
+def calculate_optimal_interval(
+    session: Dict,
+    progression_data: Dict,
+    latest_analysis: Optional[Dict],
+    photo_count: int
+) -> int:
+    """Calculate optimal follow-up interval based on multiple factors"""
+    
+    base_interval = 14  # Default 2 weeks
+    
+    # Adjust based on trend
+    if progression_data['trend'] == 'worsening':
+        base_interval = 3
+    elif progression_data['trend'] == 'improving':
+        base_interval = 21
+    elif progression_data['trend'] == 'initial':
+        base_interval = 7
+    
+    # Adjust based on rate of change
+    if progression_data['rate_of_change'] == 'rapid':
+        base_interval = max(base_interval // 2, 2)
+    elif progression_data['rate_of_change'] == 'slow':
+        base_interval = min(base_interval * 1.5, 30)
+    
+    # Adjust based on red flags
+    if progression_data['red_flags_total'] > 0:
+        base_interval = min(base_interval, 7)
+    
+    # Adjust based on monitoring phase
+    if progression_data['phase'] == 'active_monitoring':
+        base_interval = min(base_interval, 7)
+    elif progression_data['phase'] == 'maintenance':
+        base_interval = max(base_interval, 30)
+    
+    # Consider latest analysis findings
+    if latest_analysis:
+        if latest_analysis.get('next_monitoring', {}).get('optimal_interval_days'):
+            ai_suggested = latest_analysis['next_monitoring']['optimal_interval_days']
+            # Average with calculated interval
+            base_interval = (base_interval + ai_suggested) // 2
+    
+    return int(base_interval)
+
+
+def determine_priority(progression_data: Dict, latest_analysis: Optional[Dict]) -> str:
+    """Determine follow-up priority based on data"""
+    
+    if progression_data['red_flags_total'] > 0:
+        return 'urgent'
+    
+    if progression_data['trend'] == 'worsening':
+        return 'important'
+    
+    if progression_data['rate_of_change'] == 'rapid':
+        return 'important'
+    
+    if latest_analysis and latest_analysis.get('change_significance') == 'critical':
+        return 'urgent'
+    
+    return 'routine'
+
+
+def generate_contextual_reasoning(
+    session: Dict,
+    progression_data: Dict,
+    interval: int,
+    priority: str
+) -> str:
+    """Generate intelligent reasoning for the suggestion"""
+    
+    condition = session.get('condition_name', 'condition')
+    
+    reasons = []
+    
+    # Add trend-based reasoning
+    if progression_data['trend'] == 'worsening':
+        reasons.append(f"Recent analyses show worsening trend for {condition}")
+    elif progression_data['trend'] == 'improving':
+        reasons.append(f"Positive improvement trend observed")
+    elif progression_data['trend'] == 'initial':
+        reasons.append(f"Initial monitoring phase for new {condition}")
+    
+    # Add rate-based reasoning
+    if progression_data['rate_of_change'] == 'rapid':
+        reasons.append("Rapid changes detected requiring close monitoring")
+    elif progression_data['rate_of_change'] == 'slow':
+        reasons.append("Stable progression allows for extended intervals")
+    
+    # Add priority reasoning
+    if priority == 'urgent':
+        reasons.append("Urgent follow-up recommended due to concerning findings")
+    elif priority == 'important':
+        reasons.append("Important to maintain regular monitoring")
+    
+    # Add interval reasoning
+    reasons.append(f"Based on {progression_data['total_analyses']} previous analyses, {interval}-day interval is optimal")
+    
+    return ". ".join(reasons)
+
+
+def determine_monitoring_phase(analysis_count: int, trend: str) -> str:
+    """Determine what phase of monitoring we're in"""
+    if analysis_count <= 2:
+        return 'initial'
+    elif analysis_count <= 5 and trend != 'stable':
+        return 'active_monitoring'
+    elif trend == 'stable' and analysis_count > 5:
+        return 'maintenance'
+    else:
+        return 'ongoing'
+
+
+def identify_key_factors(analyses: List[Dict]) -> List[str]:
+    """Identify key factors affecting monitoring"""
+    factors = []
+    
+    if not analyses:
+        return ['Initial assessment needed']
+    
+    # Check for volatility
+    trends = []
+    for analysis in analyses:
+        if analysis.get('comparison', {}).get('trend'):
+            trends.append(analysis['comparison']['trend'])
+    
+    if len(set(trends)) > 1:
+        factors.append('Variable progression pattern')
+    
+    # Check for red flags
+    has_red_flags = any(
+        a.get('analysis_data', {}).get('red_flags') 
+        for a in analyses
+    )
+    if has_red_flags:
+        factors.append('Red flags present')
+    
+    # Check confidence levels
+    low_confidence = any(
+        a.get('confidence_score', 100) < 70 
+        for a in analyses
+    )
+    if low_confidence:
+        factors.append('Uncertain findings requiring validation')
+    
+    return factors
+
+
+# Keep the old function for backward compatibility
+async def generate_follow_up_suggestion(session: Dict, latest_photo: Optional[Dict]) -> Dict:
+    """Legacy function - redirects to intelligent version with minimal data"""
+    return await generate_intelligent_follow_up_suggestion(session, [], [], None)
 
 
 @router.post("/reminders/configure")
@@ -1946,3 +2423,369 @@ def calculate_overall_trend(analyses: List[Dict]) -> str:
         return 'improving'
     else:
         return 'stable'
+
+
+@router.get("/session/{session_id}/progression-analysis")
+async def get_progression_analysis(session_id: str):
+    """
+    Advanced progression analysis with velocity calculations and predictive modeling
+    """
+    if not supabase:
+        raise HTTPException(status_code=500, detail="Database connection not configured")
+    
+    print(f"Generating progression analysis for session {session_id}")
+    
+    # Get session data
+    session_result = supabase.table('photo_sessions').select('*').eq('id', session_id).single().execute()
+    if not session_result.data:
+        raise HTTPException(status_code=404, detail="Session not found")
+    
+    session = session_result.data
+    
+    # Get all analyses with comparisons
+    analyses_result = supabase.table('photo_analyses')\
+        .select('*')\
+        .eq('session_id', session_id)\
+        .order('created_at')\
+        .execute()
+    
+    analyses = analyses_result.data or []
+    
+    if len(analyses) < 2:
+        return {
+            "progression_metrics": {
+                "status": "insufficient_data",
+                "message": "Need at least 2 analyses for progression analysis"
+            }
+        }
+    
+    # Calculate velocity metrics
+    velocity_data = calculate_progression_velocity(analyses)
+    
+    # Calculate risk indicators
+    risk_indicators = calculate_risk_indicators(analyses)
+    
+    # Generate clinical insights
+    clinical_insights = generate_clinical_insights(
+        session,
+        analyses,
+        velocity_data,
+        risk_indicators
+    )
+    
+    # Create visualization data
+    visualization_data = prepare_visualization_data(analyses)
+    
+    # Update session with latest progression summary
+    supabase.table('photo_sessions').update({
+        'last_progression_analysis': datetime.now().isoformat(),
+        'progression_summary': {
+            'overall_trend': velocity_data['overall_trend'],
+            'current_phase': velocity_data['monitoring_phase'],
+            'risk_level': risk_indicators['overall_risk_level']
+        }
+    }).eq('id', session_id).execute()
+    
+    return {
+        "progression_metrics": {
+            "velocity": velocity_data,
+            "risk_indicators": risk_indicators,
+            "clinical_thresholds": clinical_insights['thresholds'],
+            "recommendations": clinical_insights['recommendations']
+        },
+        "visualization_data": visualization_data,
+        "summary": clinical_insights['summary'],
+        "next_steps": clinical_insights['next_steps']
+    }
+
+
+def calculate_progression_velocity(analyses: List[Dict]) -> Dict:
+    """Calculate rate and acceleration of changes"""
+    
+    # Extract size measurements over time
+    size_timeline = []
+    for analysis in analyses:
+        if analysis.get('analysis_data', {}).get('key_measurements', {}).get('size_estimate_mm'):
+            size_timeline.append({
+                'date': analysis['created_at'],
+                'size_mm': analysis['analysis_data']['key_measurements']['size_estimate_mm'],
+                'confidence': analysis.get('confidence_score', 0)
+            })
+    
+    velocity_data = {
+        'overall_trend': 'stable',
+        'size_change_rate': None,
+        'acceleration': None,
+        'projected_size_30d': None,
+        'monitoring_phase': 'ongoing'
+    }
+    
+    if len(size_timeline) >= 2:
+        # Calculate rate of change
+        first = size_timeline[0]
+        last = size_timeline[-1]
+        
+        first_date = datetime.fromisoformat(first['date'].replace('Z', '+00:00'))
+        last_date = datetime.fromisoformat(last['date'].replace('Z', '+00:00'))
+        days_elapsed = (last_date - first_date).days
+        
+        if days_elapsed > 0:
+            size_change = last['size_mm'] - first['size_mm']
+            rate_per_week = (size_change / days_elapsed) * 7
+            
+            velocity_data['size_change_rate'] = f"{rate_per_week:.2f}mm/week"
+            
+            # Calculate acceleration if we have 3+ points
+            if len(size_timeline) >= 3:
+                mid_point = size_timeline[len(size_timeline)//2]
+                
+                # First half rate
+                mid_date = datetime.fromisoformat(mid_point['date'].replace('Z', '+00:00'))
+                first_half_days = (mid_date - first_date).days
+                first_half_change = mid_point['size_mm'] - first['size_mm']
+                first_half_rate = first_half_change / max(first_half_days, 1)
+                
+                # Second half rate
+                second_half_days = (last_date - mid_date).days
+                second_half_change = last['size_mm'] - mid_point['size_mm']
+                second_half_rate = second_half_change / max(second_half_days, 1)
+                
+                # Acceleration
+                if first_half_rate < second_half_rate:
+                    velocity_data['acceleration'] = 'increasing'
+                elif first_half_rate > second_half_rate:
+                    velocity_data['acceleration'] = 'decreasing'
+                else:
+                    velocity_data['acceleration'] = 'stable'
+            
+            # Project 30 days
+            if rate_per_week != 0:
+                projected_change_30d = (rate_per_week / 7) * 30
+                velocity_data['projected_size_30d'] = f"{last['size_mm'] + projected_change_30d:.1f}mm"
+            
+            # Determine trend
+            if size_change > 0.5:
+                velocity_data['overall_trend'] = 'growing'
+            elif size_change < -0.5:
+                velocity_data['overall_trend'] = 'shrinking'
+            else:
+                velocity_data['overall_trend'] = 'stable'
+    
+    # Determine monitoring phase
+    velocity_data['monitoring_phase'] = determine_monitoring_phase(
+        len(analyses),
+        velocity_data['overall_trend']
+    )
+    
+    return velocity_data
+
+
+def calculate_risk_indicators(analyses: List[Dict]) -> Dict:
+    """Calculate risk indicators based on progression patterns"""
+    
+    risk_indicators = {
+        'rapid_growth': False,
+        'color_darkening': False,
+        'border_irregularity_increase': False,
+        'new_colors_appearing': False,
+        'asymmetry_increasing': False,
+        'overall_risk_level': 'low'
+    }
+    
+    # Check for rapid growth
+    for i in range(1, len(analyses)):
+        prev = analyses[i-1]
+        curr = analyses[i]
+        
+        # Check size increase
+        if (prev.get('analysis_data', {}).get('key_measurements', {}).get('size_estimate_mm') and 
+            curr.get('analysis_data', {}).get('key_measurements', {}).get('size_estimate_mm')):
+            
+            prev_size = prev['analysis_data']['key_measurements']['size_estimate_mm']
+            curr_size = curr['analysis_data']['key_measurements']['size_estimate_mm']
+            
+            if prev_size > 0 and (curr_size - prev_size) / prev_size > 0.2:  # 20% increase
+                risk_indicators['rapid_growth'] = True
+        
+        # Check for color changes
+        if curr.get('comparison', {}).get('visual_changes', {}).get('color', {}).get('concerning'):
+            risk_indicators['color_darkening'] = True
+        
+        # Check for new colors
+        prev_colors = prev.get('analysis_data', {}).get('key_measurements', {}).get('secondary_colors', [])
+        curr_colors = curr.get('analysis_data', {}).get('key_measurements', {}).get('secondary_colors', [])
+        
+        if len(curr_colors) > len(prev_colors):
+            risk_indicators['new_colors_appearing'] = True
+    
+    # Check latest analysis for border/asymmetry
+    if analyses:
+        latest = analyses[-1]
+        if latest.get('analysis_data', {}).get('condition_insights', {}).get('progression_indicators', {}).get('worsening_signs'):
+            worsening_signs = latest['analysis_data']['condition_insights']['progression_indicators']['worsening_signs']
+            
+            if any('border' in sign.lower() for sign in worsening_signs):
+                risk_indicators['border_irregularity_increase'] = True
+            
+            if any('asymmetr' in sign.lower() for sign in worsening_signs):
+                risk_indicators['asymmetry_increasing'] = True
+    
+    # Calculate overall risk
+    risk_count = sum([
+        risk_indicators['rapid_growth'],
+        risk_indicators['color_darkening'],
+        risk_indicators['border_irregularity_increase'],
+        risk_indicators['new_colors_appearing'],
+        risk_indicators['asymmetry_increasing']
+    ])
+    
+    if risk_count >= 3:
+        risk_indicators['overall_risk_level'] = 'high'
+    elif risk_count >= 1:
+        risk_indicators['overall_risk_level'] = 'moderate'
+    else:
+        risk_indicators['overall_risk_level'] = 'low'
+    
+    return risk_indicators
+
+
+def generate_clinical_insights(
+    session: Dict,
+    analyses: List[Dict],
+    velocity_data: Dict,
+    risk_indicators: Dict
+) -> Dict:
+    """Generate clinical insights based on progression data"""
+    
+    condition_name = session.get('condition_name', 'condition')
+    
+    insights = {
+        'thresholds': {},
+        'recommendations': [],
+        'summary': '',
+        'next_steps': []
+    }
+    
+    # Set clinical thresholds based on condition type
+    if 'mole' in condition_name.lower() or 'lesion' in condition_name.lower():
+        insights['thresholds'] = {
+            'concerning_size': '6mm',
+            'rapid_growth_threshold': '20% in 30 days',
+            'color_change_threshold': 'Any darkening or new colors'
+        }
+        
+        # Check against thresholds
+        latest_size = None
+        if analyses:
+            latest = analyses[-1]
+            latest_size = latest.get('analysis_data', {}).get('key_measurements', {}).get('size_estimate_mm')
+        
+        if latest_size and latest_size >= 6:
+            insights['recommendations'].append("Size exceeds 6mm - dermatologist evaluation recommended")
+    
+    # Generate recommendations based on risk
+    if risk_indicators['overall_risk_level'] == 'high':
+        insights['recommendations'].extend([
+            "Multiple concerning changes detected",
+            "Urgent dermatologist consultation recommended",
+            "Document all changes carefully"
+        ])
+        insights['next_steps'] = [
+            "Schedule dermatologist appointment within 1 week",
+            "Bring all photo documentation",
+            "Note any symptoms (itching, bleeding)"
+        ]
+    elif risk_indicators['overall_risk_level'] == 'moderate':
+        insights['recommendations'].extend([
+            "Some changes observed requiring attention",
+            "Continue close monitoring",
+            "Consider dermatologist consultation"
+        ])
+        insights['next_steps'] = [
+            "Monitor every 7-14 days",
+            "Watch for rapid changes",
+            "Schedule routine dermatologist check"
+        ]
+    else:
+        insights['recommendations'].extend([
+            "Stable progression observed",
+            "Continue routine monitoring",
+            "Annual dermatologist check recommended"
+        ])
+        insights['next_steps'] = [
+            "Continue monthly photos",
+            "Note any new symptoms",
+            "Maintain photo documentation"
+        ]
+    
+    # Generate summary
+    trend_text = velocity_data.get('overall_trend', 'stable')
+    rate_text = velocity_data.get('size_change_rate', 'minimal change')
+    
+    insights['summary'] = (
+        f"Analysis of {len(analyses)} photos shows {trend_text} progression "
+        f"with {rate_text}. Risk level: {risk_indicators['overall_risk_level']}. "
+        f"Monitoring phase: {velocity_data.get('monitoring_phase', 'ongoing')}."
+    )
+    
+    return insights
+
+
+def prepare_visualization_data(analyses: List[Dict]) -> Dict:
+    """Prepare data for frontend visualization"""
+    
+    timeline_data = []
+    
+    for analysis in analyses:
+        data_point = {
+            'date': analysis['created_at'],
+            'confidence': analysis.get('confidence_score', 0),
+            'primary_assessment': analysis.get('analysis_data', {}).get('primary_assessment', ''),
+            'metrics': {}
+        }
+        
+        # Extract key metrics
+        measurements = analysis.get('analysis_data', {}).get('key_measurements', {})
+        if measurements.get('size_estimate_mm'):
+            data_point['metrics']['size_mm'] = measurements['size_estimate_mm']
+        
+        # Extract risk indicators
+        if analysis.get('analysis_data', {}).get('red_flags'):
+            data_point['has_red_flags'] = True
+            data_point['red_flag_count'] = len(analysis['analysis_data']['red_flags'])
+        
+        timeline_data.append(data_point)
+    
+    # Calculate trend lines
+    size_values = [p['metrics'].get('size_mm') for p in timeline_data if p['metrics'].get('size_mm')]
+    
+    trend_lines = []
+    if len(size_values) >= 2:
+        # Simple linear regression for trend line
+        x_values = list(range(len(size_values)))
+        mean_x = sum(x_values) / len(x_values)
+        mean_y = sum(size_values) / len(size_values)
+        
+        numerator = sum((x - mean_x) * (y - mean_y) for x, y in zip(x_values, size_values))
+        denominator = sum((x - mean_x) ** 2 for x in x_values)
+        
+        if denominator != 0:
+            slope = numerator / denominator
+            intercept = mean_y - slope * mean_x
+            
+            trend_lines = [
+                {'x': 0, 'y': intercept},
+                {'x': len(size_values) - 1, 'y': intercept + slope * (len(size_values) - 1)}
+            ]
+    
+    return {
+        'timeline': timeline_data,
+        'trend_lines': trend_lines,
+        'metrics': {
+            'size': {
+                'values': size_values,
+                'unit': 'mm',
+                'label': 'Size'
+            }
+        }
+    }
