@@ -18,6 +18,7 @@ from business_logic import call_llm
 from utils.json_parser import extract_json_from_response
 from utils.data_gathering import (
     gather_report_data,
+    gather_selected_data,
     safe_insert_report,
     has_emergency_indicators,
     determine_time_range
@@ -420,8 +421,20 @@ async def generate_symptom_timeline(request: SymptomTimelineRequest):
         analysis = analysis_response.data[0]
         config = analysis.get("report_config", {})
         
-        # Gather data with focus on timeline
-        data = await gather_report_data(request.user_id or analysis["user_id"], config)
+        # Check if specific interactions are selected
+        if request.quick_scan_ids or request.deep_dive_ids or request.photo_session_ids or request.general_assessment_ids or request.general_deep_dive_ids:
+            # Gather only selected data
+            data = await gather_selected_data(
+                user_id=request.user_id or analysis["user_id"],
+                quick_scan_ids=request.quick_scan_ids,
+                deep_dive_ids=request.deep_dive_ids,
+                photo_session_ids=request.photo_session_ids,
+                general_assessment_ids=request.general_assessment_ids,
+                general_deep_dive_ids=request.general_deep_dive_ids
+            )
+        else:
+            # Fallback to comprehensive data from time range
+            data = await gather_report_data(request.user_id or analysis["user_id"], config)
         
         # Build timeline context
         context = f"""Generate a symptom timeline report focused on: {request.symptom_focus or config.get('primary_focus', 'symptoms')}

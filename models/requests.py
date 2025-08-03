@@ -107,6 +107,11 @@ class SymptomTimelineRequest(BaseModel):
     analysis_id: str
     user_id: Optional[str] = None
     symptom_focus: Optional[str] = None
+    quick_scan_ids: Optional[List[str]] = None
+    deep_dive_ids: Optional[List[str]] = None
+    photo_session_ids: Optional[List[str]] = None
+    general_assessment_ids: Optional[List[str]] = None
+    general_deep_dive_ids: Optional[List[str]] = None
 
 class SpecialistReportRequest(BaseModel):
     analysis_id: str
@@ -115,6 +120,8 @@ class SpecialistReportRequest(BaseModel):
     quick_scan_ids: Optional[List[str]] = None
     deep_dive_ids: Optional[List[str]] = None
     photo_session_ids: Optional[List[str]] = None
+    general_assessment_ids: Optional[List[str]] = None
+    general_deep_dive_ids: Optional[List[str]] = None
 
 class AnnualSummaryRequest(BaseModel):
     analysis_id: str

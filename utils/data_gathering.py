@@ -494,7 +494,9 @@ async def gather_selected_data(
     user_id: str, 
     quick_scan_ids: Optional[List[str]] = None, 
     deep_dive_ids: Optional[List[str]] = None, 
-    photo_session_ids: Optional[List[str]] = None
+    photo_session_ids: Optional[List[str]] = None,
+    general_assessment_ids: Optional[List[str]] = None,
+    general_deep_dive_ids: Optional[List[str]] = None
 ) -> Dict[str, Any]:
     """
     Gather only specific selected interactions for specialist reports
@@ -504,6 +506,8 @@ async def gather_selected_data(
         quick_scan_ids: List of specific quick scan IDs to fetch
         deep_dive_ids: List of specific deep dive session IDs to fetch
         photo_session_ids: List of specific photo session IDs to fetch
+        general_assessment_ids: List of specific general assessment IDs to fetch
+        general_deep_dive_ids: List of specific general deep dive session IDs to fetch
         
     Returns:
         Dictionary with selected data matching the structure of gather_comprehensive_data
@@ -515,7 +519,9 @@ async def gather_selected_data(
         "symptom_tracking": [],
         "tracking_data": [],
         "llm_summaries": [],
-        "wearables": {}
+        "wearables": {},
+        "general_assessments": [],
+        "general_deep_dives": []
     }
     
     try:
@@ -564,12 +570,37 @@ async def gather_selected_data(
                 .execute()
             data["photo_analyses"] = photo_result.data or []
         
+        # Get specific general assessments
+        if general_assessment_ids:
+            general_result = supabase.table("general_assessments")\
+                .select("*")\
+                .in_("id", general_assessment_ids)\
+                .eq("user_id", user_id)\
+                .order("created_at")\
+                .execute()
+            data["general_assessments"] = general_result.data or []
+        
+        # Get specific general deep dive sessions
+        if general_deep_dive_ids:
+            general_dives_result = supabase.table("general_deepdive_sessions")\
+                .select("*")\
+                .in_("id", general_deep_dive_ids)\
+                .eq("user_id", user_id)\
+                .eq("status", "completed")\
+                .order("created_at")\
+                .execute()
+            data["general_deep_dives"] = general_dives_result.data or []
+        
         # Get any LLM summaries from the same dates
         all_dates = set()
         for scan in data["quick_scans"]:
             all_dates.add(scan["created_at"][:10])
         for dive in data["deep_dives"]:
             all_dates.add(dive["created_at"][:10])
+        for assessment in data["general_assessments"]:
+            all_dates.add(assessment["created_at"][:10])
+        for general_dive in data["general_deep_dives"]:
+            all_dates.add(general_dive["created_at"][:10])
             
         if all_dates:
             for date in all_dates:

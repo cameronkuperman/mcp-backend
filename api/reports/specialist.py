@@ -181,13 +181,15 @@ async def generate_specialist_report(request: SpecialistReportRequest):
         config = analysis.get("report_config", {})
         
         # Check if specific interactions are selected
-        if request.quick_scan_ids or request.deep_dive_ids or request.photo_session_ids:
+        if request.quick_scan_ids or request.deep_dive_ids or request.photo_session_ids or request.general_assessment_ids or request.general_deep_dive_ids:
             # Gather only selected data
             data = await gather_selected_data(
                 user_id=request.user_id or analysis["user_id"],
                 quick_scan_ids=request.quick_scan_ids,
                 deep_dive_ids=request.deep_dive_ids,
-                photo_session_ids=request.photo_session_ids
+                photo_session_ids=request.photo_session_ids,
+                general_assessment_ids=request.general_assessment_ids,
+                general_deep_dive_ids=request.general_deep_dive_ids
             )
             # Photo analyses are already included in gather_selected_data
             photo_analyses = data.get("photo_analyses", [])
@@ -337,13 +339,15 @@ async def generate_cardiology_report(request: SpecialistReportRequest):
         config = analysis.get("report_config", {})
         
         # Check if specific interactions are selected
-        if request.quick_scan_ids or request.deep_dive_ids or request.photo_session_ids:
+        if request.quick_scan_ids or request.deep_dive_ids or request.photo_session_ids or request.general_assessment_ids or request.general_deep_dive_ids:
             # Gather only selected data
             all_data = await gather_selected_data(
                 user_id=request.user_id or analysis["user_id"],
                 quick_scan_ids=request.quick_scan_ids,
                 deep_dive_ids=request.deep_dive_ids,
-                photo_session_ids=request.photo_session_ids
+                photo_session_ids=request.photo_session_ids,
+                general_assessment_ids=request.general_assessment_ids,
+                general_deep_dive_ids=request.general_deep_dive_ids
             )
         else:
             # Fallback to comprehensive data from time range
@@ -627,13 +631,15 @@ async def generate_neurology_report(request: SpecialistReportRequest):
         config = analysis.get("report_config", {})
         
         # Check if specific interactions are selected
-        if request.quick_scan_ids or request.deep_dive_ids or request.photo_session_ids:
+        if request.quick_scan_ids or request.deep_dive_ids or request.photo_session_ids or request.general_assessment_ids or request.general_deep_dive_ids:
             # Gather only selected data
             all_data = await gather_selected_data(
                 user_id=request.user_id or analysis["user_id"],
                 quick_scan_ids=request.quick_scan_ids,
                 deep_dive_ids=request.deep_dive_ids,
-                photo_session_ids=request.photo_session_ids
+                photo_session_ids=request.photo_session_ids,
+                general_assessment_ids=request.general_assessment_ids,
+                general_deep_dive_ids=request.general_deep_dive_ids
             )
         else:
             # Fallback to comprehensive data from time range
@@ -931,13 +937,15 @@ async def generate_psychiatry_report(request: SpecialistReportRequest):
         config = analysis.get("report_config", {})
         
         # Check if specific interactions are selected
-        if request.quick_scan_ids or request.deep_dive_ids or request.photo_session_ids:
+        if request.quick_scan_ids or request.deep_dive_ids or request.photo_session_ids or request.general_assessment_ids or request.general_deep_dive_ids:
             # Gather only selected data
             all_data = await gather_selected_data(
                 user_id=request.user_id or analysis["user_id"],
                 quick_scan_ids=request.quick_scan_ids,
                 deep_dive_ids=request.deep_dive_ids,
-                photo_session_ids=request.photo_session_ids
+                photo_session_ids=request.photo_session_ids,
+                general_assessment_ids=request.general_assessment_ids,
+                general_deep_dive_ids=request.general_deep_dive_ids
             )
         else:
             # Fallback to comprehensive data from time range
@@ -1225,13 +1233,15 @@ async def generate_dermatology_report(request: SpecialistReportRequest):
         config = analysis.get("report_config", {})
         
         # Check if specific interactions are selected
-        if request.quick_scan_ids or request.deep_dive_ids or request.photo_session_ids:
+        if request.quick_scan_ids or request.deep_dive_ids or request.photo_session_ids or request.general_assessment_ids or request.general_deep_dive_ids:
             # Gather only selected data
             all_data = await gather_selected_data(
                 user_id=request.user_id or analysis["user_id"],
                 quick_scan_ids=request.quick_scan_ids,
                 deep_dive_ids=request.deep_dive_ids,
-                photo_session_ids=request.photo_session_ids
+                photo_session_ids=request.photo_session_ids,
+                general_assessment_ids=request.general_assessment_ids,
+                general_deep_dive_ids=request.general_deep_dive_ids
             )
             # For dermatology, photo_data comes from photo_analyses in all_data
             photo_data = all_data.get("photo_analyses", [])
@@ -1505,13 +1515,15 @@ async def generate_gastroenterology_report(request: SpecialistReportRequest):
         config = analysis.get("report_config", {})
         
         # Check if specific interactions are selected
-        if request.quick_scan_ids or request.deep_dive_ids or request.photo_session_ids:
+        if request.quick_scan_ids or request.deep_dive_ids or request.photo_session_ids or request.general_assessment_ids or request.general_deep_dive_ids:
             # Gather only selected data
             all_data = await gather_selected_data(
                 user_id=request.user_id or analysis["user_id"],
                 quick_scan_ids=request.quick_scan_ids,
                 deep_dive_ids=request.deep_dive_ids,
-                photo_session_ids=request.photo_session_ids
+                photo_session_ids=request.photo_session_ids,
+                general_assessment_ids=request.general_assessment_ids,
+                general_deep_dive_ids=request.general_deep_dive_ids
             )
         else:
             # Fallback to comprehensive data from time range
@@ -1783,13 +1795,15 @@ async def generate_endocrinology_report(request: SpecialistReportRequest):
         config = analysis.get("report_config", {})
         
         # Check if specific interactions are selected
-        if request.quick_scan_ids or request.deep_dive_ids or request.photo_session_ids:
+        if request.quick_scan_ids or request.deep_dive_ids or request.photo_session_ids or request.general_assessment_ids or request.general_deep_dive_ids:
             # Gather only selected data
             all_data = await gather_selected_data(
                 user_id=request.user_id or analysis["user_id"],
                 quick_scan_ids=request.quick_scan_ids,
                 deep_dive_ids=request.deep_dive_ids,
-                photo_session_ids=request.photo_session_ids
+                photo_session_ids=request.photo_session_ids,
+                general_assessment_ids=request.general_assessment_ids,
+                general_deep_dive_ids=request.general_deep_dive_ids
             )
         else:
             # Fallback to comprehensive data from time range
@@ -1992,13 +2006,15 @@ async def generate_pulmonology_report(request: SpecialistReportRequest):
         config = analysis.get("report_config", {})
         
         # Check if specific interactions are selected
-        if request.quick_scan_ids or request.deep_dive_ids or request.photo_session_ids:
+        if request.quick_scan_ids or request.deep_dive_ids or request.photo_session_ids or request.general_assessment_ids or request.general_deep_dive_ids:
             # Gather only selected data
             all_data = await gather_selected_data(
                 user_id=request.user_id or analysis["user_id"],
                 quick_scan_ids=request.quick_scan_ids,
                 deep_dive_ids=request.deep_dive_ids,
-                photo_session_ids=request.photo_session_ids
+                photo_session_ids=request.photo_session_ids,
+                general_assessment_ids=request.general_assessment_ids,
+                general_deep_dive_ids=request.general_deep_dive_ids
             )
         else:
             # Fallback to comprehensive data from time range
@@ -2207,13 +2223,15 @@ async def generate_primary_care_report(request: SpecialistReportRequest):
         config = analysis.get("report_config", {})
         
         # Check if specific interactions are selected
-        if request.quick_scan_ids or request.deep_dive_ids or request.photo_session_ids:
+        if request.quick_scan_ids or request.deep_dive_ids or request.photo_session_ids or request.general_assessment_ids or request.general_deep_dive_ids:
             # Gather only selected data
             all_data = await gather_selected_data(
                 user_id=request.user_id or analysis["user_id"],
                 quick_scan_ids=request.quick_scan_ids,
                 deep_dive_ids=request.deep_dive_ids,
-                photo_session_ids=request.photo_session_ids
+                photo_session_ids=request.photo_session_ids,
+                general_assessment_ids=request.general_assessment_ids,
+                general_deep_dive_ids=request.general_deep_dive_ids
             )
         else:
             # Fallback to comprehensive data from time range
