@@ -1514,231 +1514,231 @@ async def add_follow_up_photos(
             except json.JSONDecodeError:
                 comparison_photo_ids = []
     
-        # Get previous photos for comparison if auto_compare is true and no specific IDs provided
-        smart_batching_info = None
-        if auto_compare and not comparison_photo_ids:
-            # Get ALL photos from this session for smart selection
-            all_prev_photos_result = supabase.table('photo_uploads')\
-                .select('*')\
-                .eq('session_id', session_id)\
-                .eq('category', 'medical_normal')\
-                .order('uploaded_at')\
-                .execute()
-            
-            if all_prev_photos_result.data:
-                # Use smart batching if there are many photos
-                batcher = SmartPhotoBatcher(max_photos=40)
-                
-                # Get analyses for importance scoring
-                analyses_result = supabase.table('photo_analyses')\
-                    .select('*')\
-                    .eq('session_id', session_id)\
-                    .execute()
-                
-                selected_photos, smart_batching_info = batcher.select_photos_for_comparison(
-                    all_prev_photos_result.data,
-                    analyses_result.data if analyses_result.data else None
-                )
-                
-                comparison_photo_ids = [p['id'] for p in selected_photos]
-                print(f"Smart batching selected {len(comparison_photo_ids)} photos from {len(all_prev_photos_result.data)} total")
-        
-        # Process and upload new photos
-        uploaded_photos = []
-        
-        for photo in photos:
-            # Validate
-            await validate_photo_upload(photo)
-            
-            # Categorize
-            base64_image = await file_to_base64(photo)
-            
-            try:
-                response = await call_openrouter_with_retry(
-                    model='google/gemini-2.5-flash-lite',
-                    messages=[{
-                        'role': 'user',
-                        'content': [
-                            {'type': 'text', 'text': PHOTO_CATEGORIZATION_PROMPT},
-                            {'type': 'image_url', 'image_url': {'url': f'data:{photo.content_type};base64,{base64_image}'}}
-                        ]
-                    }],
-                    max_tokens=50,
-                    temperature=0.1
-                )
-                
-                content = response['choices'][0]['message']['content']
-                categorization = extract_json_from_text(content)
-                category = categorization['category']
-                
-            except Exception as e:
-                raise HTTPException(status_code=500, detail=f"Categorization failed: {str(e)}")
-            
-            # Upload based on category
-            stored = False
-            storage_url = None
-            photo_id = str(uuid.uuid4())
-            
-            if category in ['medical_normal', 'medical_gore']:
-                # Upload to storage
-                sanitized_filename = sanitize_filename(photo.filename)
-                file_name = f"{user_id}/{session_id}/followup_{datetime.now().timestamp()}_{sanitized_filename}"
-                
-                try:
-                    await photo.seek(0)
-                    file_data = await photo.read()
-                    
-                    upload_response = supabase.storage.from_(STORAGE_BUCKET).upload(
-                        file_name,
-                        file_data,
-                        file_options={"content-type": photo.content_type}
-                    )
-                    
-                    storage_url = file_name
-                    stored = True
-                    
-                except Exception as e:
-                    raise HTTPException(status_code=500, detail=f"Storage upload failed: {str(e)}")
-            
-            elif category == 'medical_sensitive':
-                # Store base64 temporarily
-                await photo.seek(0)
-                photo_data = await photo.read()
-                base64_data = base64.b64encode(photo_data).decode('utf-8')
-                stored = False
-            
-            # Save upload record
-            upload_data = {
-                'id': photo_id,
-                'session_id': session_id,
-                'category': category,
-                'storage_url': storage_url,
-                'file_metadata': {
-                    'size': photo.size,
-                    'mime_type': photo.content_type,
-                    'original_name': photo.filename
-                },
-                'is_followup': True,
-                'followup_notes': notes
-            }
-            
-            if category == 'medical_sensitive':
-                upload_data['temporary_data'] = base64_data
-            
-            upload_record = supabase.table('photo_uploads').insert(upload_data).execute()
-            
-            # Get preview URL
-            preview_url = None
-            if stored:
-                try:
-                    preview_data = supabase.storage.from_(STORAGE_BUCKET).create_signed_url(
-                        storage_url,
-                        3600
-                    )
-                    preview_url = preview_data.get('signedURL') or preview_data.get('signedUrl')
-                except Exception as e:
-                    print(f"Error creating preview URL: {str(e)}")
-            
-            uploaded_photos.append({
-                'id': photo_id,
-                'category': category,
-                'stored': stored,
-                'preview_url': preview_url
-            })
-        
-        # Update session last_photo_at
-        supabase.table('photo_sessions').update({
-            'last_photo_at': datetime.now().isoformat()
-        }).eq('id', session_id).execute()
-        
-        # Perform comparison if requested
-        comparison_results = None
-        if comparison_photo_ids and uploaded_photos:
-            # Analyze new photos with comparison
-            new_photo_ids = [p['id'] for p in uploaded_photos]
-            
-            analysis_request = PhotoAnalysisRequest(
-                session_id=session_id,
-                photo_ids=new_photo_ids,
-                comparison_photo_ids=comparison_photo_ids,
-                context=f"Follow-up photos. Notes: {notes}" if notes else "Follow-up photos"
-            )
-            
-            try:
-                analysis_response = await analyze_photos(analysis_request)
-                
-                # Calculate days since last photo
-                if comparison_photo_ids:
-                    prev_photo = supabase.table('photo_uploads')\
-                        .select('uploaded_at')\
-                        .eq('id', comparison_photo_ids[0])\
-                        .single()\
-                        .execute()
-                    
-                    if prev_photo.data:
-                        prev_date = datetime.fromisoformat(prev_photo.data['uploaded_at'].replace('Z', '+00:00'))
-                        days_since = (datetime.now(prev_date.tzinfo) - prev_date).days
-                    else:
-                        days_since = None
-                else:
-                    days_since = None
-                
-                comparison_results = {
-                    'compared_with': comparison_photo_ids,
-                    'days_since_last': days_since,
-                    'analysis': {
-                        'trend': analysis_response.get('comparison', {}).get('trend', 'unknown'),
-                        'changes': analysis_response.get('comparison', {}).get('changes', {}),
-                        'confidence': analysis_response.get('analysis', {}).get('confidence', 0) / 100,
-                        'summary': analysis_response.get('comparison', {}).get('ai_summary', "No comparison available")
-                    },
-                    'visual_comparison': {
-                        'primary_change': analysis_response.get('comparison', {}).get('primary_change'),
-                        'change_significance': analysis_response.get('comparison', {}).get('change_significance'),
-                        'visual_changes': analysis_response.get('comparison', {}).get('visual_changes', {}),
-                        'progression_analysis': analysis_response.get('comparison', {}).get('progression_analysis', {}),
-                        'clinical_interpretation': analysis_response.get('comparison', {}).get('clinical_interpretation'),
-                        'next_monitoring': analysis_response.get('comparison', {}).get('next_monitoring', {})
-                    },
-                    'key_measurements': {
-                        'latest': analysis_response.get('analysis', {}).get('key_measurements', {}),
-                        'condition_insights': analysis_response.get('analysis', {}).get('condition_insights', {})
-                    }
-                }
-            except Exception as e:
-                print(f"Comparison failed: {str(e)}")
-                comparison_results = {
-                    'error': 'Comparison failed',
-                    'message': str(e)
-                }
-        
-        # Generate follow-up suggestions using full history
-        # Get all analyses for this session to make intelligent suggestions
-        all_analyses = supabase.table('photo_analyses')\
+    # Get previous photos for comparison if auto_compare is true and no specific IDs provided
+    smart_batching_info = None
+    if auto_compare and not comparison_photo_ids:
+        # Get ALL photos from this session for smart selection
+        all_prev_photos_result = supabase.table('photo_uploads')\
             .select('*')\
             .eq('session_id', session_id)\
-            .order('created_at')\
-            .execute()
-        
-        all_photos = supabase.table('photo_uploads')\
-            .select('*')\
-            .eq('session_id', session_id)\
+            .eq('category', 'medical_normal')\
             .order('uploaded_at')\
             .execute()
         
-        follow_up_suggestion = await generate_intelligent_follow_up_suggestion(
-            session, 
-            all_analyses.data if all_analyses.data else [],
-            all_photos.data if all_photos.data else [],
-            analysis_response.get('analysis') if 'analysis_response' in locals() and isinstance(analysis_response, dict) else None
+        if all_prev_photos_result.data:
+            # Use smart batching if there are many photos
+            batcher = SmartPhotoBatcher(max_photos=40)
+            
+            # Get analyses for importance scoring
+            analyses_result = supabase.table('photo_analyses')\
+                .select('*')\
+                .eq('session_id', session_id)\
+                .execute()
+            
+            selected_photos, smart_batching_info = batcher.select_photos_for_comparison(
+                all_prev_photos_result.data,
+                analyses_result.data if analyses_result.data else None
+            )
+            
+            comparison_photo_ids = [p['id'] for p in selected_photos]
+            print(f"Smart batching selected {len(comparison_photo_ids)} photos from {len(all_prev_photos_result.data)} total")
+    
+    # Process and upload new photos
+    uploaded_photos = []
+    
+    for photo in photos:
+        # Validate
+        await validate_photo_upload(photo)
+        
+        # Categorize
+        base64_image = await file_to_base64(photo)
+        
+        try:
+            response = await call_openrouter_with_retry(
+                model='google/gemini-2.5-flash-lite',
+                messages=[{
+                    'role': 'user',
+                    'content': [
+                        {'type': 'text', 'text': PHOTO_CATEGORIZATION_PROMPT},
+                        {'type': 'image_url', 'image_url': {'url': f'data:{photo.content_type};base64,{base64_image}'}}
+                    ]
+                }],
+                max_tokens=50,
+                temperature=0.1
+            )
+            
+            content = response['choices'][0]['message']['content']
+            categorization = extract_json_from_text(content)
+            category = categorization['category']
+            
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Categorization failed: {str(e)}")
+        
+        # Upload based on category
+        stored = False
+        storage_url = None
+        photo_id = str(uuid.uuid4())
+        
+        if category in ['medical_normal', 'medical_gore']:
+            # Upload to storage
+            sanitized_filename = sanitize_filename(photo.filename)
+            file_name = f"{user_id}/{session_id}/followup_{datetime.now().timestamp()}_{sanitized_filename}"
+            
+            try:
+                await photo.seek(0)
+                file_data = await photo.read()
+                
+                upload_response = supabase.storage.from_(STORAGE_BUCKET).upload(
+                    file_name,
+                    file_data,
+                    file_options={"content-type": photo.content_type}
+                )
+                
+                storage_url = file_name
+                stored = True
+                
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=f"Storage upload failed: {str(e)}")
+        
+        elif category == 'medical_sensitive':
+            # Store base64 temporarily
+            await photo.seek(0)
+            photo_data = await photo.read()
+            base64_data = base64.b64encode(photo_data).decode('utf-8')
+            stored = False
+        
+        # Save upload record
+        upload_data = {
+            'id': photo_id,
+            'session_id': session_id,
+            'category': category,
+            'storage_url': storage_url,
+            'file_metadata': {
+                'size': photo.size,
+                'mime_type': photo.content_type,
+                'original_name': photo.filename
+            },
+            'is_followup': True,
+            'followup_notes': notes
+        }
+        
+        if category == 'medical_sensitive':
+            upload_data['temporary_data'] = base64_data
+        
+        upload_record = supabase.table('photo_uploads').insert(upload_data).execute()
+        
+        # Get preview URL
+        preview_url = None
+        if stored:
+            try:
+                preview_data = supabase.storage.from_(STORAGE_BUCKET).create_signed_url(
+                    storage_url,
+                    3600
+                )
+                preview_url = preview_data.get('signedURL') or preview_data.get('signedUrl')
+            except Exception as e:
+                print(f"Error creating preview URL: {str(e)}")
+        
+        uploaded_photos.append({
+            'id': photo_id,
+            'category': category,
+            'stored': stored,
+            'preview_url': preview_url
+        })
+    
+    # Update session last_photo_at
+    supabase.table('photo_sessions').update({
+        'last_photo_at': datetime.now().isoformat()
+    }).eq('id', session_id).execute()
+    
+    # Perform comparison if requested
+    comparison_results = None
+    if comparison_photo_ids and uploaded_photos:
+        # Analyze new photos with comparison
+        new_photo_ids = [p['id'] for p in uploaded_photos]
+        
+        analysis_request = PhotoAnalysisRequest(
+            session_id=session_id,
+            photo_ids=new_photo_ids,
+            comparison_photo_ids=comparison_photo_ids,
+            context=f"Follow-up photos. Notes: {notes}" if notes else "Follow-up photos"
         )
         
-        return {
-            'uploaded_photos': uploaded_photos,
-            'comparison_results': comparison_results,
-            'follow_up_suggestion': follow_up_suggestion,
-            'smart_batching_info': smart_batching_info  # Include batching info if photos were intelligently selected
-        }
+        try:
+            analysis_response = await analyze_photos(analysis_request)
+            
+            # Calculate days since last photo
+            if comparison_photo_ids:
+                prev_photo = supabase.table('photo_uploads')\
+                    .select('uploaded_at')\
+                    .eq('id', comparison_photo_ids[0])\
+                    .single()\
+                    .execute()
+                
+                if prev_photo.data:
+                    prev_date = datetime.fromisoformat(prev_photo.data['uploaded_at'].replace('Z', '+00:00'))
+                    days_since = (datetime.now(prev_date.tzinfo) - prev_date).days
+                else:
+                    days_since = None
+            else:
+                days_since = None
+            
+            comparison_results = {
+                'compared_with': comparison_photo_ids,
+                'days_since_last': days_since,
+                'analysis': {
+                    'trend': analysis_response.get('comparison', {}).get('trend', 'unknown'),
+                    'changes': analysis_response.get('comparison', {}).get('changes', {}),
+                    'confidence': analysis_response.get('analysis', {}).get('confidence', 0) / 100,
+                    'summary': analysis_response.get('comparison', {}).get('ai_summary', "No comparison available")
+                },
+                'visual_comparison': {
+                    'primary_change': analysis_response.get('comparison', {}).get('primary_change'),
+                    'change_significance': analysis_response.get('comparison', {}).get('change_significance'),
+                    'visual_changes': analysis_response.get('comparison', {}).get('visual_changes', {}),
+                    'progression_analysis': analysis_response.get('comparison', {}).get('progression_analysis', {}),
+                    'clinical_interpretation': analysis_response.get('comparison', {}).get('clinical_interpretation'),
+                    'next_monitoring': analysis_response.get('comparison', {}).get('next_monitoring', {})
+                },
+                'key_measurements': {
+                    'latest': analysis_response.get('analysis', {}).get('key_measurements', {}),
+                    'condition_insights': analysis_response.get('analysis', {}).get('condition_insights', {})
+                }
+            }
+        except Exception as e:
+            print(f"Comparison failed: {str(e)}")
+            comparison_results = {
+                'error': 'Comparison failed',
+                'message': str(e)
+            }
+    
+    # Generate follow-up suggestions using full history
+    # Get all analyses for this session to make intelligent suggestions
+    all_analyses = supabase.table('photo_analyses')\
+        .select('*')\
+        .eq('session_id', session_id)\
+        .order('created_at')\
+        .execute()
+    
+    all_photos = supabase.table('photo_uploads')\
+        .select('*')\
+        .eq('session_id', session_id)\
+        .order('uploaded_at')\
+        .execute()
+    
+    follow_up_suggestion = await generate_intelligent_follow_up_suggestion(
+        session, 
+        all_analyses.data if all_analyses.data else [],
+        all_photos.data if all_photos.data else [],
+        analysis_response.get('analysis') if 'analysis_response' in locals() and isinstance(analysis_response, dict) else None
+    )
+    
+    return {
+        'uploaded_photos': uploaded_photos,
+        'comparison_results': comparison_results,
+        'follow_up_suggestion': follow_up_suggestion,
+        'smart_batching_info': smart_batching_info  # Include batching info if photos were intelligently selected
+    }
     
     except HTTPException:
         # Re-raise HTTP exceptions as they already have proper error structure
