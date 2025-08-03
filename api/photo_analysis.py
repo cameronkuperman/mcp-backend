@@ -1497,9 +1497,9 @@ async def add_follow_up_photos(
         
         if len(photos) > 5:
             raise HTTPException(status_code=400, detail="Maximum 5 photos per follow-up upload")
-    
-    # Verify session exists
-    session_result = supabase.table('photo_sessions').select('*').eq('id', session_id).single().execute()
+        
+        # Verify session exists
+        session_result = supabase.table('photo_sessions').select('*').eq('id', session_id).single().execute()
     if not session_result.data:
         raise HTTPException(status_code=404, detail="Session not found")
     
