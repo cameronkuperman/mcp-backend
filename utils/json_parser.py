@@ -17,12 +17,16 @@ def extract_json_from_response(content) -> Optional:
     
     # Strategy 3: Find JSON in code blocks FIRST (most common from LLMs)
     try:
-        # Look for ```json blocks (handle both objects and arrays)
-        json_block = re.search(r'```(?:json)?\s*([\[{][^`]*[\]}])\s*```', content, re.DOTALL)
+        # Look for ```json blocks (handle newlines and whitespace)
+        json_block = re.search(r'```(?:json)?\s*([\s\S]*?)\s*```', content, re.DOTALL)
         if json_block:
-            return json.loads(json_block.group(1))
+            # Extract and clean the JSON content
+            json_content = json_block.group(1).strip()
+            if json_content:
+                return json.loads(json_content)
     except Exception as e:
         print(f"Error parsing JSON from code block: {e}")
+        print(f"Content that failed: {json_block.group(1)[:200] if json_block else 'No match'}")
     
     # Strategy 4: Find JSON in text (handle nested objects and arrays)
     try:

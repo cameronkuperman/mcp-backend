@@ -2,7 +2,11 @@
 from datetime import datetime, timezone, timedelta
 from typing import Optional, Dict, List, Any
 from supabase_client import supabase
-# Removed circular import - get_user_medical_data will be handled differently
+import logging
+
+# Configure logging
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
 
 async def get_user_medical_data(user_id: str) -> Optional[Dict]:
     """Get user's medical profile data"""
@@ -125,6 +129,10 @@ async def safe_insert_report(report_record: dict) -> bool:
 
 async def gather_report_data(user_id: str, config: dict) -> dict:
     """Gather all data needed for report generation"""
+    logger.info("=== GATHER_REPORT_DATA START ===")
+    logger.info(f"User ID: {user_id}")
+    logger.info(f"Config: {config}")
+    
     data = {
         "quick_scans": [],
         "deep_dives": [],
@@ -133,6 +141,7 @@ async def gather_report_data(user_id: str, config: dict) -> dict:
     }
     
     time_range = config.get("time_range", {})
+    logger.info(f"Time range: {time_range}")
     
     # Get Quick Scans
     if config.get("data_sources", {}).get("quick_scans"):
@@ -512,6 +521,14 @@ async def gather_selected_data(
     Returns:
         Dictionary with selected data matching the structure of gather_comprehensive_data
     """
+    logger.info("=== GATHER_SELECTED_DATA START ===")
+    logger.info(f"User ID: {user_id}")
+    logger.info(f"Quick scan IDs: {quick_scan_ids}")
+    logger.info(f"Deep dive IDs: {deep_dive_ids}")
+    logger.info(f"Photo session IDs: {photo_session_ids}")
+    logger.info(f"General assessment IDs: {general_assessment_ids}")
+    logger.info(f"General deep dive IDs: {general_deep_dive_ids}")
+    
     data = {
         "quick_scans": [],
         "deep_dives": [],
@@ -527,6 +544,7 @@ async def gather_selected_data(
     try:
         # Get specific quick scans
         if quick_scan_ids:
+            logger.info(f"Fetching {len(quick_scan_ids)} quick scans...")
             scans_result = supabase.table("quick_scans")\
                 .select("*")\
                 .in_("id", quick_scan_ids)\
@@ -534,6 +552,7 @@ async def gather_selected_data(
                 .order("created_at")\
                 .execute()
             data["quick_scans"] = scans_result.data or []
+            logger.info(f"Found {len(data['quick_scans'])} quick scans")
             
             # Get dates for symptom tracking correlation
             scan_dates = [scan["created_at"][:10] for scan in data["quick_scans"]]
@@ -552,6 +571,7 @@ async def gather_selected_data(
         
         # Get specific deep dives
         if deep_dive_ids:
+            logger.info(f"Fetching {len(deep_dive_ids)} deep dives...")
             dives_result = supabase.table("deep_dive_sessions")\
                 .select("*")\
                 .in_("id", deep_dive_ids)\
@@ -560,6 +580,7 @@ async def gather_selected_data(
                 .order("created_at")\
                 .execute()
             data["deep_dives"] = dives_result.data or []
+            logger.info(f"Found {len(data['deep_dives'])} deep dives")
         
         # Get photo analyses for specific sessions
         if photo_session_ids:
@@ -572,6 +593,7 @@ async def gather_selected_data(
         
         # Get specific general assessments
         if general_assessment_ids:
+            logger.info(f"Fetching {len(general_assessment_ids)} general assessments...")
             general_result = supabase.table("general_assessments")\
                 .select("*")\
                 .in_("id", general_assessment_ids)\
@@ -579,9 +601,11 @@ async def gather_selected_data(
                 .order("created_at")\
                 .execute()
             data["general_assessments"] = general_result.data or []
+            logger.info(f"Found {len(data['general_assessments'])} general assessments")
         
         # Get specific general deep dive sessions
         if general_deep_dive_ids:
+            logger.info(f"Fetching {len(general_deep_dive_ids)} general deep dives...")
             general_dives_result = supabase.table("general_deepdive_sessions")\
                 .select("*")\
                 .in_("id", general_deep_dive_ids)\
@@ -590,6 +614,7 @@ async def gather_selected_data(
                 .order("created_at")\
                 .execute()
             data["general_deep_dives"] = general_dives_result.data or []
+            logger.info(f"Found {len(data['general_deep_dives'])} general deep dives")
         
         # Get any LLM summaries from the same dates
         all_dates = set()
@@ -633,8 +658,18 @@ async def gather_selected_data(
         data["llm_summaries"] = unique_chats
         
     except Exception as e:
-        print(f"Error in gather_selected_data: {e}")
+        logger.error(f"Error in gather_selected_data: {e}")
         
+    logger.info("=== GATHER_SELECTED_DATA SUMMARY ===")
+    logger.info(f"Quick scans: {len(data['quick_scans'])}")
+    logger.info(f"Deep dives: {len(data['deep_dives'])}")
+    logger.info(f"General assessments: {len(data['general_assessments'])}")
+    logger.info(f"General deep dives: {len(data['general_deep_dives'])}")
+    logger.info(f"Photo analyses: {len(data['photo_analyses'])}")
+    logger.info(f"Symptom tracking: {len(data['symptom_tracking'])}")
+    logger.info(f"LLM summaries: {len(data['llm_summaries'])}")
+    logger.info("=== GATHER_SELECTED_DATA END ===")
+    
     return data
 
 async def gather_user_health_data(user_id: str) -> Dict[str, Any]:

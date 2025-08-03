@@ -53,10 +53,26 @@ async def call_openrouter_with_retry(model: str, messages: List[Dict], max_token
     for attempt in range(max_retries):
         try:
             return await call_openrouter(model, messages, max_tokens, temperature)
+        except HTTPException as e:
+            last_error = e
+            # Check if it's a rate limit error
+            if e.status_code == 429:
+                # For rate limit errors, wait longer
+                wait_time = 10 * (attempt + 1)  # 10s, 20s, 30s
+                print(f"Rate limit hit (429), waiting {wait_time}s before retry...")
+            else:
+                # Regular exponential backoff for other errors
+                wait_time = 2 ** attempt  # 1s, 2s, 4s
+                print(f"Attempt {attempt + 1} failed, retrying in {wait_time}s: {str(e)}")
+            
+            if attempt < max_retries - 1:
+                await asyncio.sleep(wait_time)
+            else:
+                print(f"All {max_retries} attempts failed")
         except Exception as e:
             last_error = e
             if attempt < max_retries - 1:
-                # Exponential backoff: 1s, 2s, 4s
+                # Exponential backoff for non-HTTP errors
                 wait_time = 2 ** attempt
                 print(f"Attempt {attempt + 1} failed, retrying in {wait_time}s: {str(e)}")
                 await asyncio.sleep(wait_time)
@@ -672,6 +688,10 @@ async def analyze_photos(request: PhotoAnalysisRequest):
         analysis = extract_json_from_text(content)
         print(f"Extracted analysis: {analysis}")
         
+        # Check if JSON extraction failed
+        if analysis is None:
+            raise ValueError(f"Failed to parse JSON from AI response. Content: {content[:1000]}")
+        
         # Ensure all expected fields exist as arrays
         if not isinstance(analysis.get('visual_observations'), list):
             analysis['visual_observations'] = [str(analysis.get('visual_observations', 'No observations'))]
@@ -708,6 +728,10 @@ async def analyze_photos(request: PhotoAnalysisRequest):
             
             content = response['choices'][0]['message']['content']
             analysis = extract_json_from_text(content)
+            
+            # Check if JSON extraction failed
+            if analysis is None:
+                raise ValueError(f"Failed to parse JSON from fallback AI response. Content: {content[:1000]}")
             
             # Ensure all expected fields exist as arrays (same as above)
             if not isinstance(analysis.get('visual_observations'), list):

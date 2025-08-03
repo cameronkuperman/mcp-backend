@@ -3,6 +3,7 @@ from fastapi import APIRouter
 from datetime import datetime, timezone, timedelta
 import json
 import uuid
+import logging
 
 from models.requests import (
     ReportAnalyzeRequest,
@@ -23,6 +24,9 @@ from utils.data_gathering import (
     has_emergency_indicators,
     determine_time_range
 )
+
+# Configure logging
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/report", tags=["reports-general"])
 
@@ -409,6 +413,15 @@ Photo Analysis ({len(photo_analyses)} analyses):
 @router.post("/symptom-timeline")
 async def generate_symptom_timeline(request: SymptomTimelineRequest):
     """Generate symptom timeline report"""
+    logger.info("=== SYMPTOM TIMELINE REPORT START ===")
+    logger.info(f"Analysis ID: {request.analysis_id}")
+    logger.info(f"User ID: {request.user_id}")
+    logger.info(f"Symptom focus: {request.symptom_focus}")
+    logger.info(f"Quick scan IDs: {request.quick_scan_ids}")
+    logger.info(f"Deep dive IDs: {request.deep_dive_ids}")
+    logger.info(f"General assessment IDs: {request.general_assessment_ids}")
+    logger.info(f"General deep dive IDs: {request.general_deep_dive_ids}")
+    
     try:
         analysis_response = supabase.table("report_analyses")\
             .select("*")\
@@ -416,10 +429,12 @@ async def generate_symptom_timeline(request: SymptomTimelineRequest):
             .execute()
         
         if not analysis_response.data:
+            logger.warning(f"Analysis not found: {request.analysis_id}")
             return {"error": "Analysis not found", "status": "error"}
         
         analysis = analysis_response.data[0]
         config = analysis.get("report_config", {})
+        logger.info(f"Report config: {config}")
         
         # Check if specific interactions are selected
         if request.quick_scan_ids or request.deep_dive_ids or request.photo_session_ids or request.general_assessment_ids or request.general_deep_dive_ids:
@@ -491,6 +506,7 @@ Quick Scans:
   }
 }"""
 
+        logger.info("Calling LLM for symptom timeline analysis...")
         llm_response = await call_llm(
             messages=[
                 {"role": "system", "content": system_prompt},
@@ -501,8 +517,10 @@ Quick Scans:
             temperature=0.3,
             max_tokens=2000
         )
+        logger.info("LLM response received")
         
         report_data = extract_json_from_response(llm_response.get("content", llm_response.get("raw_content", "")))
+        logger.info(f"Report data extracted: {bool(report_data)}")
         
         if not report_data:
             report_data = {
@@ -534,8 +552,9 @@ Quick Scans:
         }
         
         await safe_insert_report(report_record)
+        logger.info(f"Report saved with ID: {report_id}")
         
-        return {
+        response = {
             "report_id": report_id,
             "report_type": "symptom_timeline",
             "generated_at": datetime.now(timezone.utc).isoformat(),
@@ -543,8 +562,17 @@ Quick Scans:
             "status": "success"
         }
         
+        logger.info("=== SYMPTOM TIMELINE REPORT RESPONSE ===")
+        logger.info(f"Report ID: {response['report_id']}")
+        logger.info(f"Report type: {response['report_type']}")
+        logger.info(f"Status: {response['status']}")
+        logger.info(f"Report data keys: {list(report_data.keys()) if report_data else 'None'}")
+        logger.info("=== SYMPTOM TIMELINE REPORT END ===")
+        
+        return response
+        
     except Exception as e:
-        print(f"Error generating symptom timeline: {e}")
+        logger.error(f"Error generating symptom timeline: {e}")
         return {"error": str(e), "status": "error"}
 
 @router.post("/photo-progression")

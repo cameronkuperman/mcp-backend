@@ -3,6 +3,7 @@ from fastapi import APIRouter
 from datetime import datetime, timezone
 import json
 import uuid
+import logging
 
 from models.requests import SpecialistReportRequest, SpecialtyTriageRequest
 from supabase_client import supabase
@@ -22,6 +23,9 @@ from utils.data_gathering import (
     gather_photo_data,
     safe_insert_report
 )
+
+# Configure logging
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/report", tags=["reports-specialist"])
 
@@ -334,9 +338,19 @@ Photo Analysis Data:
 @router.post("/cardiology")
 async def generate_cardiology_report(request: SpecialistReportRequest):
     """Generate cardiology specialist report"""
+    logger.info("=== CARDIOLOGY REPORT START ===")
+    logger.info(f"Analysis ID: {request.analysis_id}")
+    logger.info(f"User ID: {request.user_id}")
+    logger.info(f"Quick scan IDs: {request.quick_scan_ids}")
+    logger.info(f"Deep dive IDs: {request.deep_dive_ids}")
+    logger.info(f"General assessment IDs: {request.general_assessment_ids}")
+    logger.info(f"General deep dive IDs: {request.general_deep_dive_ids}")
+    logger.info(f"Photo session IDs: {request.photo_session_ids}")
+    
     try:
         analysis = await load_analysis(request.analysis_id)
         config = analysis.get("report_config", {})
+        logger.info(f"Report config loaded: {config}")
         
         # Check if specific interactions are selected
         if request.quick_scan_ids or request.deep_dive_ids or request.photo_session_ids or request.general_assessment_ids or request.general_deep_dive_ids:
