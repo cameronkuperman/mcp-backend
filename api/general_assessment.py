@@ -3,7 +3,7 @@ from fastapi import APIRouter, Request, HTTPException
 from typing import Optional, Dict, Any, List
 import json
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 import logging
 
 from models.requests import (
@@ -568,13 +568,17 @@ async def complete_general_deepdive(request: Request):
         session_id = data.get("session_id")
         final_answer = data.get("final_answer")
         
+        logger.info(f"Deep dive complete called for session: {session_id}")
+        
         if not session_id:
             raise HTTPException(status_code=400, detail="session_id is required")
         
         # Fetch complete session
+        logger.info(f"Fetching session data for: {session_id}")
         session_result = supabase.table("general_deepdive_sessions").select("*").eq("id", session_id).single().execute()
         
         if not session_result.data:
+            logger.error(f"Session not found: {session_id}")
             raise HTTPException(status_code=404, detail="Session not found")
         
         session = session_result.data
@@ -620,6 +624,7 @@ Provide a comprehensive final analysis in JSON format:
     "reasoning_snippets": ["key reasoning point 1", "point 2", ...]
 }}"""
 
+        logger.info(f"Calling LLM for final analysis of category: {category}")
         llm_response = await call_llm(
             messages=[
                 {"role": "system", "content": CATEGORY_PROMPTS[category]},
@@ -628,6 +633,8 @@ Provide a comprehensive final analysis in JSON format:
             model="deepseek/deepseek-chat",
             temperature=0.4
         )
+        
+        logger.info(f"Deep dive complete LLM Response: {str(llm_response)[:500]}...")
         
         # Extract content from response
         if isinstance(llm_response, dict):
@@ -639,7 +646,10 @@ Provide a comprehensive final analysis in JSON format:
         if '```json' in llm_content:
             llm_content = llm_content.replace('```json', '').replace('```', '').strip()
         
+        logger.info(f"Cleaned LLM content: {llm_content[:500]}...")
+        
         analysis_data = extract_json_from_text(llm_content)
+        logger.info(f"Parsed analysis data: {analysis_data}")
         if not analysis_data:
             analysis_data = {
                 "analysis": {
@@ -655,19 +665,37 @@ Provide a comprehensive final analysis in JSON format:
             }
         
         # Calculate session duration
-        created_at = datetime.fromisoformat(session.get("created_at", datetime.now().isoformat()))
-        session_duration_ms = int((datetime.now() - created_at).total_seconds() * 1000)
+        try:
+            created_at_str = session.get("created_at", datetime.now().isoformat())
+            # Handle timezone-aware datetime strings
+            if created_at_str.endswith('Z'):
+                created_at_str = created_at_str[:-1] + '+00:00'
+            elif '+' not in created_at_str and not created_at_str.endswith('Z'):
+                created_at_str += '+00:00'
+            created_at = datetime.fromisoformat(created_at_str)
+            # Make current time timezone-aware
+            now = datetime.now(timezone.utc)
+            session_duration_ms = int((now - created_at).total_seconds() * 1000)
+        except Exception as e:
+            logger.error(f"Error calculating session duration: {str(e)}")
+            session_duration_ms = 0
         
         # Update session with final analysis
-        supabase.table("general_deepdive_sessions").update({
-            "final_analysis": analysis_data.get("analysis", {}),
-            "final_confidence": analysis_data.get("confidence", 50),
-            "key_findings": analysis_data.get("analysis", {}).get("key_findings", []),
-            "reasoning_snippets": analysis_data.get("reasoning_snippets", []),
-            "status": "completed",
-            "session_duration_ms": session_duration_ms,
-            "completed_at": datetime.now().isoformat()
-        }).eq("id", session_id).execute()
+        try:
+            logger.info(f"Updating deep dive session {session_id} with final analysis")
+            update_result = supabase.table("general_deepdive_sessions").update({
+                "final_analysis": analysis_data.get("analysis", {}),
+                "final_confidence": float(analysis_data.get("confidence", 50)),
+                "key_findings": analysis_data.get("analysis", {}).get("key_findings", []),
+                "reasoning_snippets": analysis_data.get("reasoning_snippets", []),
+                "status": "completed",
+                "session_duration_ms": session_duration_ms,
+                "completed_at": datetime.now(timezone.utc).isoformat()
+            }).eq("id", session_id).execute()
+            logger.info(f"Deep dive session updated successfully")
+        except Exception as e:
+            logger.error(f"Database update error in deep dive complete: {str(e)}")
+            # Continue anyway - we have the analysis
         
         return {
             "deep_dive_id": session_id,
