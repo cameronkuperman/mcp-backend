@@ -1,0 +1,119 @@
+--- api/photo_analysis.py	original
++++ api/photo_analysis.py	fixed
+@@ -1484,6 +1484,14 @@ async def add_follow_up_photos(
+ ):
+     """Add follow-up photos to an existing session and optionally compare with previous photos"""
+     try:
++        # Import required for better error handling
++        import httpx
++        import json
++        import traceback
++        from datetime import datetime
++        
++        start_time = datetime.utcnow()
++        
+         print(f"Follow-up endpoint called for session {session_id}")
+         print(f"Number of photos: {len(photos) if photos else 0}")
+         print(f"Auto compare: {auto_compare}")
+@@ -1696,23 +1704,23 @@ async def add_follow_up_photos(
+                     'analysis': {
+                         'trend': analysis_response.get('comparison', {}).get('progression_analysis', {}).get('overall_trend', 'unknown'),
+                         'changes': analysis_response.get('comparison', {}).get('visual_changes', {}),
+                         'confidence': analysis_response.get('comparison', {}).get('progression_analysis', {}).get('confidence_in_trend', 50),
+                         'summary': analysis_response.get('comparison', {}).get('clinical_interpretation', 'Comparison completed')
+                     },
+                     'visual_comparison': {
+-                        'primary_change': analysis_response.comparison.get('primary_change'),
+-                        'change_significance': analysis_response.comparison.get('change_significance'),
+-                        'visual_changes': analysis_response.comparison.get('visual_changes', {}),
+-                        'progression_analysis': analysis_response.comparison.get('progression_analysis', {}),
+-                        'clinical_interpretation': analysis_response.comparison.get('clinical_interpretation'),
+-                        'next_monitoring': analysis_response.comparison.get('next_monitoring', {})
++                        'primary_change': analysis_response.get('comparison', {}).get('primary_change'),
++                        'change_significance': analysis_response.get('comparison', {}).get('change_significance'),
++                        'visual_changes': analysis_response.get('comparison', {}).get('visual_changes', {}),
++                        'progression_analysis': analysis_response.get('comparison', {}).get('progression_analysis', {}),
++                        'clinical_interpretation': analysis_response.get('comparison', {}).get('clinical_interpretation'),
++                        'next_monitoring': analysis_response.get('comparison', {}).get('next_monitoring', {})
+                     },
+                     'key_measurements': {
+-                        'latest': analysis_response.analysis.get('key_measurements', {}),
+-                        'condition_insights': analysis_response.analysis.get('condition_insights', {})
++                        'latest': analysis_response.get('analysis', {}).get('key_measurements', {}),
++                        'condition_insights': analysis_response.get('analysis', {}).get('condition_insights', {})
+                     }
+                 }
+         except Exception as e:
+             print(f"Comparison failed: {str(e)}")
+             comparison_results = {
+@@ -1740,6 +1748,69 @@ async def add_follow_up_photos(
+         'comparison_results': comparison_results,
+         'follow_up_suggestion': follow_up_suggestion,
+         'smart_batching_info': smart_batching_info  # Include batching info if photos were intelligently selected
+     }
++        
++    except HTTPException:
++        # Re-raise HTTP exceptions as they already have proper error codes
++        raise
++        
++    except httpx.HTTPStatusError as e:
++        duration = (datetime.utcnow() - start_time).total_seconds()
++        print(f"HTTP error in follow-up photos after {duration:.2f}s: {e}")
++        
++        if e.response.status_code == 429:
++            raise HTTPException(
++                status_code=503,
++                detail={
++                    "error": "rate_limit",
++                    "message": "AI service is temporarily busy. Please try again in 30 seconds.",
++                    "retry_after": 30
++                }
++            )
++        else:
++            raise HTTPException(
++                status_code=502,
++                detail={
++                    "error": "ai_service_error",
++                    "message": f"AI service error: {e.response.status_code}"
++                }
++            )
++            
++    except json.JSONDecodeError as e:
++        duration = (datetime.utcnow() - start_time).total_seconds()
++        print(f"JSON decode error in follow-up photos after {duration:.2f}s: {e}")
++        print(f"Failed content preview: {str(e.doc)[:500] if hasattr(e, 'doc') else 'N/A'}")
++        
++        raise HTTPException(
++            status_code=500,
++            detail={
++                "error": "json_parse_error",
++                "message": "Failed to parse AI response. Please try again."
++            }
++        )
++        
++    except AttributeError as e:
++        duration = (datetime.utcnow() - start_time).total_seconds()
++        print(f"AttributeError in follow-up photos after {duration:.2f}s: {e}")
++        traceback.print_exc()
++        
++        raise HTTPException(
++            status_code=500,
++            detail={
++                "error": "data_access_error",
++                "message": "Internal error processing response data."
++            }
++        )
++        
++    except Exception as e:
++        duration = (datetime.utcnow() - start_time).total_seconds()
++        print(f"Unexpected error in follow-up photos after {duration:.2f}s: {type(e).__name__}: {str(e)}")
++        traceback.print_exc()
++        
++        raise HTTPException(
++            status_code=500,
++            detail={
++                "error": "internal_error",
++                "message": "An unexpected error occurred. Please try again.",
++                "debug": str(e) if os.getenv("DEBUG") else None
++            }
++        )
