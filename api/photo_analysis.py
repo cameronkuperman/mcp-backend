@@ -1500,14 +1500,14 @@ async def add_follow_up_photos(
         
         # Verify session exists
         session_result = supabase.table('photo_sessions').select('*').eq('id', session_id).single().execute()
-    if not session_result.data:
-        raise HTTPException(status_code=404, detail="Session not found")
+        if not session_result.data:
+            raise HTTPException(status_code=404, detail="Session not found")
+        
+        session = session_result.data
+        user_id = session['user_id']
     
-    session = session_result.data
-    user_id = session['user_id']
-    
-    # Parse compare_with_photo_ids if provided
-    comparison_photo_ids = []
+        # Parse compare_with_photo_ids if provided
+        comparison_photo_ids = []
     if compare_with_photo_ids:
         try:
             comparison_photo_ids = json.loads(compare_with_photo_ids)
