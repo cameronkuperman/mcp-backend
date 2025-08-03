@@ -1,5 +1,5 @@
 """Photo Analysis API endpoints"""
-from fastapi import APIRouter, File, UploadFile, Form, HTTPException, Depends, Query
+from fastapi import APIRouter, File, UploadFile, Form, HTTPException, Depends, Query, Response
 from fastapi.responses import JSONResponse
 from typing import List, Optional, Dict, Any, Union
 from pydantic import BaseModel
@@ -218,8 +218,12 @@ async def call_openrouter_with_retry(model: str, messages: List[Dict], max_token
             # Check if it's a rate limit error
             if e.status_code == 429:
                 # For rate limit errors, wait longer
-                wait_time = 10 * (attempt + 1)  # 10s, 20s, 30s
+                wait_time = min(10 * (attempt + 1), 30)  # 10s, 20s, 30s max
                 print(f"Rate limit hit (429), waiting {wait_time}s before retry...")
+                # Try a different model on rate limit
+                if attempt == 0 and model == 'google/gemini-2.5-pro':
+                    print("Switching to gemini-2.0-flash-exp:free due to rate limit")
+                    model = 'google/gemini-2.0-flash-exp:free'
             else:
                 # Regular exponential backoff for other errors
                 wait_time = 2 ** attempt  # 1s, 2s, 4s
@@ -251,6 +255,16 @@ async def health_check():
         "openrouter_configured": OPENROUTER_API_KEY is not None,
         "storage_configured": SUPABASE_URL is not None,
         "storage_bucket": STORAGE_BUCKET
+    }
+
+
+@router.get("/session/{session_id}/follow-up/test")
+async def test_follow_up_route(session_id: str):
+    """Test endpoint to verify routing works"""
+    return {
+        "status": "ok",
+        "session_id": session_id,
+        "endpoint": "follow-up test"
     }
 
 @router.get("/debug/storage")
@@ -1469,12 +1483,20 @@ async def add_follow_up_photos(
     compare_with_photo_ids: Optional[str] = Form(None)  # JSON string of photo IDs
 ):
     """Add follow-up photos to an existing session and optionally compare with previous photos"""
-    if not supabase:
-        raise HTTPException(status_code=500, detail="Database connection not configured")
-    if not OPENROUTER_API_KEY:
-        raise HTTPException(status_code=500, detail="OpenRouter API key not configured")
-    
-    print(f"Follow-up photos for session {session_id}, auto_compare={auto_compare}")
+    try:
+        print(f"Follow-up endpoint called for session {session_id}")
+        print(f"Number of photos: {len(photos) if photos else 0}")
+        print(f"Auto compare: {auto_compare}")
+        print(f"Notes: {notes}")
+        print(f"Compare with IDs: {compare_with_photo_ids}")
+        
+        if not supabase:
+            raise HTTPException(status_code=500, detail="Database connection not configured")
+        if not OPENROUTER_API_KEY:
+            raise HTTPException(status_code=500, detail="OpenRouter API key not configured")
+        
+        if len(photos) > 5:
+            raise HTTPException(status_code=400, detail="Maximum 5 photos per follow-up upload")
     
     # Verify session exists
     session_result = supabase.table('photo_sessions').select('*').eq('id', session_id).single().execute()
@@ -1665,22 +1687,22 @@ async def add_follow_up_photos(
                 'compared_with': comparison_photo_ids,
                 'days_since_last': days_since,
                 'analysis': {
-                    'trend': analysis_response.comparison.trend if analysis_response.comparison else 'unknown',
-                    'changes': analysis_response.comparison.changes if analysis_response.comparison else {},
-                    'confidence': analysis_response.analysis.confidence / 100,
-                    'summary': analysis_response.comparison.ai_summary if analysis_response.comparison else "No comparison available"
+                    'trend': analysis_response.get('comparison', {}).get('trend', 'unknown'),
+                    'changes': analysis_response.get('comparison', {}).get('changes', {}),
+                    'confidence': analysis_response.get('analysis', {}).get('confidence', 0) / 100,
+                    'summary': analysis_response.get('comparison', {}).get('ai_summary', "No comparison available")
                 },
                 'visual_comparison': {
-                    'primary_change': analysis_response.comparison.primary_change if analysis_response.comparison else None,
-                    'change_significance': analysis_response.comparison.change_significance if analysis_response.comparison else None,
-                    'visual_changes': analysis_response.comparison.visual_changes if analysis_response.comparison else {},
-                    'progression_analysis': analysis_response.comparison.progression_analysis if analysis_response.comparison else {},
-                    'clinical_interpretation': analysis_response.comparison.clinical_interpretation if analysis_response.comparison else None,
-                    'next_monitoring': analysis_response.comparison.next_monitoring if analysis_response.comparison else {}
+                    'primary_change': analysis_response.get('comparison', {}).get('primary_change'),
+                    'change_significance': analysis_response.get('comparison', {}).get('change_significance'),
+                    'visual_changes': analysis_response.get('comparison', {}).get('visual_changes', {}),
+                    'progression_analysis': analysis_response.get('comparison', {}).get('progression_analysis', {}),
+                    'clinical_interpretation': analysis_response.get('comparison', {}).get('clinical_interpretation'),
+                    'next_monitoring': analysis_response.get('comparison', {}).get('next_monitoring', {})
                 },
                 'key_measurements': {
-                    'latest': analysis_response.analysis.key_measurements if hasattr(analysis_response.analysis, 'key_measurements') else {},
-                    'condition_insights': analysis_response.analysis.condition_insights if hasattr(analysis_response.analysis, 'condition_insights') else {}
+                    'latest': analysis_response.get('analysis', {}).get('key_measurements', {}),
+                    'condition_insights': analysis_response.get('analysis', {}).get('condition_insights', {})
                 }
             }
         except Exception as e:
@@ -1708,7 +1730,7 @@ async def add_follow_up_photos(
         session, 
         all_analyses.data if all_analyses.data else [],
         all_photos.data if all_photos.data else [],
-        analysis_response.analysis if 'analysis_response' in locals() else None
+        analysis_response.get('analysis') if 'analysis_response' in locals() and isinstance(analysis_response, dict) else None
     )
     
     return {

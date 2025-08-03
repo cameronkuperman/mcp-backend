@@ -23,10 +23,39 @@ def extract_json_from_response(content) -> Optional:
             # Extract and clean the JSON content
             json_content = json_block.group(1).strip()
             if json_content:
+                # Sometimes AI adds extra text after JSON, try to find complete JSON object
+                # by matching balanced braces
+                if json_content.startswith('{'):
+                    # Find the matching closing brace
+                    brace_count = 0
+                    in_string = False
+                    escape = False
+                    end_pos = -1
+                    
+                    for i, char in enumerate(json_content):
+                        if char == '"' and not escape:
+                            in_string = not in_string
+                        elif char == '\\':
+                            escape = not escape
+                        else:
+                            escape = False
+                        
+                        if not in_string:
+                            if char == '{':
+                                brace_count += 1
+                            elif char == '}':
+                                brace_count -= 1
+                                if brace_count == 0:
+                                    end_pos = i + 1
+                                    break
+                    
+                    if end_pos > 0:
+                        json_content = json_content[:end_pos]
+                
                 return json.loads(json_content)
     except Exception as e:
         print(f"Error parsing JSON from code block: {e}")
-        print(f"Content that failed: {json_block.group(1)[:200] if json_block else 'No match'}")
+        print(f"Content that failed: {json_block.group(1)[:500] if json_block else 'No match'}")
     
     # Strategy 4: Find JSON in text (handle nested objects and arrays)
     try:
