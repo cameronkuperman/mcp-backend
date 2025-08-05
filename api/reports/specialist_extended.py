@@ -57,7 +57,13 @@ async def generate_nephrology_report(request: SpecialistReportRequest):
         config = analysis.get("report_config", {})
         
         # Check if specific interactions are selected
-        if request.quick_scan_ids or request.deep_dive_ids or request.photo_session_ids or request.general_assessment_ids or request.general_deep_dive_ids:
+        # IMPORTANT: Check for 'is not None' to handle empty arrays properly
+        # Empty arrays [] should still use selected data mode, not fallback to all data
+        if (request.quick_scan_ids is not None or 
+            request.deep_dive_ids is not None or 
+            request.photo_session_ids is not None or 
+            request.general_assessment_ids is not None or 
+            request.general_deep_dive_ids is not None):
             # Gather only selected data
             all_data = await gather_selected_data(
                 user_id=request.user_id or analysis["user_id"],
@@ -217,7 +223,13 @@ async def generate_urology_report(request: SpecialistReportRequest):
         config = analysis.get("report_config", {})
         
         # Check if specific interactions are selected
-        if request.quick_scan_ids or request.deep_dive_ids or request.photo_session_ids or request.general_assessment_ids or request.general_deep_dive_ids:
+        # IMPORTANT: Check for 'is not None' to handle empty arrays properly
+        # Empty arrays [] should still use selected data mode, not fallback to all data
+        if (request.quick_scan_ids is not None or 
+            request.deep_dive_ids is not None or 
+            request.photo_session_ids is not None or 
+            request.general_assessment_ids is not None or 
+            request.general_deep_dive_ids is not None):
             # Gather only selected data
             all_data = await gather_selected_data(
                 user_id=request.user_id or analysis["user_id"],
@@ -392,7 +404,13 @@ async def generate_gynecology_report(request: SpecialistReportRequest):
         config = analysis.get("report_config", {})
         
         # Check if specific interactions are selected
-        if request.quick_scan_ids or request.deep_dive_ids or request.photo_session_ids or request.general_assessment_ids or request.general_deep_dive_ids:
+        # IMPORTANT: Check for 'is not None' to handle empty arrays properly
+        # Empty arrays [] should still use selected data mode, not fallback to all data
+        if (request.quick_scan_ids is not None or 
+            request.deep_dive_ids is not None or 
+            request.photo_session_ids is not None or 
+            request.general_assessment_ids is not None or 
+            request.general_deep_dive_ids is not None):
             # Gather only selected data
             all_data = await gather_selected_data(
                 user_id=request.user_id or analysis["user_id"],
@@ -590,7 +608,13 @@ async def generate_oncology_report(request: SpecialistReportRequest):
         config = analysis.get("report_config", {})
         
         # Check if specific interactions are selected
-        if request.quick_scan_ids or request.deep_dive_ids or request.photo_session_ids or request.general_assessment_ids or request.general_deep_dive_ids:
+        # IMPORTANT: Check for 'is not None' to handle empty arrays properly
+        # Empty arrays [] should still use selected data mode, not fallback to all data
+        if (request.quick_scan_ids is not None or 
+            request.deep_dive_ids is not None or 
+            request.photo_session_ids is not None or 
+            request.general_assessment_ids is not None or 
+            request.general_deep_dive_ids is not None):
             # Gather only selected data
             all_data = await gather_selected_data(
                 user_id=request.user_id or analysis["user_id"],
@@ -681,7 +705,13 @@ async def generate_physical_therapy_report(request: SpecialistReportRequest):
         config = analysis.get("report_config", {})
         
         # Check if specific interactions are selected
-        if request.quick_scan_ids or request.deep_dive_ids or request.photo_session_ids or request.general_assessment_ids or request.general_deep_dive_ids:
+        # IMPORTANT: Check for 'is not None' to handle empty arrays properly
+        # Empty arrays [] should still use selected data mode, not fallback to all data
+        if (request.quick_scan_ids is not None or 
+            request.deep_dive_ids is not None or 
+            request.photo_session_ids is not None or 
+            request.general_assessment_ids is not None or 
+            request.general_deep_dive_ids is not None):
             # Gather only selected data
             all_data = await gather_selected_data(
                 user_id=request.user_id or analysis["user_id"],

@@ -405,7 +405,8 @@ async def gather_selected_data(
         logger.info(f"Medical profile loaded: {data['medical_profile'] is not None}")
         
         # Get specific quick scans
-        if quick_scan_ids:
+        # Handle both None (not provided) and empty list [] (explicitly no items)
+        if quick_scan_ids is not None and len(quick_scan_ids) > 0:
             logger.info(f"Fetching {len(quick_scan_ids)} quick scans...")
             logger.info(f"Quick scan IDs to fetch: {quick_scan_ids}")
             logger.info(f"Quick scan IDs type: {type(quick_scan_ids)}")
@@ -456,9 +457,13 @@ async def gather_selected_data(
                         .eq("quick_scan_id", scan_id)\
                         .execute()
                     data["symptom_tracking"].extend(symptoms_result.data or [])
+        elif quick_scan_ids is not None:
+            # Empty array provided - explicitly no quick scans wanted
+            logger.info("Empty quick_scan_ids array provided - not fetching any quick scans")
         
         # Get specific deep dives (any status - active, analysis_ready, completed)
-        if deep_dive_ids:
+        # Handle both None (not provided) and empty list [] (explicitly no items)
+        if deep_dive_ids is not None and len(deep_dive_ids) > 0:
             logger.info(f"Fetching {len(deep_dive_ids)} deep dives...")
             logger.info(f"Deep dive IDs to fetch: {deep_dive_ids}")
             
@@ -503,7 +508,7 @@ async def gather_selected_data(
                     data["symptom_tracking"].extend(symptoms_result.data or [])
         
         # Get photo analyses for specific sessions
-        if photo_session_ids:
+        if photo_session_ids is not None and len(photo_session_ids) > 0:
             photo_result = supabase.table("photo_analyses")\
                 .select("*")\
                 .in_("session_id", photo_session_ids)\
@@ -512,7 +517,7 @@ async def gather_selected_data(
             data["photo_analyses"] = photo_result.data or []
         
         # Get specific general assessments
-        if general_assessment_ids:
+        if general_assessment_ids is not None and len(general_assessment_ids) > 0:
             logger.info(f"Fetching {len(general_assessment_ids)} general assessments...")
             # NOTE: general_assessments.user_id is UUID type, so use as-is
             if user_id:
@@ -533,7 +538,7 @@ async def gather_selected_data(
             logger.info(f"Found {len(data['general_assessments'])} general assessments")
         
         # Get specific general deep dive sessions (any status)
-        if general_deep_dive_ids:
+        if general_deep_dive_ids is not None and len(general_deep_dive_ids) > 0:
             logger.info(f"Fetching {len(general_deep_dive_ids)} general deep dives...")
             # NOTE: general_deepdive_sessions.user_id is UUID type, so use as-is
             if user_id:

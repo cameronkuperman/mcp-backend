@@ -252,6 +252,14 @@ async def save_specialist_report(report_id: str, request, specialty: str, report
 
 @router.post("/specialist")
 async def generate_specialist_report(request: SpecialistReportRequest):
+    # Log the raw request to see what frontend is actually sending
+    import json
+    logger.info(f"=== RAW REQUEST BODY ===")
+    try:
+        # Try to log the actual request data
+        logger.info(f"Request dict: {request.dict()}")
+    except:
+        pass
     """Generate specialist-focused report"""
     try:
         # LOG ALL REQUEST DATA
@@ -294,50 +302,42 @@ async def generate_specialist_report(request: SpecialistReportRequest):
         # IMPORTANT: Use the IDs from the request, NOT from the analysis
         # The frontend is sending specific IDs they want in the report
         
-        # Check if specific interactions are selected
-        if request.quick_scan_ids or request.deep_dive_ids or request.photo_session_ids or request.general_assessment_ids or request.general_deep_dive_ids:
-            logger.info("USING SELECTED DATA MODE")
-            # Gather only selected data
-            data = await gather_selected_data(
-                user_id=request.user_id or analysis["user_id"],
-                quick_scan_ids=request.quick_scan_ids,
-                deep_dive_ids=request.deep_dive_ids,
-                photo_session_ids=request.photo_session_ids,
-                general_assessment_ids=request.general_assessment_ids,
-                general_deep_dive_ids=request.general_deep_dive_ids
-            )
-            # Photo analyses are already included in gather_selected_data
-            photo_analyses = data.get("photo_analyses", [])
-            
-            # LOG WHAT DATA WAS GATHERED
-            logger.info(f"Data gathered - Quick scans count: {len(data.get('quick_scans', []))}")
-            logger.info(f"Data gathered - Deep dives count: {len(data.get('deep_dives', []))}")
-            logger.info(f"Data gathered - Photo analyses count: {len(photo_analyses)}")
-            logger.info(f"Data gathered - General assessments count: {len(data.get('general_assessments', []))}")
-            logger.info(f"Data gathered - General deep dives count: {len(data.get('general_deep_dives', []))}")
-            
-            # LOG ACTUAL IDS OF DATA GATHERED
-            if data.get('quick_scans'):
-                logger.info(f"Quick scan IDs in data: {[qs.get('id') for qs in data['quick_scans']]}")
-                # Also log creation dates to verify these are the right scans
-                logger.info(f"Quick scan dates: {[qs.get('created_at', 'No date')[:10] for qs in data['quick_scans']]}")
-            if data.get('deep_dives'):
-                logger.info(f"Deep dive IDs in data: {[dd.get('id') for dd in data['deep_dives']]}")
-                logger.info(f"Deep dive dates: {[dd.get('created_at', 'No date')[:10] for dd in data['deep_dives']]}")
-        else:
-            logger.info("USING COMPREHENSIVE DATA MODE (NO SPECIFIC IDS)")
-            # Fallback to comprehensive data from time range
-            data = await gather_report_data(request.user_id or analysis["user_id"], config)
-            
-            # Get photo analysis data if available
-            photo_analyses = []
-            if hasattr(request, 'photo_session_ids') and request.photo_session_ids:
-                photo_analyses_result = supabase.table('photo_analyses')\
-                    .select('*')\
-                    .in_('session_id', request.photo_session_ids)\
-                    .order('created_at.desc')\
-                    .execute()
-                photo_analyses = photo_analyses_result.data or []
+        # Log the types to debug empty array handling
+        logger.info(f"ID types - quick_scan_ids: {type(request.quick_scan_ids)}, value: {request.quick_scan_ids}")
+        logger.info(f"ID types - deep_dive_ids: {type(request.deep_dive_ids)}, value: {request.deep_dive_ids}")
+        
+        # ALWAYS use selected data mode for specialist reports
+        # The frontend always sends specific selected IDs (even if empty arrays)
+        logger.info("USING SELECTED DATA MODE - Frontend should send specific IDs")
+        
+        # CRITICAL: Use request IDs, NOT the analysis config IDs
+        # Convert None to empty arrays to ensure we don't load all data
+        data = await gather_selected_data(
+            user_id=request.user_id or analysis["user_id"],
+            quick_scan_ids=request.quick_scan_ids if request.quick_scan_ids is not None else [],
+            deep_dive_ids=request.deep_dive_ids if request.deep_dive_ids is not None else [],
+            photo_session_ids=request.photo_session_ids if request.photo_session_ids is not None else [],
+            general_assessment_ids=request.general_assessment_ids if request.general_assessment_ids is not None else [],
+            general_deep_dive_ids=request.general_deep_dive_ids if request.general_deep_dive_ids is not None else []
+        )
+        # Photo analyses are already included in gather_selected_data
+        photo_analyses = data.get("photo_analyses", [])
+        
+        # LOG WHAT DATA WAS GATHERED
+        logger.info(f"Data gathered - Quick scans count: {len(data.get('quick_scans', []))}")
+        logger.info(f"Data gathered - Deep dives count: {len(data.get('deep_dives', []))}")
+        logger.info(f"Data gathered - Photo analyses count: {len(photo_analyses)}")
+        logger.info(f"Data gathered - General assessments count: {len(data.get('general_assessments', []))}")
+        logger.info(f"Data gathered - General deep dives count: {len(data.get('general_deep_dives', []))}")
+        
+        # LOG ACTUAL IDS OF DATA GATHERED
+        if data.get('quick_scans'):
+            logger.info(f"Quick scan IDs in data: {[qs.get('id') for qs in data['quick_scans']]}")
+            # Also log creation dates to verify these are the right scans
+            logger.info(f"Quick scan dates: {[qs.get('created_at', 'No date')[:10] for qs in data['quick_scans']]}")
+        if data.get('deep_dives'):
+            logger.info(f"Deep dive IDs in data: {[dd.get('id') for dd in data['deep_dives']]}")
+            logger.info(f"Deep dive dates: {[dd.get('created_at', 'No date')[:10] for dd in data['deep_dives']]}")
         
         # Build specialist context
         specialty = request.specialty or "specialist"
@@ -355,9 +355,17 @@ async def generate_specialist_report(request: SpecialistReportRequest):
             for idx, qs in enumerate(data['quick_scans']):
                 logger.info(f"Quick scan {idx}: ID={qs.get('id')}, Body Part={qs.get('body_part')}, Summary={qs.get('llm_summary', 'None')[:100]}")
         
+        # Ensure config exists and has required fields
+        if not config:
+            config = {"time_range": {"start": datetime.now(timezone.utc).isoformat(), "end": datetime.now(timezone.utc).isoformat()}}
+        
+        time_range = config.get('time_range', {})
+        start_date = time_range.get('start', datetime.now(timezone.utc).isoformat())[:10]
+        end_date = time_range.get('end', datetime.now(timezone.utc).isoformat())[:10]
+        
         context = f"""Generate a {specialty} referral report.
 
-Time Range: {config['time_range']['start'][:10]} to {config['time_range']['end'][:10]}
+Time Range: {start_date} to {end_date}
 Specialty Focus: {specialty}
 Primary Concern: {config.get('primary_focus', 'general health')}
 
@@ -505,7 +513,13 @@ async def generate_cardiology_report(request: SpecialistReportRequest):
         logger.info(f"Report config loaded: {config}")
         
         # Check if specific interactions are selected
-        if request.quick_scan_ids or request.deep_dive_ids or request.photo_session_ids or request.general_assessment_ids or request.general_deep_dive_ids:
+        # IMPORTANT: Check for 'is not None' to handle empty arrays properly
+        # Empty arrays [] should still use selected data mode, not fallback to all data
+        if (request.quick_scan_ids is not None or 
+            request.deep_dive_ids is not None or 
+            request.photo_session_ids is not None or 
+            request.general_assessment_ids is not None or 
+            request.general_deep_dive_ids is not None):
             # Gather only selected data
             all_data = await gather_selected_data(
                 user_id=request.user_id or analysis["user_id"],
@@ -814,7 +828,13 @@ async def generate_neurology_report(request: SpecialistReportRequest):
         config = analysis.get("report_config", {})
         
         # Check if specific interactions are selected
-        if request.quick_scan_ids or request.deep_dive_ids or request.photo_session_ids or request.general_assessment_ids or request.general_deep_dive_ids:
+        # IMPORTANT: Check for 'is not None' to handle empty arrays properly
+        # Empty arrays [] should still use selected data mode, not fallback to all data
+        if (request.quick_scan_ids is not None or 
+            request.deep_dive_ids is not None or 
+            request.photo_session_ids is not None or 
+            request.general_assessment_ids is not None or 
+            request.general_deep_dive_ids is not None):
             # Gather only selected data
             all_data = await gather_selected_data(
                 user_id=request.user_id or analysis["user_id"],
@@ -1102,7 +1122,13 @@ async def generate_psychiatry_report(request: SpecialistReportRequest):
         config = analysis.get("report_config", {})
         
         # Check if specific interactions are selected
-        if request.quick_scan_ids or request.deep_dive_ids or request.photo_session_ids or request.general_assessment_ids or request.general_deep_dive_ids:
+        # IMPORTANT: Check for 'is not None' to handle empty arrays properly
+        # Empty arrays [] should still use selected data mode, not fallback to all data
+        if (request.quick_scan_ids is not None or 
+            request.deep_dive_ids is not None or 
+            request.photo_session_ids is not None or 
+            request.general_assessment_ids is not None or 
+            request.general_deep_dive_ids is not None):
             # Gather only selected data
             all_data = await gather_selected_data(
                 user_id=request.user_id or analysis["user_id"],
@@ -1379,7 +1405,13 @@ async def generate_dermatology_report(request: SpecialistReportRequest):
         config = analysis.get("report_config", {})
         
         # Check if specific interactions are selected
-        if request.quick_scan_ids or request.deep_dive_ids or request.photo_session_ids or request.general_assessment_ids or request.general_deep_dive_ids:
+        # IMPORTANT: Check for 'is not None' to handle empty arrays properly
+        # Empty arrays [] should still use selected data mode, not fallback to all data
+        if (request.quick_scan_ids is not None or 
+            request.deep_dive_ids is not None or 
+            request.photo_session_ids is not None or 
+            request.general_assessment_ids is not None or 
+            request.general_deep_dive_ids is not None):
             # Gather only selected data
             all_data = await gather_selected_data(
                 user_id=request.user_id or analysis["user_id"],
@@ -1647,7 +1679,13 @@ async def generate_gastroenterology_report(request: SpecialistReportRequest):
         config = analysis.get("report_config", {})
         
         # Check if specific interactions are selected
-        if request.quick_scan_ids or request.deep_dive_ids or request.photo_session_ids or request.general_assessment_ids or request.general_deep_dive_ids:
+        # IMPORTANT: Check for 'is not None' to handle empty arrays properly
+        # Empty arrays [] should still use selected data mode, not fallback to all data
+        if (request.quick_scan_ids is not None or 
+            request.deep_dive_ids is not None or 
+            request.photo_session_ids is not None or 
+            request.general_assessment_ids is not None or 
+            request.general_deep_dive_ids is not None):
             # Gather only selected data
             all_data = await gather_selected_data(
                 user_id=request.user_id or analysis["user_id"],
@@ -1909,7 +1947,13 @@ async def generate_endocrinology_report(request: SpecialistReportRequest):
         config = analysis.get("report_config", {})
         
         # Check if specific interactions are selected
-        if request.quick_scan_ids or request.deep_dive_ids or request.photo_session_ids or request.general_assessment_ids or request.general_deep_dive_ids:
+        # IMPORTANT: Check for 'is not None' to handle empty arrays properly
+        # Empty arrays [] should still use selected data mode, not fallback to all data
+        if (request.quick_scan_ids is not None or 
+            request.deep_dive_ids is not None or 
+            request.photo_session_ids is not None or 
+            request.general_assessment_ids is not None or 
+            request.general_deep_dive_ids is not None):
             # Gather only selected data
             all_data = await gather_selected_data(
                 user_id=request.user_id or analysis["user_id"],
@@ -2102,7 +2146,13 @@ async def generate_pulmonology_report(request: SpecialistReportRequest):
         config = analysis.get("report_config", {})
         
         # Check if specific interactions are selected
-        if request.quick_scan_ids or request.deep_dive_ids or request.photo_session_ids or request.general_assessment_ids or request.general_deep_dive_ids:
+        # IMPORTANT: Check for 'is not None' to handle empty arrays properly
+        # Empty arrays [] should still use selected data mode, not fallback to all data
+        if (request.quick_scan_ids is not None or 
+            request.deep_dive_ids is not None or 
+            request.photo_session_ids is not None or 
+            request.general_assessment_ids is not None or 
+            request.general_deep_dive_ids is not None):
             # Gather only selected data
             all_data = await gather_selected_data(
                 user_id=request.user_id or analysis["user_id"],
@@ -2301,7 +2351,13 @@ async def generate_primary_care_report(request: SpecialistReportRequest):
         config = analysis.get("report_config", {})
         
         # Check if specific interactions are selected
-        if request.quick_scan_ids or request.deep_dive_ids or request.photo_session_ids or request.general_assessment_ids or request.general_deep_dive_ids:
+        # IMPORTANT: Check for 'is not None' to handle empty arrays properly
+        # Empty arrays [] should still use selected data mode, not fallback to all data
+        if (request.quick_scan_ids is not None or 
+            request.deep_dive_ids is not None or 
+            request.photo_session_ids is not None or 
+            request.general_assessment_ids is not None or 
+            request.general_deep_dive_ids is not None):
             # Gather only selected data
             all_data = await gather_selected_data(
                 user_id=request.user_id or analysis["user_id"],
@@ -2471,7 +2527,13 @@ async def generate_orthopedics_report(request: SpecialistReportRequest):
         config = analysis.get("report_config", {})
         
         # Check if specific interactions are selected
-        if request.quick_scan_ids or request.deep_dive_ids or request.photo_session_ids or request.general_assessment_ids or request.general_deep_dive_ids:
+        # IMPORTANT: Check for 'is not None' to handle empty arrays properly
+        # Empty arrays [] should still use selected data mode, not fallback to all data
+        if (request.quick_scan_ids is not None or 
+            request.deep_dive_ids is not None or 
+            request.photo_session_ids is not None or 
+            request.general_assessment_ids is not None or 
+            request.general_deep_dive_ids is not None):
             # Gather only selected data
             all_data = await gather_selected_data(
                 user_id=request.user_id or analysis["user_id"],
@@ -2752,7 +2814,13 @@ async def generate_rheumatology_report(request: SpecialistReportRequest):
         config = analysis.get("report_config", {})
         
         # Check if specific interactions are selected
-        if request.quick_scan_ids or request.deep_dive_ids or request.photo_session_ids or request.general_assessment_ids or request.general_deep_dive_ids:
+        # IMPORTANT: Check for 'is not None' to handle empty arrays properly
+        # Empty arrays [] should still use selected data mode, not fallback to all data
+        if (request.quick_scan_ids is not None or 
+            request.deep_dive_ids is not None or 
+            request.photo_session_ids is not None or 
+            request.general_assessment_ids is not None or 
+            request.general_deep_dive_ids is not None):
             # Gather only selected data
             all_data = await gather_selected_data(
                 user_id=request.user_id or analysis["user_id"],
