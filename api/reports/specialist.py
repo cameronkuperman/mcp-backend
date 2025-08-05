@@ -154,6 +154,45 @@ async def load_analysis(analysis_id: str):
     
     return response.data[0]
 
+def process_session_data(sessions: list, session_type: str = "deep_dive") -> str:
+    """Process session data and add status indicators for incomplete sessions"""
+    if not sessions:
+        return f"No {session_type} sessions found"
+    
+    processed_sessions = []
+    status_indicators = {
+        "active": "🔄 Assessment in Progress",
+        "analysis_ready": "✅ Analysis Ready",
+        "completed": "✅ Completed",
+        "abandoned": "❌ Abandoned"
+    }
+    
+    for session in sessions:
+        status = session.get("status", "unknown")
+        session_info = {
+            "id": session.get("id"),
+            "date": session.get("created_at", "")[:10] if session.get("created_at") else "Unknown",
+            "status": status_indicators.get(status, status),
+            "questions_answered": len(session.get("questions", [])) if session.get("questions") else 0
+        }
+        
+        # Add appropriate data based on status
+        if status == "active" and not session.get("final_analysis"):
+            session_info["note"] = "Using partial data from ongoing assessment"
+            session_info["action_needed"] = "Continue Assessment"
+        elif status == "analysis_ready":
+            session_info["note"] = "Initial analysis complete, additional questions available"
+        
+        # Include confidence if available
+        if session.get("final_confidence"):
+            session_info["confidence"] = f"{session.get('final_confidence')}%"
+        elif session.get("enhanced_confidence"):
+            session_info["confidence"] = f"{session.get('enhanced_confidence')}% (enhanced)"
+        
+        processed_sessions.append(session_info)
+    
+    return json.dumps(processed_sessions, indent=2)
+
 async def save_specialist_report(report_id: str, request, specialty: str, report_data: dict):
     """Save specialist report to database"""
     report_record = {
@@ -369,6 +408,10 @@ async def generate_cardiology_report(request: SpecialistReportRequest):
             # Fallback to comprehensive data from time range
             all_data = await gather_comprehensive_data(request.user_id or analysis["user_id"], config)
         
+        # Process session data to include status indicators
+        deep_dive_summary = process_session_data(all_data.get('deep_dives', []), "Deep Dive")
+        general_dive_summary = process_session_data(all_data.get('general_deep_dives', []), "General Deep Dive")
+        
         # Build cardiology context with FULL data
         context = f"""Generate a comprehensive cardiology report.
 
@@ -378,12 +421,22 @@ PATIENT DEMOGRAPHICS & MEDICAL HISTORY:
 PRIMARY INTERACTIONS (Main focus of this report):
 - Quick Scans: {len(all_data.get('quick_scans', []))}
 - Deep Dives: {len(all_data.get('deep_dives', []))}
+  Session Status Summary:
+{deep_dive_summary}
 - General Assessments: {len(all_data.get('general_assessments', []))}
+- General Deep Dives: {len(all_data.get('general_deep_dives', []))}
+  Session Status Summary:
+{general_dive_summary}
 - Photo Analyses: {len(all_data.get('photo_analyses', []))}
 
 SUPPLEMENTARY DATA (From same dates as primary interactions - for context only):
 - Symptom Tracking Entries: {len(all_data.get('symptom_tracking', []))}
 - Chat Summaries: {len(all_data.get('llm_summaries', []))}
+
+IMPORTANT NOTES:
+- Sessions marked as "🔄 Assessment in Progress" contain partial data that should be included in analysis
+- For incomplete sessions, use available questions/answers data even without final analysis
+- Include "Continue Assessment" as an action item for any in-progress sessions
 
 FULL DATA:
 {json.dumps(all_data, indent=2)}"""
@@ -393,6 +446,13 @@ FULL DATA:
 IMPORTANT: Focus primarily on the PRIMARY INTERACTIONS (quick scans, deep dives) that were specifically selected for this report. 
 The supplementary data (symptom tracking, chat summaries) is provided for context but should not be the main focus.
 Use the medical profile for demographics, medications, allergies, and family history to inform your assessment.
+
+HANDLING INCOMPLETE SESSIONS:
+- For sessions marked as "active" or "🔄 Assessment in Progress": Extract and analyze available data from the questions array
+- Include partial insights even without final_analysis
+- Add "Continue Assessment" to action_items for any in-progress sessions
+- Do NOT penalize confidence for incomplete sessions - the deep dive asks questions until reaching sufficient confidence
+- Clearly indicate which data comes from completed vs in-progress assessments
 
 CLINICAL SCALE CALCULATIONS:
 1. Automatically calculate relevant standardized scales based on available data

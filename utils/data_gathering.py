@@ -260,11 +260,11 @@ async def gather_comprehensive_data(user_id: str, config: dict):
         .order("created_at")\
         .execute()
     
-    # Deep Dives
+    # Deep Dives - Include all non-abandoned sessions (active, analysis_ready, completed)
     dives = supabase.table("deep_dive_sessions")\
         .select("*")\
         .eq("user_id", user_id)\
-        .eq("status", "completed")\
+        .in_("status", ["active", "analysis_ready", "completed"])\
         .gte("created_at", time_range.get("start", "2020-01-01"))\
         .lte("created_at", time_range.get("end", datetime.now(timezone.utc).isoformat()))\
         .order("created_at")\
@@ -302,6 +302,25 @@ async def gather_comprehensive_data(user_id: str, config: dict):
                 "data_points": points.data
             })
     
+    # General Assessments
+    general_assessments = supabase.table("general_assessments")\
+        .select("*")\
+        .eq("user_id", user_id)\
+        .gte("created_at", time_range.get("start", "2020-01-01"))\
+        .lte("created_at", time_range.get("end", datetime.now(timezone.utc).isoformat()))\
+        .order("created_at")\
+        .execute()
+    
+    # General Deep Dives - Include all non-abandoned sessions
+    general_dives = supabase.table("general_deepdive_sessions")\
+        .select("*")\
+        .eq("user_id", user_id)\
+        .in_("status", ["active", "analysis_ready", "completed"])\
+        .gte("created_at", time_range.get("start", "2020-01-01"))\
+        .lte("created_at", time_range.get("end", datetime.now(timezone.utc).isoformat()))\
+        .order("created_at")\
+        .execute()
+    
     # LLM Chat Summaries
     chats = supabase.table("oracle_chats")\
         .select("*")\
@@ -318,6 +337,8 @@ async def gather_comprehensive_data(user_id: str, config: dict):
         "medical_profile": medical_profile,
         "quick_scans": scans.data or [],
         "deep_dives": dives.data or [],
+        "general_assessments": general_assessments.data or [],
+        "general_deep_dives": general_dives.data or [],
         "symptom_tracking": tracking.data or [],
         "tracking_data": tracking_data,
         "llm_summaries": chats.data or [],
