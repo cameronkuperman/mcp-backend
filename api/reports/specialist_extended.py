@@ -199,6 +199,7 @@ Return JSON format:
         return {
             "report_id": report_id,
             "report_type": "nephrology",
+            "specialty": "nephrology",
             "generated_at": datetime.now(timezone.utc).isoformat(),
             "report_data": report_data,
             "status": "success"
@@ -373,6 +374,7 @@ Return JSON format:
         return {
             "report_id": report_id,
             "report_type": "urology",
+            "specialty": "urology",
             "generated_at": datetime.now(timezone.utc).isoformat(),
             "report_data": report_data,
             "status": "success"
@@ -570,6 +572,7 @@ Return JSON format:
         return {
             "report_id": report_id,
             "report_type": "gynecology",
+            "specialty": "gynecology",
             "generated_at": datetime.now(timezone.utc).isoformat(),
             "report_data": report_data,
             "status": "success"
@@ -660,6 +663,7 @@ Include sections for:
         return {
             "report_id": report_id,
             "report_type": "oncology",
+            "specialty": "oncology",
             "generated_at": datetime.now(timezone.utc).isoformat(),
             "report_data": report_data,
             "status": "success"
@@ -750,6 +754,7 @@ Include sections for:
         return {
             "report_id": report_id,
             "report_type": "physical_therapy",
+            "specialty": "physical-therapy",
             "generated_at": datetime.now(timezone.utc).isoformat(),
             "report_data": report_data,
             "status": "success"

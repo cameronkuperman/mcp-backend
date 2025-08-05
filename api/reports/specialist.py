@@ -685,6 +685,7 @@ Return JSON format:
         return {
             "report_id": report_id,
             "report_type": "cardiology",
+            "specialty": "cardiology",
             "generated_at": datetime.now(timezone.utc).isoformat(),
             "report_data": report_data,
             "status": "success"
@@ -972,6 +973,7 @@ Return JSON format:
         return {
             "report_id": report_id,
             "report_type": "neurology",
+            "specialty": "neurology",
             "generated_at": datetime.now(timezone.utc).isoformat(),
             "report_data": report_data,
             "status": "success"
@@ -1248,6 +1250,7 @@ Return JSON format:
         return {
             "report_id": report_id,
             "report_type": "psychiatry",
+            "specialty": "psychiatry",
             "generated_at": datetime.now(timezone.utc).isoformat(),
             "report_data": report_data,
             "status": "success"
@@ -1515,6 +1518,7 @@ Return JSON format:
         return {
             "report_id": report_id,
             "report_type": "dermatology",
+            "specialty": "dermatology",
             "generated_at": datetime.now(timezone.utc).isoformat(),
             "report_data": report_data,
             "status": "success"
@@ -1776,6 +1780,7 @@ Return JSON format:
         return {
             "report_id": report_id,
             "report_type": "gastroenterology",
+            "specialty": "gastroenterology",
             "generated_at": datetime.now(timezone.utc).isoformat(),
             "report_data": report_data,
             "status": "success"
@@ -1968,6 +1973,7 @@ Return JSON format:
         return {
             "report_id": report_id,
             "report_type": "endocrinology",
+            "specialty": "endocrinology",
             "generated_at": datetime.now(timezone.utc).isoformat(),
             "report_data": report_data,
             "status": "success"
@@ -2166,6 +2172,7 @@ Return JSON format:
         return {
             "report_id": report_id,
             "report_type": "pulmonology",
+            "specialty": "pulmonology",
             "generated_at": datetime.now(timezone.utc).isoformat(),
             "report_data": report_data,
             "status": "success"
@@ -2335,6 +2342,7 @@ Return JSON format:
         return {
             "report_id": report_id,
             "report_type": "primary_care",
+            "specialty": "primary-care",
             "generated_at": datetime.now(timezone.utc).isoformat(),
             "report_data": report_data,
             "status": "success"
@@ -2615,6 +2623,7 @@ Return JSON format:
         return {
             "report_id": report_id,
             "report_type": "orthopedics",
+            "specialty": "orthopedics",
             "generated_at": datetime.now(timezone.utc).isoformat(),
             "report_data": report_data,
             "status": "success"
@@ -2904,6 +2913,7 @@ Return JSON format:
         return {
             "report_id": report_id,
             "report_type": "rheumatology",
+            "specialty": "rheumatology",
             "generated_at": datetime.now(timezone.utc).isoformat(),
             "report_data": report_data,
             "status": "success"
