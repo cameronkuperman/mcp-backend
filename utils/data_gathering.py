@@ -412,18 +412,13 @@ async def gather_selected_data(
             data["quick_scans"] = scans_result.data or []
             logger.info(f"Found {len(data['quick_scans'])} quick scans")
             
-            # Get dates for symptom tracking correlation
-            scan_dates = [scan["created_at"][:10] for scan in data["quick_scans"]]
-            
-            # Get symptom tracking entries from same dates
-            if scan_dates:
-                for date in scan_dates:
+            # Get ONLY symptom tracking directly linked to these specific scans
+            for scan in data["quick_scans"]:
+                scan_id = scan.get("id")
+                if scan_id:
                     symptoms_result = supabase.table("symptom_tracking")\
                         .select("*")\
-                        .eq("user_id", user_id)\
-                        .gte("created_at", f"{date}T00:00:00")\
-                        .lte("created_at", f"{date}T23:59:59")\
-                        .order("created_at")\
+                        .eq("quick_scan_id", scan_id)\
                         .execute()
                     data["symptom_tracking"].extend(symptoms_result.data or [])
         
@@ -438,6 +433,16 @@ async def gather_selected_data(
                 .execute()
             data["deep_dives"] = dives_result.data or []
             logger.info(f"Found {len(data['deep_dives'])} deep dives")
+            
+            # Get ONLY symptom tracking directly linked to these specific deep dives
+            for dive in data["deep_dives"]:
+                dive_id = dive.get("id")
+                if dive_id:
+                    symptoms_result = supabase.table("symptom_tracking")\
+                        .select("*")\
+                        .eq("deep_dive_id", dive_id)\
+                        .execute()
+                    data["symptom_tracking"].extend(symptoms_result.data or [])
         
         # Get photo analyses for specific sessions
         if photo_session_ids:
@@ -472,29 +477,11 @@ async def gather_selected_data(
             data["general_deep_dives"] = general_dives_result.data or []
             logger.info(f"Found {len(data['general_deep_dives'])} general deep dives")
         
-        # Get any LLM summaries from the same dates
-        all_dates = set()
-        for scan in data["quick_scans"]:
-            all_dates.add(scan["created_at"][:10])
-        for dive in data["deep_dives"]:
-            all_dates.add(dive["created_at"][:10])
-        for assessment in data["general_assessments"]:
-            all_dates.add(assessment["created_at"][:10])
-        for general_dive in data["general_deep_dives"]:
-            all_dates.add(general_dive["created_at"][:10])
-            
-        if all_dates:
-            for date in all_dates:
-                chat_result = supabase.table("oracle_chats")\
-                    .select("*")\
-                    .eq("user_id", user_id)\
-                    .gte("created_at", f"{date}T00:00:00")\
-                    .lte("created_at", f"{date}T23:59:59")\
-                    .order("created_at")\
-                    .execute()
-                data["llm_summaries"].extend(chat_result.data or [])
+        # REMOVED: No longer fetching unrelated chats from same dates
+        # The report should ONLY include data from the specific selected sessions
+        # Not other interactions that happened to occur on the same day
         
-        # Remove duplicates from symptom_tracking and llm_summaries
+        # Remove duplicates from symptom_tracking
         seen_symptoms = set()
         unique_symptoms = []
         for symptom in data["symptom_tracking"]:
@@ -503,15 +490,6 @@ async def gather_selected_data(
                 seen_symptoms.add(symptom_id)
                 unique_symptoms.append(symptom)
         data["symptom_tracking"] = unique_symptoms
-        
-        seen_chats = set()
-        unique_chats = []
-        for chat in data["llm_summaries"]:
-            chat_id = chat.get("id")
-            if chat_id and chat_id not in seen_chats:
-                seen_chats.add(chat_id)
-                unique_chats.append(chat)
-        data["llm_summaries"] = unique_chats
         
     except Exception as e:
         logger.error(f"Error in gather_selected_data: {e}")
