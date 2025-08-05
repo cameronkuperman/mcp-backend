@@ -27,24 +27,17 @@ async def test_orthopedic_report():
     print("Step 1: Creating report analysis...")
     analysis_data = {
         "user_id": user_id,
-        "purpose": "ankle injury assessment",
-        "symptom_focus": "ankle sprain",
-        "recommended_type": "specialist_focused",
-        "report_config": {
-            "time_range": {
-                "start": "2025-07-20T00:00:00Z",
-                "end": "2025-07-23T23:59:59Z"
-            },
-            "focus_areas": ["musculoskeletal"],
-            "include_photos": False
-        }
+        "quick_scan_ids": [],
+        "deep_dive_ids": [deep_dive_id],
+        "symptom_focus": "ankle injury",
+        "purpose": "orthopedic evaluation"
     }
     
-    async with httpx.AsyncClient(timeout=30.0) as client:
+    async with httpx.AsyncClient(timeout=120.0) as client:
         try:
             # Create analysis
             response = await client.post(
-                f"{base_url}/api/report/analysis",
+                f"{base_url}/api/report/analyze",
                 json=analysis_data
             )
             if response.status_code != 200:
@@ -107,6 +100,4 @@ async def test_orthopedic_report():
 
 if __name__ == "__main__":
     print("Make sure the Oracle server is running on port 8000!")
-    print("Press Enter to continue...")
-    input()
     asyncio.run(test_orthopedic_report())

@@ -1,0 +1,194 @@
+{
+  "report_id": "e04021b6-4047-4c93-9a82-b15e832a6722",
+  "report_type": "orthopedics",
+  "generated_at": "2025-08-05T16:10:55.544101+00:00",
+  "report_data": {
+    "executive_summary": {
+      "one_page_summary": "19-year-old male athlete with acute left ankle injury, likely fibularis brevis strain vs tendon tear. Requires detailed physical exam and imaging to confirm diagnosis.",
+      "key_findings": [
+        "Acute left ankle injury with pain localized to fibularis brevis",
+        "Pain level 5/10 without clear mechanism description",
+        "Active individual with high exercise frequency",
+        "No reported weight-bearing difficulties or audible pop"
+      ],
+      "patterns_identified": [
+        "Mechanical injury pattern",
+        "Acute onset trauma"
+      ],
+      "chief_complaints": [
+        "Left ankle pain following injury",
+        "Concern for fibularis brevis pathology"
+      ],
+      "action_items": [
+        "Obtain detailed injury mechanism history",
+        "Perform thorough ankle physical exam",
+        "Obtain weight-bearing ankle X-rays"
+      ],
+      "specialist_focus": "orthopedics",
+      "target_audience": "orthopedist"
+    },
+    "clinical_summary": {
+      "chief_complaint": "Left ankle pain following injury",
+      "hpi": "19-year-old male presenting with acute left ankle pain localized to fibularis brevis region. Pain level 5/10. No clear mechanism described. Previous physician diagnosed ankle sprain. Active individual exercising 5+ times/week.",
+      "injury_timeline": [
+        {
+          "date": "2025-07-22",
+          "event": "Ankle injury onset",
+          "mechanism": "Unclear - requires clarification",
+          "severity": "Moderate pain (5/10)",
+          "treatment": "None documented"
+        }
+      ]
+    },
+    "orthopedic_assessment": {
+      "affected_joints": [
+        "Left ankle"
+      ],
+      "pain_characteristics": {
+        "location": "Left fibularis brevis region",
+        "quality": "Not specified",
+        "timing": "Acute onset",
+        "severity": "5/10",
+        "radiation": "Not reported"
+      },
+      "mechanical_symptoms": {
+        "locking": "Unknown",
+        "catching": "Unknown",
+        "instability": "Unknown",
+        "stiffness": "Unknown",
+        "swelling": "Unknown"
+      },
+      "functional_limitations": {
+        "ambulation": "Unknown weight-bearing status",
+        "stairs": "Unknown",
+        "activities": [
+          "Potential exercise limitations"
+        ],
+        "work_impact": "Unknown"
+      }
+    },
+    "orthopedist_specific_findings": {
+      "injury_mechanism": {
+        "traumatic": "Details needed",
+        "overuse": "Possible given exercise frequency",
+        "degenerative": "Unlikely given age"
+      },
+      "red_flags": {
+        "present": [
+          "None confirmed"
+        ],
+        "absent": [
+          "No reported inability to bear weight",
+          "No audible pop"
+        ]
+      },
+      "previous_treatments": {
+        "conservative": [
+          "None documented"
+        ],
+        "surgical": [
+          "None"
+        ],
+        "response": "N/A"
+      }
+    },
+    "diagnostic_recommendations": {
+      "imaging": {
+        "xrays": {
+          "views": "AP, lateral, mortise views of left ankle",
+          "rationale": "Rule out fracture, assess alignment"
+        },
+        "mri": {
+          "indicated": "If persistent pain or concern for tendon tear",
+          "region": "Left ankle/foot",
+          "rationale": "Evaluate soft tissue structures"
+        },
+        "ct": "Not initially indicated"
+      },
+      "laboratory": [],
+      "other": []
+    },
+    "treatment_recommendations": {
+      "conservative_management": {
+        "immediate": [
+          "RICE protocol",
+          "Ankle stabilization with brace",
+          "Weight-bearing as tolerated"
+        ],
+        "medications": [
+          {
+            "class": "NSAIDs",
+            "specific": "Ibuprofen 400-600mg TID PRN pain",
+            "duration": "1-2 weeks"
+          }
+        ],
+        "physical_therapy": {
+          "focus": "Ankle proprioception, strengthening",
+          "frequency": "2-3x/week for 4-6 weeks",
+          "specific_exercises": [
+            "Theraband exercises, balance training"
+          ]
+        }
+      },
+      "injection_options": {
+        "corticosteroid": {
+          "location": "Not initially indicated",
+          "indication": "If significant inflammation persists"
+        },
+        "viscosupplementation": "N/A",
+        "prp": "Potential consideration for tendon pathology"
+      },
+      "surgical_considerations": {
+        "indicated": "Only if complete tendon tear confirmed",
+        "procedure_options": [
+          "Possible tendon repair"
+        ],
+        "timing": "Elective if needed"
+      }
+    },
+    "rehabilitation_plan": {
+      "phase_1": {
+        "goals": "Pain control, reduce swelling",
+        "restrictions": [
+          "Avoid high-impact activities"
+        ],
+        "duration": "1-2 weeks"
+      },
+      "phase_2": {
+        "goals": "Restore full ROM, begin strengthening",
+        "activities": [
+          "Weight-bearing exercises",
+          "Proprioception training"
+        ],
+        "progression_criteria": "Pain <3/10, no swelling"
+      },
+      "return_to_activity": {
+        "timeline": "4-6 weeks for full return",
+        "milestones": [
+          "Pain-free ambulation",
+          "Full ROM"
+        ],
+        "prevention": "Ankle strengthening program"
+      }
+    },
+    "follow_up_plan": {
+      "orthopedic_visit": "2 weeks for re-evaluation",
+      "imaging_followup": "If no improvement in 2 weeks",
+      "therapy_progress": "PT evaluation within 1 week",
+      "surgical_decision": "If no improvement after 6 weeks conservative care"
+    },
+    "clinical_scales": {
+      "Pain_Disability": {
+        "functional_score": "Moderate limitation likely",
+        "work_impact": "Unknown",
+        "adl_impact": "Partial limitation suspected",
+        "confidence": 0.6
+      },
+      "missing_assessments": [
+        "Foot and Ankle Ability Measure (FAAM)",
+        "Detailed functional assessment"
+      ]
+    }
+  },
+  "status": "success"
+}
