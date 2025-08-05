@@ -390,6 +390,10 @@ FULL DATA:
 
         system_prompt = """Generate a detailed cardiology specialist report analyzing the patient's cardiac symptoms and history.
 
+IMPORTANT: Focus primarily on the PRIMARY INTERACTIONS (quick scans, deep dives) that were specifically selected for this report. 
+The supplementary data (symptom tracking, chat summaries) is provided for context but should not be the main focus.
+Use the medical profile for demographics, medications, allergies, and family history to inform your assessment.
+
 CLINICAL SCALE CALCULATIONS:
 1. Automatically calculate relevant standardized scales based on available data
 2. For each scale:
