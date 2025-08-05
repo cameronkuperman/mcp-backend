@@ -311,7 +311,11 @@ async def gather_comprehensive_data(user_id: str, config: dict):
         .order("created_at")\
         .execute()
     
+    # Get medical profile
+    medical_profile = await get_user_medical_data(user_id)
+    
     return {
+        "medical_profile": medical_profile,
         "quick_scans": scans.data or [],
         "deep_dives": dives.data or [],
         "symptom_tracking": tracking.data or [],
@@ -320,178 +324,6 @@ async def gather_comprehensive_data(user_id: str, config: dict):
         "wearables": {}  # Placeholder for wearables integration
     }
 
-async def extract_cardiac_patterns(data: dict) -> str:
-    """Extract cardiac-specific patterns from data"""
-    cardiac_symptoms = ["chest pain", "palpitations", "shortness of breath", "dizziness", "heart"]
-    
-    relevant_data = []
-    for scan in data.get("quick_scans", []):
-        form_data_str = str(scan.get("form_data", {})).lower()
-        if any(symptom in form_data_str for symptom in cardiac_symptoms):
-            relevant_data.append({
-                "date": scan["created_at"],
-                "symptoms": scan.get("form_data", {}).get("symptoms"),
-                "severity": scan.get("form_data", {}).get("painLevel"),
-                "analysis": scan.get("analysis_result", {})
-            })
-    
-    for dive in data.get("deep_dives", []):
-        dive_str = str(dive).lower()
-        if any(symptom in dive_str for symptom in cardiac_symptoms):
-            relevant_data.append({
-                "date": dive["created_at"],
-                "body_part": dive["body_part"],
-                "final_analysis": dive.get("final_analysis", {})
-            })
-    
-    # Format into string for LLM
-    pattern_text = "Cardiac-Related History:\n"
-    for item in sorted(relevant_data, key=lambda x: x["date"]):
-        pattern_text += f"- {item['date'][:10]}: {item.get('symptoms', 'Cardiac symptoms')}\n"
-    
-    return pattern_text if relevant_data else "No cardiac-specific patterns found."
-
-async def extract_neuro_patterns(data: dict) -> str:
-    """Extract neurology-specific patterns from data"""
-    neuro_symptoms = ["headache", "migraine", "dizziness", "numbness", "tingling", "vision", "seizure", "memory"]
-    
-    relevant_data = []
-    for scan in data.get("quick_scans", []):
-        form_data_str = str(scan.get("form_data", {})).lower()
-        if any(symptom in form_data_str for symptom in neuro_symptoms):
-            relevant_data.append({
-                "date": scan["created_at"],
-                "symptoms": scan.get("form_data", {}).get("symptoms"),
-                "severity": scan.get("form_data", {}).get("painLevel"),
-                "analysis": scan.get("analysis_result", {})
-            })
-    
-    for dive in data.get("deep_dives", []):
-        dive_str = str(dive).lower()
-        if any(symptom in dive_str for symptom in neuro_symptoms):
-            relevant_data.append({
-                "date": dive["created_at"],
-                "body_part": dive["body_part"],
-                "final_analysis": dive.get("final_analysis", {})
-            })
-    
-    # Format into string for LLM
-    pattern_text = "Neurological History:\n"
-    for item in sorted(relevant_data, key=lambda x: x["date"]):
-        pattern_text += f"- {item['date'][:10]}: {item.get('symptoms', 'Neurological symptoms')}\n"
-    
-    return pattern_text if relevant_data else "No neurological patterns found."
-
-async def extract_mental_health_patterns(data: dict) -> str:
-    """Extract mental health patterns from data"""
-    psych_keywords = ["anxiety", "depression", "stress", "mood", "sleep", "panic", "worry", "mental"]
-    
-    relevant_data = []
-    for scan in data.get("quick_scans", []):
-        form_data_str = str(scan.get("form_data", {})).lower()
-        if any(keyword in form_data_str for keyword in psych_keywords):
-            relevant_data.append({
-                "date": scan["created_at"],
-                "symptoms": scan.get("form_data", {}).get("symptoms"),
-                "analysis": scan.get("analysis_result", {})
-            })
-    
-    # Format into string for LLM
-    pattern_text = "Mental Health History:\n"
-    for item in sorted(relevant_data, key=lambda x: x["date"]):
-        pattern_text += f"- {item['date'][:10]}: {item.get('symptoms', 'Mental health concerns')}\n"
-    
-    return pattern_text if relevant_data else "No mental health patterns found."
-
-async def extract_dermatology_patterns(data: dict, photo_data: dict) -> str:
-    """Extract dermatology patterns including photo data"""
-    derm_keywords = ["rash", "skin", "itching", "lesion", "mole", "spot", "eczema", "psoriasis"]
-    
-    relevant_data = []
-    for scan in data.get("quick_scans", []):
-        form_data_str = str(scan.get("form_data", {})).lower()
-        if any(keyword in form_data_str for keyword in derm_keywords):
-            relevant_data.append({
-                "date": scan["created_at"],
-                "symptoms": scan.get("form_data", {}).get("symptoms"),
-                "body_part": scan.get("body_part"),
-                "analysis": scan.get("analysis_result", {})
-            })
-    
-    # Format into string for LLM
-    pattern_text = "Dermatological History:\n"
-    for item in sorted(relevant_data, key=lambda x: x["date"]):
-        pattern_text += f"- {item['date'][:10]}: {item.get('symptoms', 'Skin condition')} on {item.get('body_part', 'unspecified area')}\n"
-    
-    if photo_data:
-        pattern_text += f"\nPhoto documentation available: {len(photo_data)} images\n"
-    
-    return pattern_text if relevant_data else "No dermatological patterns found."
-
-async def extract_gi_patterns(data: dict) -> str:
-    """Extract GI patterns from data"""
-    gi_keywords = ["stomach", "abdominal", "nausea", "diarrhea", "constipation", "bloating", "vomiting", "bowel"]
-    
-    relevant_data = []
-    for scan in data.get("quick_scans", []):
-        form_data_str = str(scan.get("form_data", {})).lower()
-        if any(keyword in form_data_str for keyword in gi_keywords):
-            relevant_data.append({
-                "date": scan["created_at"],
-                "symptoms": scan.get("form_data", {}).get("symptoms"),
-                "severity": scan.get("form_data", {}).get("painLevel"),
-                "analysis": scan.get("analysis_result", {})
-            })
-    
-    # Format into string for LLM
-    pattern_text = "Gastrointestinal History:\n"
-    for item in sorted(relevant_data, key=lambda x: x["date"]):
-        pattern_text += f"- {item['date'][:10]}: {item.get('symptoms', 'GI symptoms')} (severity: {item.get('severity', 'unknown')}/10)\n"
-    
-    return pattern_text if relevant_data else "No GI patterns found."
-
-async def extract_endocrine_patterns(data: dict) -> str:
-    """Extract endocrine patterns from data"""
-    endo_keywords = ["fatigue", "weight", "thyroid", "diabetes", "energy", "temperature", "hormone", "metabolism"]
-    
-    relevant_data = []
-    for scan in data.get("quick_scans", []):
-        form_data_str = str(scan.get("form_data", {})).lower()
-        if any(keyword in form_data_str for keyword in endo_keywords):
-            relevant_data.append({
-                "date": scan["created_at"],
-                "symptoms": scan.get("form_data", {}).get("symptoms"),
-                "analysis": scan.get("analysis_result", {})
-            })
-    
-    # Format into string for LLM
-    pattern_text = "Endocrine/Metabolic History:\n"
-    for item in sorted(relevant_data, key=lambda x: x["date"]):
-        pattern_text += f"- {item['date'][:10]}: {item.get('symptoms', 'Endocrine symptoms')}\n"
-    
-    return pattern_text if relevant_data else "No endocrine patterns found."
-
-async def extract_pulmonary_patterns(data: dict) -> str:
-    """Extract pulmonary patterns from data"""
-    pulm_keywords = ["breathing", "cough", "wheeze", "asthma", "shortness", "chest", "lung", "respiratory"]
-    
-    relevant_data = []
-    for scan in data.get("quick_scans", []):
-        form_data_str = str(scan.get("form_data", {})).lower()
-        if any(keyword in form_data_str for keyword in pulm_keywords):
-            relevant_data.append({
-                "date": scan["created_at"],
-                "symptoms": scan.get("form_data", {}).get("symptoms"),
-                "body_part": scan.get("body_part"),
-                "analysis": scan.get("analysis_result", {})
-            })
-    
-    # Format into string for LLM
-    pattern_text = "Pulmonary/Respiratory History:\n"
-    for item in sorted(relevant_data, key=lambda x: x["date"]):
-        pattern_text += f"- {item['date'][:10]}: {item.get('symptoms', 'Respiratory symptoms')}\n"
-    
-    return pattern_text if relevant_data else "No pulmonary patterns found."
 
 async def gather_photo_data(user_id: str, config: dict):
     """Placeholder for photo data gathering"""
@@ -530,6 +362,7 @@ async def gather_selected_data(
     logger.info(f"General deep dive IDs: {general_deep_dive_ids}")
     
     data = {
+        "medical_profile": None,  # Add medical profile
         "quick_scans": [],
         "deep_dives": [],
         "photo_analyses": [],
@@ -542,6 +375,10 @@ async def gather_selected_data(
     }
     
     try:
+        # FIRST: Get medical profile (demographics, medications, allergies, etc.)
+        data["medical_profile"] = await get_user_medical_data(user_id)
+        logger.info(f"Medical profile loaded: {data['medical_profile'] is not None}")
+        
         # Get specific quick scans
         if quick_scan_ids:
             logger.info(f"Fetching {len(quick_scan_ids)} quick scans...")

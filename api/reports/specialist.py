@@ -13,13 +13,6 @@ from utils.data_gathering import (
     gather_report_data,
     gather_comprehensive_data,
     gather_selected_data,
-    extract_cardiac_patterns,
-    extract_neuro_patterns,
-    extract_mental_health_patterns,
-    extract_dermatology_patterns,
-    extract_gi_patterns,
-    extract_endocrine_patterns,
-    extract_pulmonary_patterns,
     gather_photo_data,
     safe_insert_report
 )
@@ -108,7 +101,16 @@ Return JSON:
   "recommended_timing": "when to see specialist"
 }
 
-Specialties: cardiology, neurology, psychiatry, dermatology, gastroenterology, endocrinology, pulmonology, primary-care"""
+IMPORTANT: Most patients need only ONE specialist. Only suggest secondary specialties if there are clear signs of multiple distinct conditions.
+Confidence guidelines:
+- Primary specialty: 0.7-0.95 (be realistic, rarely above 0.9)
+- Secondary specialties: Only include if confidence > 0.6 AND truly distinct condition
+- Usually only 0-1 secondary specialties needed
+
+Available specialties: cardiology, neurology, psychiatry, dermatology, gastroenterology, 
+endocrinology, pulmonology, orthopedics, rheumatology, nephrology, urology, gynecology, 
+oncology, physical-therapy, ent, ophthalmology, infectious-disease, pain-management, 
+allergy-immunology, primary-care"""
 
         llm_response = await call_llm(
             messages=[
@@ -367,33 +369,18 @@ async def generate_cardiology_report(request: SpecialistReportRequest):
             # Fallback to comprehensive data from time range
             all_data = await gather_comprehensive_data(request.user_id or analysis["user_id"], config)
         
-        # Extract cardiac-specific patterns
-        cardiac_data = await extract_cardiac_patterns(all_data)
-        
-        # Build cardiology context
+        # Build cardiology context with FULL data
         context = f"""Generate a comprehensive cardiology report.
 
-CARDIAC DATA:
-{cardiac_data}
+PATIENT DATA (Selected Interactions Only):
+Quick Scans: {len(all_data.get('quick_scans', []))}
+Deep Dives: {len(all_data.get('deep_dives', []))}
+Photo Analyses: {len(all_data.get('photo_analyses', []))}
 
-VITAL SIGNS AND METRICS:
-- Latest recorded blood pressure: [To be integrated with wearables]
-- Heart rate patterns: [To be integrated]
-- Exercise tolerance: Based on reported symptoms
+FULL INTERACTION DATA:
+{json.dumps(all_data, indent=2)}
 
-SYMPTOMS OF INTEREST:
-- Chest pain/pressure/discomfort
-- Palpitations or irregular heartbeat
-- Shortness of breath
-- Dizziness or lightheadedness
-- Fatigue with exertion
-- Swelling in legs/ankles
-
-RISK FACTORS:
-[Analyze from patient data for diabetes, hypertension, smoking, family history]
-
-PATIENT PROFILE:
-{json.dumps(analysis.get("user_data", {}), indent=2)}"""
+"""
 
         system_prompt = """Generate a detailed cardiology specialist report analyzing the patient's cardiac symptoms and history.
 
@@ -659,30 +646,11 @@ async def generate_neurology_report(request: SpecialistReportRequest):
             # Fallback to comprehensive data from time range
             all_data = await gather_comprehensive_data(request.user_id or analysis["user_id"], config)
         
-        # Extract neurological patterns
-        neuro_data = await extract_neuro_patterns(all_data)
-        
-        # Build neurology context
+        # Build neurology context with FULL data
         context = f"""Generate a comprehensive neurology report.
 
-NEUROLOGICAL DATA:
-{neuro_data}
-
-NEUROLOGICAL SYMPTOMS OF INTEREST:
-- Headaches (type, location, frequency, triggers)
-- Dizziness/vertigo
-- Numbness/tingling (location, distribution)
-- Weakness (focal vs generalized)
-- Vision changes
-- Speech difficulties
-- Memory/cognitive issues
-- Seizure-like activity
-- Tremor/movement disorders
-
-ASSOCIATED SYMPTOMS:
-- Sleep disturbances
-- Mood changes
-- Autonomic symptoms"""
+PATIENT DATA (Selected Interactions Only):
+{json.dumps(all_data, indent=2)}"""
 
         system_prompt = """Generate a detailed neurology specialist report focusing on neurological symptoms and patterns.
 
@@ -965,31 +933,11 @@ async def generate_psychiatry_report(request: SpecialistReportRequest):
             # Fallback to comprehensive data from time range
             all_data = await gather_comprehensive_data(request.user_id or analysis["user_id"], config)
         
-        # Extract mental health patterns
-        mental_health_data = await extract_mental_health_patterns(all_data)
-        
-        # Build psychiatry context
+        # Build psychiatry context with FULL data
         context = f"""Generate a comprehensive psychiatry report.
 
-MENTAL HEALTH DATA:
-{mental_health_data}
-
-PSYCHIATRIC SYMPTOMS OF INTEREST:
-- Mood (depression, mania, mood swings)
-- Anxiety (generalized, panic, phobias)
-- Sleep disturbances (insomnia, hypersomnia)
-- Appetite/weight changes
-- Energy levels
-- Concentration/focus issues
-- Suicidal/homicidal ideation
-- Psychotic symptoms (hallucinations, delusions)
-- Substance use
-
-FUNCTIONAL ASSESSMENT:
-- Work/school performance
-- Social relationships
-- Self-care abilities
-- Coping mechanisms"""
+PATIENT DATA (Selected Interactions Only):
+{json.dumps(all_data, indent=2)}"""
 
         system_prompt = """Generate a detailed psychiatry specialist report analyzing mental health symptoms and psychosocial factors.
 
@@ -1264,29 +1212,14 @@ async def generate_dermatology_report(request: SpecialistReportRequest):
             all_data = await gather_comprehensive_data(request.user_id or analysis["user_id"], config)
             photo_data = await gather_photo_data(request.user_id, config)
         
-        # Extract dermatology patterns
-        derm_data = await extract_dermatology_patterns(all_data, photo_data)
-        
-        # Build dermatology context
+        # Build dermatology context with FULL data
         context = f"""Generate a comprehensive dermatology report.
 
-DERMATOLOGICAL DATA:
-{derm_data}
+PATIENT DATA (Selected Interactions Only):
+{json.dumps(all_data, indent=2)}
 
-SKIN SYMPTOMS OF INTEREST:
-- Rash characteristics (morphology, distribution)
-- Itching/pruritus
-- Color changes
-- Texture changes
-- Hair/nail involvement
-- Mucosal involvement
-
-PHOTO DOCUMENTATION:
-- Number of photos: {len(photo_data)}
-- Body areas documented: [from photo metadata]
-- Evolution over time
-- Response to treatments
-- Environmental triggers"""
+PHOTO DATA:
+{json.dumps(photo_data, indent=2) if photo_data else "No photo data available"}"""
 
         system_prompt = """Generate a detailed dermatology specialist report analyzing skin conditions with photo documentation insights.
 
@@ -1543,30 +1476,11 @@ async def generate_gastroenterology_report(request: SpecialistReportRequest):
             # Fallback to comprehensive data from time range
             all_data = await gather_comprehensive_data(request.user_id or analysis["user_id"], config)
         
-        # Extract GI patterns
-        gi_data = await extract_gi_patterns(all_data)
-        
-        # Build gastroenterology context
+        # Build gastroenterology context with FULL data
         context = f"""Generate a comprehensive gastroenterology report.
 
-GASTROINTESTINAL DATA:
-{gi_data}
-
-GI SYMPTOMS OF INTEREST:
-- Abdominal pain (location, quality, timing)
-- Nausea/vomiting
-- Diarrhea/constipation
-- Bloating/gas
-- Heartburn/reflux
-- Blood in stool
-- Weight changes
-- Appetite changes
-
-DIETARY PATTERNS:
-- Food triggers
-- Meal timing
-- Dietary restrictions
-- Symptom-food correlations"""
+PATIENT DATA (Selected Interactions Only):
+{json.dumps(all_data, indent=2)}"""
 
         system_prompt = """Generate a detailed gastroenterology specialist report analyzing GI symptoms and patterns.
 
@@ -1823,30 +1737,11 @@ async def generate_endocrinology_report(request: SpecialistReportRequest):
             # Fallback to comprehensive data from time range
             all_data = await gather_comprehensive_data(request.user_id or analysis["user_id"], config)
         
-        # Extract endocrine patterns
-        endo_data = await extract_endocrine_patterns(all_data)
-        
-        # Build endocrinology context
+        # Build endocrinology context with FULL data
         context = f"""Generate a comprehensive endocrinology report.
 
-ENDOCRINE DATA:
-{endo_data}
-
-ENDOCRINE SYMPTOMS OF INTEREST:
-- Fatigue/energy levels
-- Weight changes
-- Temperature intolerance
-- Hair/skin changes
-- Menstrual irregularities
-- Libido changes
-- Mood changes
-- Excessive thirst/urination
-
-METABOLIC INDICATORS:
-- Blood sugar patterns
-- Weight trends
-- Energy fluctuations
-- Sleep quality"""
+PATIENT DATA (Selected Interactions Only):
+{json.dumps(all_data, indent=2)}"""
 
         system_prompt = """Generate a detailed endocrinology specialist report analyzing metabolic and hormonal symptoms.
 
@@ -2034,30 +1929,11 @@ async def generate_pulmonology_report(request: SpecialistReportRequest):
             # Fallback to comprehensive data from time range
             all_data = await gather_comprehensive_data(request.user_id or analysis["user_id"], config)
         
-        # Extract pulmonary patterns
-        pulm_data = await extract_pulmonary_patterns(all_data)
-        
-        # Build pulmonology context
+        # Build pulmonology context with FULL data
         context = f"""Generate a comprehensive pulmonology report.
 
-PULMONARY DATA:
-{pulm_data}
-
-RESPIRATORY SYMPTOMS OF INTEREST:
-- Cough (productive/dry, timing)
-- Shortness of breath (at rest/exertion)
-- Wheezing
-- Chest tightness
-- Sputum production
-- Hemoptysis
-- Exercise tolerance
-- Sleep apnea symptoms
-
-ENVIRONMENTAL FACTORS:
-- Smoking history
-- Occupational exposures
-- Allergens
-- Air quality"""
+PATIENT DATA (Selected Interactions Only):
+{json.dumps(all_data, indent=2)}"""
 
         system_prompt = """Generate a detailed pulmonology specialist report analyzing respiratory symptoms and patterns.
 
@@ -2254,27 +2130,8 @@ async def generate_primary_care_report(request: SpecialistReportRequest):
         # Build comprehensive primary care context
         context = f"""Generate a comprehensive primary care evaluation report.
 
-PATIENT DATA:
-Total Quick Scans: {len(all_data.get('quick_scans', []))}
-Total Deep Dives: {len(all_data.get('deep_dives', []))}
-Total Symptom Entries: {len(all_data.get('symptom_tracking', []))}
-
-RECENT HEALTH CONCERNS (Last 10 entries):
-{json.dumps([{
-    'date': s['created_at'][:10],
-    'symptoms': s.get('form_data', {}).get('symptoms'),
-    'body_part': s.get('body_part'),
-    'severity': s.get('form_data', {}).get('painLevel')
-} for s in all_data['quick_scans'][-10:]], indent=2)}
-
-SYMPTOM TRACKING PATTERNS:
-{json.dumps([{
-    'symptom': s.get('symptom_name'),
-    'frequency': s.get('frequency'),
-    'last_reported': s.get('created_at', '')[:10]
-} for s in all_data['symptom_tracking'][-20:]], indent=2)}
-
-TIME RANGE: {config['time_range']['start'][:10]} to {config['time_range']['end'][:10]}"""
+PATIENT DATA (Selected Interactions Only):
+{json.dumps(all_data, indent=2)}"""
 
         system_prompt = """Generate a comprehensive primary care report focusing on overall health assessment and coordination of care.
 
@@ -2415,4 +2272,573 @@ Return JSON format:
         
     except Exception as e:
         print(f"Error generating primary care report: {e}")
+        return {"error": str(e), "status": "error"}
+
+@router.post("/orthopedics")
+async def generate_orthopedics_report(request: SpecialistReportRequest):
+    """Generate orthopedics specialist report"""
+    try:
+        analysis = await load_analysis(request.analysis_id)
+        config = analysis.get("report_config", {})
+        
+        # Check if specific interactions are selected
+        if request.quick_scan_ids or request.deep_dive_ids or request.photo_session_ids or request.general_assessment_ids or request.general_deep_dive_ids:
+            # Gather only selected data
+            all_data = await gather_selected_data(
+                user_id=request.user_id or analysis["user_id"],
+                quick_scan_ids=request.quick_scan_ids,
+                deep_dive_ids=request.deep_dive_ids,
+                photo_session_ids=request.photo_session_ids,
+                general_assessment_ids=request.general_assessment_ids,
+                general_deep_dive_ids=request.general_deep_dive_ids
+            )
+        else:
+            # Fallback to comprehensive data from time range
+            all_data = await gather_comprehensive_data(request.user_id or analysis["user_id"], config)
+        
+        # Build orthopedics context with FULL data
+        context = f"""Generate a comprehensive orthopedics report.
+
+PATIENT DATA (Selected Interactions Only):
+{json.dumps(all_data, indent=2)}"""
+
+        system_prompt = """Generate a detailed orthopedics specialist report analyzing musculoskeletal symptoms and conditions.
+
+CLINICAL SCALE CALCULATIONS:
+1. Automatically calculate relevant standardized scales based on available data
+2. For each scale:
+   - Provide the calculated score
+   - Include confidence level (0.0-1.0) based on data completeness
+   - Explain your reasoning for each component
+   - List any missing data that would improve accuracy
+
+For Orthopedics, automatically calculate when relevant:
+- Oswestry Disability Index (for back pain)
+- KOOS (Knee injury and Osteoarthritis Outcome Score)
+- Oxford Hip/Knee/Shoulder scores
+- DASH (Disabilities of the Arm, Shoulder and Hand)
+- Roland-Morris Disability Questionnaire
+
+BEST PRACTICES:
+- Assess functional limitations from patient descriptions
+- Map activities to disability scores
+- Consider pain patterns and mechanical symptoms
+- Note any red flags for serious pathology
+
+Return JSON format:
+{
+  "executive_summary": {
+    "one_page_summary": "Comprehensive clinical overview for orthopedist",
+    "key_findings": ["most significant musculoskeletal findings"],
+    "patterns_identified": ["mechanical vs inflammatory patterns"],
+    "chief_complaints": ["primary orthopedic concerns"],
+    "action_items": ["immediate evaluations or treatments"],
+    "specialist_focus": "orthopedics",
+    "target_audience": "orthopedist"
+  },
+  
+  "clinical_summary": {
+    "chief_complaint": "Primary musculoskeletal concern",
+    "hpi": "Detailed history of orthopedic condition",
+    "injury_timeline": [
+      {
+        "date": "ISO date",
+        "event": "injury or symptom onset",
+        "mechanism": "how it occurred",
+        "severity": "immediate impact",
+        "treatment": "initial management"
+      }
+    ]
+  },
+  
+  "orthopedic_assessment": {
+    "affected_joints": ["specific joints/areas involved"],
+    "pain_characteristics": {
+      "location": "precise anatomical location",
+      "quality": "sharp/dull/aching/burning",
+      "timing": "constant/intermittent/activity-related",
+      "severity": "0-10 scale with context",
+      "radiation": "if pain travels"
+    },
+    "mechanical_symptoms": {
+      "locking": "present/absent",
+      "catching": "present/absent",
+      "instability": "giving way episodes",
+      "stiffness": "morning/activity-related",
+      "swelling": "pattern and triggers"
+    },
+    "functional_limitations": {
+      "ambulation": "walking distance/aids needed",
+      "stairs": "ability to climb/descend",
+      "activities": ["specific limitations"],
+      "work_impact": "occupational restrictions"
+    }
+  },
+  
+  "orthopedist_specific_findings": {
+    "injury_mechanism": {
+      "traumatic": "specific injury details if applicable",
+      "overuse": "repetitive activities identified",
+      "degenerative": "gradual onset patterns"
+    },
+    "red_flags": {
+      "present": ["any concerning features"],
+      "absent": ["important negatives"]
+    },
+    "previous_treatments": {
+      "conservative": ["PT, injections, medications tried"],
+      "surgical": ["any prior procedures"],
+      "response": "what helped/failed"
+    }
+  },
+  
+  "diagnostic_recommendations": {
+    "imaging": {
+      "xrays": {
+        "views": "AP/lateral/special views needed",
+        "rationale": "baseline assessment"
+      },
+      "mri": {
+        "indicated": "yes/no",
+        "region": "specific area to image",
+        "rationale": "soft tissue/cartilage evaluation"
+      },
+      "ct": "if bony detail needed"
+    },
+    "laboratory": [
+      {
+        "test": "inflammatory markers",
+        "indication": "if inflammatory arthritis suspected"
+      }
+    ],
+    "other": ["EMG/NCS if nerve involvement"]
+  },
+  
+  "treatment_recommendations": {
+    "conservative_management": {
+      "immediate": [
+        "activity modification",
+        "ice/heat application",
+        "relative rest"
+      ],
+      "medications": [
+        {
+          "class": "NSAIDs",
+          "specific": "ibuprofen 600mg TID with food",
+          "duration": "2-3 weeks trial"
+        }
+      ],
+      "physical_therapy": {
+        "focus": "strengthening, ROM, mechanics",
+        "frequency": "2-3x/week for 6-8 weeks",
+        "specific_exercises": ["based on condition"]
+      }
+    },
+    "injection_options": {
+      "corticosteroid": {
+        "location": "intra-articular vs bursal",
+        "indication": "inflammatory component"
+      },
+      "viscosupplementation": "if OA knee",
+      "prp": "consideration for tendinopathy"
+    },
+    "surgical_considerations": {
+      "indicated": "based on failure of conservative care",
+      "procedure_options": ["arthroscopy", "replacement", "repair"],
+      "timing": "urgent vs elective"
+    }
+  },
+  
+  "rehabilitation_plan": {
+    "phase_1": {
+      "goals": "pain control, protect healing",
+      "restrictions": ["weight bearing status"],
+      "duration": "0-2 weeks typically"
+    },
+    "phase_2": {
+      "goals": "restore ROM, begin strengthening",
+      "activities": ["specific exercises"],
+      "progression_criteria": "pain <3/10, no swelling"
+    },
+    "return_to_activity": {
+      "timeline": "expected recovery duration",
+      "milestones": ["functional goals"],
+      "prevention": "avoiding re-injury"
+    }
+  },
+  
+  "follow_up_plan": {
+    "orthopedic_visit": "2-4 weeks for reassessment",
+    "imaging_followup": "if needed based on response",
+    "therapy_progress": "PT to communicate concerns",
+    "surgical_decision": "timeline if conservative fails"
+  },
+  
+  "clinical_scales": {
+    "Oswestry_Disability_Index": {
+      "calculated": "percentage disability",
+      "confidence": 0.0-1.0,
+      "category": "minimal/moderate/severe/crippled",
+      "reasoning": "How functional limitations were assessed",
+      "sections": {
+        "pain_intensity": 0-5,
+        "personal_care": 0-5,
+        "lifting": 0-5,
+        "walking": 0-5,
+        "sitting": 0-5,
+        "standing": 0-5,
+        "sleeping": 0-5,
+        "sex_life": 0-5,
+        "social_life": 0-5,
+        "traveling": 0-5
+      },
+      "missing_data": ["sections that couldn't be assessed"]
+    },
+    "KOOS": {
+      "calculated": "if knee symptoms present",
+      "confidence": 0.0-1.0,
+      "subscales": {
+        "pain": "score 0-100",
+        "symptoms": "score 0-100",
+        "adl": "score 0-100",
+        "sport_rec": "score 0-100",
+        "qol": "score 0-100"
+      },
+      "interpretation": "lower scores indicate worse function",
+      "reasoning": "Based on reported knee-specific limitations"
+    },
+    "Pain_Disability": {
+      "functional_score": "based on activity limitations",
+      "work_impact": "off work/light duty/full duty",
+      "adl_impact": "independent/assisted/dependent",
+      "confidence": 0.0-1.0
+    }
+  }
+}"""
+
+        llm_response = await call_llm(
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": context}
+            ],
+            model="tngtech/deepseek-r1t-chimera:free",
+            temperature=0.3,
+            max_tokens=4000
+        )
+        
+        report_data = extract_json_from_response(llm_response.get("content", llm_response.get("raw_content", "")))
+        
+        if not report_data:
+            report_data = {
+                "executive_summary": {
+                    "one_page_summary": "Orthopedics report generation failed. Please retry.",
+                    "chief_complaints": [],
+                    "key_findings": [],
+                    "action_items": ["Regenerate report"]
+                }
+            }
+        
+        # Save report
+        report_id = str(uuid.uuid4())
+        await save_specialist_report(report_id, request, "orthopedics", report_data)
+        
+        return {
+            "report_id": report_id,
+            "report_type": "orthopedics",
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "report_data": report_data,
+            "status": "success"
+        }
+        
+    except Exception as e:
+        print(f"Error generating orthopedics report: {e}")
+        return {"error": str(e), "status": "error"}
+
+@router.post("/rheumatology")
+async def generate_rheumatology_report(request: SpecialistReportRequest):
+    """Generate rheumatology specialist report"""
+    try:
+        analysis = await load_analysis(request.analysis_id)
+        config = analysis.get("report_config", {})
+        
+        # Check if specific interactions are selected
+        if request.quick_scan_ids or request.deep_dive_ids or request.photo_session_ids or request.general_assessment_ids or request.general_deep_dive_ids:
+            # Gather only selected data
+            all_data = await gather_selected_data(
+                user_id=request.user_id or analysis["user_id"],
+                quick_scan_ids=request.quick_scan_ids,
+                deep_dive_ids=request.deep_dive_ids,
+                photo_session_ids=request.photo_session_ids,
+                general_assessment_ids=request.general_assessment_ids,
+                general_deep_dive_ids=request.general_deep_dive_ids
+            )
+        else:
+            # Fallback to comprehensive data from time range
+            all_data = await gather_comprehensive_data(request.user_id or analysis["user_id"], config)
+        
+        # Build rheumatology context with FULL data
+        context = f"""Generate a comprehensive rheumatology report.
+
+PATIENT DATA (Selected Interactions Only):
+{json.dumps(all_data, indent=2)}"""
+
+        system_prompt = """Generate a detailed rheumatology specialist report analyzing autoimmune and inflammatory conditions.
+
+CLINICAL SCALE CALCULATIONS:
+1. Automatically calculate relevant standardized scales based on available data
+2. For each scale:
+   - Provide the calculated score
+   - Include confidence level (0.0-1.0) based on data completeness
+   - Explain your reasoning
+   - List any missing data that would improve accuracy
+
+For Rheumatology, automatically calculate when relevant:
+- DAS28 (Disease Activity Score) for RA
+- CDAI (Clinical Disease Activity Index)
+- HAQ-DI (Health Assessment Questionnaire Disability Index)
+- BASDAI (Bath Ankylosing Spondylitis Disease Activity Index)
+- ACR/EULAR classification criteria for various conditions
+
+BEST PRACTICES:
+- Assess pattern of joint involvement (symmetric vs asymmetric)
+- Look for systemic symptoms (fatigue, fever, weight loss)
+- Consider morning stiffness duration
+- Evaluate functional impact
+- Note any extra-articular manifestations
+
+Return JSON format:
+{
+  "executive_summary": {
+    "one_page_summary": "Comprehensive clinical overview for rheumatologist",
+    "key_findings": ["most significant rheumatologic findings"],
+    "patterns_identified": ["inflammatory vs mechanical patterns"],
+    "chief_complaints": ["primary rheumatologic concerns"],
+    "action_items": ["immediate evaluations or treatments"],
+    "specialist_focus": "rheumatology",
+    "target_audience": "rheumatologist"
+  },
+  
+  "clinical_summary": {
+    "chief_complaint": "Primary rheumatologic concern",
+    "hpi": "Detailed history of symptoms with timeline",
+    "symptom_evolution": [
+      {
+        "date": "ISO date",
+        "joints_affected": ["specific joints"],
+        "pattern": "symmetric/asymmetric/migratory",
+        "associated_symptoms": ["systemic features"]
+      }
+    ]
+  },
+  
+  "rheumatologic_assessment": {
+    "joint_involvement": {
+      "pattern": "symmetric/asymmetric/axial/peripheral",
+      "small_joints": ["MCPs", "PIPs", "wrists"],
+      "large_joints": ["knees", "shoulders", "hips"],
+      "distribution": "polyarticular/oligoarticular/monoarticular"
+    },
+    "inflammatory_markers": {
+      "morning_stiffness": "duration in minutes",
+      "inflammatory_pattern": "present/absent",
+      "improvement_with_activity": "yes/no"
+    },
+    "systemic_features": {
+      "constitutional": ["fever", "weight loss", "fatigue"],
+      "extra_articular": ["rash", "eye symptoms", "lung involvement"],
+      "serologies_needed": ["RF", "anti-CCP", "ANA", "etc"]
+    }
+  },
+  
+  "rheumatologist_specific_findings": {
+    "disease_classification": {
+      "primary_consideration": "most likely diagnosis",
+      "differential": ["other possibilities"],
+      "criteria_met": ["specific classification criteria"],
+      "criteria_missing": ["what's needed for diagnosis"]
+    },
+    "disease_activity": {
+      "current_activity": "remission/low/moderate/high",
+      "trajectory": "improving/stable/worsening",
+      "prognostic_factors": ["poor prognostic indicators if present"]
+    },
+    "comorbidities": {
+      "cardiovascular_risk": "assessment needed",
+      "osteoporosis_risk": "screening indicated",
+      "infection_risk": "if on immunosuppression"
+    }
+  },
+  
+  "diagnostic_recommendations": {
+    "laboratory": {
+      "immediate": [
+        {
+          "test": "CBC, CMP, ESR, CRP",
+          "rationale": "baseline inflammation and organ function"
+        },
+        {
+          "test": "RF, anti-CCP antibodies",
+          "rationale": "if RA suspected"
+        },
+        {
+          "test": "ANA with reflex",
+          "rationale": "if lupus/CTD suspected"
+        }
+      ],
+      "specialized": [
+        {
+          "test": "HLA-B27",
+          "indication": "if spondyloarthropathy"
+        }
+      ]
+    },
+    "imaging": {
+      "xrays": {
+        "joints": "hands/feet for baseline",
+        "purpose": "erosions, joint space narrowing"
+      },
+      "ultrasound": {
+        "indication": "synovitis detection",
+        "joints": "clinically affected areas"
+      },
+      "mri": "if axial disease or early detection needed"
+    }
+  },
+  
+  "treatment_recommendations": {
+    "immediate_therapy": {
+      "symptomatic": [
+        {
+          "medication": "NSAIDs",
+          "specific": "naproxen 500mg BID",
+          "monitoring": "renal function, GI tolerance"
+        }
+      ],
+      "bridge_therapy": {
+        "corticosteroids": "prednisone taper if high disease activity",
+        "starting_dose": "based on severity",
+        "taper_plan": "gradual reduction"
+      }
+    },
+    "dmard_therapy": {
+      "conventional": [
+        {
+          "drug": "methotrexate",
+          "starting_dose": "15mg weekly",
+          "folic_acid": "1mg daily",
+          "monitoring": "LFTs, CBC q8-12 weeks"
+        }
+      ],
+      "biologic_consideration": {
+        "indications": "moderate-high activity despite cDMARDs",
+        "screening_required": ["TB", "hepatitis", "HIV"],
+        "options": ["TNF inhibitors", "IL-6", "JAK inhibitors"]
+      }
+    },
+    "supportive_care": {
+      "physical_therapy": "joint protection, strengthening",
+      "occupational_therapy": "adaptive devices if needed",
+      "lifestyle": ["smoking cessation critical", "weight management"]
+    }
+  },
+  
+  "monitoring_plan": {
+    "disease_activity": {
+      "frequency": "q3 months initially",
+      "measures": ["joint counts", "patient globals", "inflammatory markers"],
+      "treat_to_target": "remission or low disease activity"
+    },
+    "medication_monitoring": {
+      "laboratory": "based on DMARD choice",
+      "toxicity_screening": ["LFTs", "CBC", "creatinine"]
+    },
+    "comorbidity_screening": {
+      "cardiovascular": "annual risk assessment",
+      "bone_health": "DEXA if risk factors",
+      "malignancy": "age-appropriate screening"
+    }
+  },
+  
+  "prognosis_counseling": {
+    "disease_course": "expected trajectory with treatment",
+    "functional_outcomes": "maintaining independence",
+    "work_disability": "prevention strategies",
+    "pregnancy_planning": "if applicable, medication adjustments"
+  },
+  
+  "clinical_scales": {
+    "DAS28": {
+      "calculated": "score if RA suspected",
+      "confidence": 0.0-1.0,
+      "components": {
+        "tender_joints": "0-28",
+        "swollen_joints": "0-28",
+        "esr_crp": "estimated if not available",
+        "patient_global": "0-100mm VAS"
+      },
+      "interpretation": "remission <2.6, low <3.2, moderate ≤5.1, high >5.1",
+      "reasoning": "How components were estimated"
+    },
+    "HAQ_DI": {
+      "calculated": "functional disability score",
+      "confidence": 0.0-1.0,
+      "categories": {
+        "dressing": 0-3,
+        "arising": 0-3,
+        "eating": 0-3,
+        "walking": 0-3,
+        "hygiene": 0-3,
+        "reach": 0-3,
+        "grip": 0-3,
+        "activities": 0-3
+      },
+      "total_score": "0-3 (mean of categories)",
+      "interpretation": "mild <0.5, moderate 0.5-1, severe >1"
+    },
+    "ACR_Classification": {
+      "criteria_assessment": "for suspected condition",
+      "points_calculated": "based on available data",
+      "confidence": 0.0-1.0,
+      "missing_data": ["serologies", "imaging", "etc"],
+      "meets_criteria": "yes/no/insufficient data"
+    }
+  }
+}"""
+
+        llm_response = await call_llm(
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": context}
+            ],
+            model="tngtech/deepseek-r1t-chimera:free",
+            temperature=0.3,
+            max_tokens=4000
+        )
+        
+        report_data = extract_json_from_response(llm_response.get("content", llm_response.get("raw_content", "")))
+        
+        if not report_data:
+            report_data = {
+                "executive_summary": {
+                    "one_page_summary": "Rheumatology report generation failed. Please retry.",
+                    "chief_complaints": [],
+                    "key_findings": [],
+                    "action_items": ["Regenerate report"]
+                }
+            }
+        
+        # Save report
+        report_id = str(uuid.uuid4())
+        await save_specialist_report(report_id, request, "rheumatology", report_data)
+        
+        return {
+            "report_id": report_id,
+            "report_type": "rheumatology",
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "report_data": report_data,
+            "status": "success"
+        }
+        
+    except Exception as e:
+        print(f"Error generating rheumatology report: {e}")
         return {"error": str(e), "status": "error"}

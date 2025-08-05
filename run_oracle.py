@@ -19,6 +19,7 @@ from api.export import router as export_router
 from api.population_health import router as population_health_router
 from api.reports.general import router as general_reports_router
 from api.reports.specialist import router as specialist_reports_router
+from api.reports.specialist_extended import router as specialist_extended_router
 from api.reports.time_based import router as time_based_reports_router
 from api.reports.urgent import router as urgent_reports_router
 from api.ai_predictions import router as ai_predictions_router
@@ -70,6 +71,7 @@ app.include_router(export_router)
 app.include_router(population_health_router)
 app.include_router(general_reports_router)
 app.include_router(specialist_reports_router)
+app.include_router(specialist_extended_router)
 app.include_router(time_based_reports_router)
 app.include_router(urgent_reports_router)
 app.include_router(ai_predictions_router)
