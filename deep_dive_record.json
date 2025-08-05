@@ -1,0 +1,89 @@
+{
+  "id": "276125e5-b159-4c8f-b199-4744ad0ed6d5",
+  "user_id": "45b61b67-175d-48a0-aca6-d0be57609383",
+  "body_part": "Left Fibularis Brevis",
+  "form_data": {
+    "duration": "",
+    "painType": [],
+    "symptoms": "srpained ankle this is the diagnosis i got from a doctor and i believe them,",
+    "didItHelp": "",
+    "frequency": "first",
+    "painLevel": 5,
+    "whatTried": "",
+    "worseWhen": "",
+    "betterWhen": "",
+    "dailyImpact": [],
+    "sleepImpact": "",
+    "triggerEvent": "",
+    "associatedSymptoms": ""
+  },
+  "model_used": "tngtech/deepseek-r1t-chimera:free",
+  "questions": [],
+  "current_step": 1,
+  "internal_state": {
+    "red_flags_to_assess": [
+      "inability to bear weight",
+      "audible pop at injury",
+      "rapid swelling"
+    ],
+    "diagnostic_uncertainty": "Need to clarify injury mechanism and physical exam findings to distinguish between simple sprain vs tendon tear vs fracture",
+    "differential_diagnosis": [
+      {
+        "condition": "Ankle sprain (fibulari brevis strain)",
+        "probability": 70,
+        "key_negatives": [
+          "no swelling/bruising",
+          "no weight-bearing difficulty"
+        ],
+        "key_indicators": [
+          "acute injury mechanism",
+          "localized pain at fibularis brevis"
+        ]
+      },
+      {
+        "condition": "Fibularis tendon tear",
+        "probability": 20,
+        "key_negatives": [
+          "no audible pop at injury",
+          "no complete loss of function"
+        ],
+        "key_indicators": [
+          "severe pain with ankle eversion",
+          "possible palpable defect"
+        ]
+      },
+      {
+        "condition": "Stress fracture (fibular)",
+        "probability": 10,
+        "key_negatives": [
+          "no history of repetitive stress",
+          "no night pain"
+        ],
+        "key_indicators": [
+          "gradual onset pain",
+          "worse with activity"
+        ]
+      }
+    ]
+  },
+  "status": "active",
+  "final_analysis": null,
+  "final_confidence": null,
+  "reasoning_chain": null,
+  "created_at": "2025-07-22T02:35:17.272764+00:00",
+  "completed_at": null,
+  "tokens_used": null,
+  "llm_summary": null,
+  "last_question": "Can you describe exactly how the injury occurred - what position your ankle was in, if you heard any popping sound, and whether you were immediately able to bear weight afterward?",
+  "enhanced_analysis": null,
+  "enhanced_confidence": null,
+  "enhanced_model": null,
+  "enhanced_at": null,
+  "ultra_analysis": null,
+  "ultra_confidence": null,
+  "ultra_model": null,
+  "ultra_at": null,
+  "allow_more_questions": false,
+  "initial_questions_count": null,
+  "additional_questions_count": 0
+}

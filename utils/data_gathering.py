@@ -406,14 +406,13 @@ async def gather_selected_data(
                         .execute()
                     data["symptom_tracking"].extend(symptoms_result.data or [])
         
-        # Get specific deep dives
+        # Get specific deep dives (any status - active, analysis_ready, completed)
         if deep_dive_ids:
             logger.info(f"Fetching {len(deep_dive_ids)} deep dives...")
             dives_result = supabase.table("deep_dive_sessions")\
                 .select("*")\
                 .in_("id", deep_dive_ids)\
                 .eq("user_id", user_id)\
-                .eq("status", "completed")\
                 .order("created_at")\
                 .execute()
             data["deep_dives"] = dives_result.data or []
@@ -440,14 +439,13 @@ async def gather_selected_data(
             data["general_assessments"] = general_result.data or []
             logger.info(f"Found {len(data['general_assessments'])} general assessments")
         
-        # Get specific general deep dive sessions
+        # Get specific general deep dive sessions (any status)
         if general_deep_dive_ids:
             logger.info(f"Fetching {len(general_deep_dive_ids)} general deep dives...")
             general_dives_result = supabase.table("general_deepdive_sessions")\
                 .select("*")\
                 .in_("id", general_deep_dive_ids)\
                 .eq("user_id", user_id)\
-                .eq("status", "completed")\
                 .order("created_at")\
                 .execute()
             data["general_deep_dives"] = general_dives_result.data or []
