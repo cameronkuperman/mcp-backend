@@ -372,15 +372,21 @@ async def generate_cardiology_report(request: SpecialistReportRequest):
         # Build cardiology context with FULL data
         context = f"""Generate a comprehensive cardiology report.
 
-PATIENT DATA (Selected Interactions Only):
-Quick Scans: {len(all_data.get('quick_scans', []))}
-Deep Dives: {len(all_data.get('deep_dives', []))}
-Photo Analyses: {len(all_data.get('photo_analyses', []))}
+PATIENT DEMOGRAPHICS & MEDICAL HISTORY:
+{json.dumps(all_data.get('medical_profile', {}), indent=2)}
 
-FULL INTERACTION DATA:
-{json.dumps(all_data, indent=2)}
+PRIMARY INTERACTIONS (Main focus of this report):
+- Quick Scans: {len(all_data.get('quick_scans', []))}
+- Deep Dives: {len(all_data.get('deep_dives', []))}
+- General Assessments: {len(all_data.get('general_assessments', []))}
+- Photo Analyses: {len(all_data.get('photo_analyses', []))}
 
-"""
+SUPPLEMENTARY DATA (From same dates as primary interactions - for context only):
+- Symptom Tracking Entries: {len(all_data.get('symptom_tracking', []))}
+- Chat Summaries: {len(all_data.get('llm_summaries', []))}
+
+FULL DATA:
+{json.dumps(all_data, indent=2)}"""
 
         system_prompt = """Generate a detailed cardiology specialist report analyzing the patient's cardiac symptoms and history.
 
