@@ -194,9 +194,14 @@ async def analyze_report_type(request: ReportAnalyzeRequest):
         
         # Save analysis
         analysis_id = str(uuid.uuid4())
+        # Ensure user_id is a valid UUID string (report_analyses.user_id is UUID type)
+        user_id_for_insert = request.user_id
+        if user_id_for_insert and not isinstance(user_id_for_insert, str):
+            user_id_for_insert = str(user_id_for_insert)
+        
         analysis_data = {
             "id": analysis_id,
-            "user_id": request.user_id,
+            "user_id": user_id_for_insert,  # This should be a UUID string for the UUID column
             "created_at": datetime.now(timezone.utc).isoformat(),
             "purpose": request.context.get("purpose"),
             "symptom_focus": request.context.get("symptom_focus"),

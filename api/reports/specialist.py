@@ -22,6 +22,46 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/report", tags=["reports-specialist"])
 
+@router.post("/test-data-filtering")
+async def test_data_filtering(request: SpecialistReportRequest):
+    """Test endpoint to verify data filtering works correctly"""
+    logger.info("=== TEST DATA FILTERING ===")
+    logger.info(f"Request: {request.dict()}")
+    
+    # Get the selected data
+    data = await gather_selected_data(
+        user_id=request.user_id,
+        quick_scan_ids=request.quick_scan_ids,
+        deep_dive_ids=request.deep_dive_ids,
+        photo_session_ids=request.photo_session_ids,
+        general_assessment_ids=request.general_assessment_ids,
+        general_deep_dive_ids=request.general_deep_dive_ids
+    )
+    
+    # Return summary of what was found
+    return {
+        "requested": {
+            "quick_scan_ids": request.quick_scan_ids or [],
+            "deep_dive_ids": request.deep_dive_ids or [],
+            "photo_session_ids": request.photo_session_ids or [],
+            "general_assessment_ids": request.general_assessment_ids or [],
+            "general_deep_dive_ids": request.general_deep_dive_ids or []
+        },
+        "found": {
+            "quick_scans": len(data.get('quick_scans', [])),
+            "quick_scan_ids": [qs.get('id') for qs in data.get('quick_scans', [])],
+            "deep_dives": len(data.get('deep_dives', [])),
+            "deep_dive_ids": [dd.get('id') for dd in data.get('deep_dives', [])],
+            "photo_analyses": len(data.get('photo_analyses', [])),
+            "general_assessments": len(data.get('general_assessments', [])),
+            "general_deep_dives": len(data.get('general_deep_dives', []))
+        },
+        "data_samples": {
+            "first_quick_scan": data.get('quick_scans', [{}])[0] if data.get('quick_scans') else None,
+            "first_deep_dive": data.get('deep_dives', [{}])[0] if data.get('deep_dives') else None
+        }
+    }
+
 @router.post("/specialty-triage")
 async def triage_specialty(request: SpecialtyTriageRequest):
     """AI determines which specialist(s) are needed based on selected quick scans/deep dives"""
@@ -214,19 +254,49 @@ async def save_specialist_report(report_id: str, request, specialty: str, report
 async def generate_specialist_report(request: SpecialistReportRequest):
     """Generate specialist-focused report"""
     try:
+        # LOG ALL REQUEST DATA
+        logger.info("=== SPECIALIST REPORT REQUEST ===")
+        logger.info(f"Analysis ID: {request.analysis_id}")
+        logger.info(f"User ID: {request.user_id}")
+        logger.info(f"Specialty: {request.specialty}")
+        logger.info(f"Quick scan IDs requested: {request.quick_scan_ids}")
+        logger.info(f"Deep dive IDs requested: {request.deep_dive_ids}")
+        logger.info(f"Photo session IDs requested: {request.photo_session_ids}")
+        logger.info(f"General assessment IDs requested: {request.general_assessment_ids}")
+        logger.info(f"General deep dive IDs requested: {request.general_deep_dive_ids}")
+        
+        # DEBUG: Log the raw request data
+        logger.info(f"RAW REQUEST DATA: {request.dict()}")
+        logger.info(f"Quick scan IDs type: {type(request.quick_scan_ids)}")
+        logger.info(f"Quick scan IDs length: {len(request.quick_scan_ids) if request.quick_scan_ids else 0}")
+        
         analysis_response = supabase.table("report_analyses")\
             .select("*")\
             .eq("id", request.analysis_id)\
             .execute()
         
         if not analysis_response.data:
+            logger.error(f"Analysis not found for ID: {request.analysis_id}")
             return {"error": "Analysis not found", "status": "error"}
         
         analysis = analysis_response.data[0]
         config = analysis.get("report_config", {})
         
+        logger.info(f"Analysis found: {analysis.get('id')}")
+        logger.info(f"Analysis config: {config}")
+        
+        # DEBUG: Check if analysis has stored IDs
+        logger.info(f"Analysis quick_scan_ids: {analysis.get('quick_scan_ids')}")
+        logger.info(f"Analysis deep_dive_ids: {analysis.get('deep_dive_ids')}")
+        logger.info(f"Request quick_scan_ids: {request.quick_scan_ids}")
+        logger.info(f"Request deep_dive_ids: {request.deep_dive_ids}")
+        
+        # IMPORTANT: Use the IDs from the request, NOT from the analysis
+        # The frontend is sending specific IDs they want in the report
+        
         # Check if specific interactions are selected
         if request.quick_scan_ids or request.deep_dive_ids or request.photo_session_ids or request.general_assessment_ids or request.general_deep_dive_ids:
+            logger.info("USING SELECTED DATA MODE")
             # Gather only selected data
             data = await gather_selected_data(
                 user_id=request.user_id or analysis["user_id"],
@@ -238,7 +308,24 @@ async def generate_specialist_report(request: SpecialistReportRequest):
             )
             # Photo analyses are already included in gather_selected_data
             photo_analyses = data.get("photo_analyses", [])
+            
+            # LOG WHAT DATA WAS GATHERED
+            logger.info(f"Data gathered - Quick scans count: {len(data.get('quick_scans', []))}")
+            logger.info(f"Data gathered - Deep dives count: {len(data.get('deep_dives', []))}")
+            logger.info(f"Data gathered - Photo analyses count: {len(photo_analyses)}")
+            logger.info(f"Data gathered - General assessments count: {len(data.get('general_assessments', []))}")
+            logger.info(f"Data gathered - General deep dives count: {len(data.get('general_deep_dives', []))}")
+            
+            # LOG ACTUAL IDS OF DATA GATHERED
+            if data.get('quick_scans'):
+                logger.info(f"Quick scan IDs in data: {[qs.get('id') for qs in data['quick_scans']]}")
+                # Also log creation dates to verify these are the right scans
+                logger.info(f"Quick scan dates: {[qs.get('created_at', 'No date')[:10] for qs in data['quick_scans']]}")
+            if data.get('deep_dives'):
+                logger.info(f"Deep dive IDs in data: {[dd.get('id') for dd in data['deep_dives']]}")
+                logger.info(f"Deep dive dates: {[dd.get('created_at', 'No date')[:10] for dd in data['deep_dives']]}")
         else:
+            logger.info("USING COMPREHENSIVE DATA MODE (NO SPECIFIC IDS)")
             # Fallback to comprehensive data from time range
             data = await gather_report_data(request.user_id or analysis["user_id"], config)
             
@@ -254,6 +341,20 @@ async def generate_specialist_report(request: SpecialistReportRequest):
         
         # Build specialist context
         specialty = request.specialty or "specialist"
+        
+        # LOG THE FINAL DATA BEING SENT TO AI
+        logger.info("=== FINAL DATA SUMMARY FOR AI ===")
+        logger.info(f"Specialty: {specialty}")
+        logger.info(f"Quick scans in final data: {len(data.get('quick_scans', []))}")
+        logger.info(f"Deep dives in final data: {len(data.get('deep_dives', []))}")
+        logger.info(f"General assessments in final data: {len(data.get('general_assessments', []))}")
+        logger.info(f"Photo analyses in final data: {len(photo_analyses)}")
+        
+        # LOG SPECIFIC CONTENT BEING SENT
+        if data.get('quick_scans'):
+            for idx, qs in enumerate(data['quick_scans']):
+                logger.info(f"Quick scan {idx}: ID={qs.get('id')}, Body Part={qs.get('body_part')}, Summary={qs.get('llm_summary', 'None')[:100]}")
+        
         context = f"""Generate a {specialty} referral report.
 
 Time Range: {config['time_range']['start'][:10]} to {config['time_range']['end'][:10]}
@@ -363,7 +464,8 @@ Photo Analysis Data:
         
         await safe_insert_report(report_record)
         
-        return {
+        # LOG FINAL RESPONSE
+        final_response = {
             "report_id": report_id,
             "report_type": "specialist_focused",
             "generated_at": datetime.now(timezone.utc).isoformat(),
@@ -371,6 +473,15 @@ Photo Analysis Data:
             "specialty": specialty,
             "status": "success"
         }
+        
+        logger.info("=== FINAL RESPONSE ===")
+        logger.info(f"Report ID: {report_id}")
+        logger.info(f"Report Type: specialist_focused")
+        logger.info(f"Specialty: {specialty}")
+        logger.info(f"Response has specialty field: {'specialty' in final_response}")
+        logger.info("Report generation complete!")
+        
+        return final_response
         
     except Exception as e:
         print(f"Error generating specialist report: {e}")

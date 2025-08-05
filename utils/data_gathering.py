@@ -251,29 +251,33 @@ async def gather_comprehensive_data(user_id: str, config: dict):
     """Gather ALL available data for time-based reports"""
     time_range = config.get("time_range", {})
     
-    # Quick Scans
+    # Convert user_id to string for TEXT columns
+    user_id_str = str(user_id)
+    
+    # Quick Scans (user_id is TEXT)
     scans = supabase.table("quick_scans")\
         .select("*")\
-        .eq("user_id", user_id)\
+        .eq("user_id", user_id_str)\
         .gte("created_at", time_range.get("start", "2020-01-01"))\
         .lte("created_at", time_range.get("end", datetime.now(timezone.utc).isoformat()))\
         .order("created_at")\
         .execute()
     
     # Deep Dives - Include all non-abandoned sessions (active, analysis_ready, completed)
+    # (user_id is TEXT)
     dives = supabase.table("deep_dive_sessions")\
         .select("*")\
-        .eq("user_id", user_id)\
+        .eq("user_id", user_id_str)\
         .in_("status", ["active", "analysis_ready", "completed"])\
         .gte("created_at", time_range.get("start", "2020-01-01"))\
         .lte("created_at", time_range.get("end", datetime.now(timezone.utc).isoformat()))\
         .order("created_at")\
         .execute()
     
-    # Symptom Tracking
+    # Symptom Tracking (user_id is TEXT)
     tracking = supabase.table("symptom_tracking")\
         .select("*")\
-        .eq("user_id", user_id)\
+        .eq("user_id", user_id_str)\
         .gte("created_at", time_range.get("start", "2020-01-01"))\
         .lte("created_at", time_range.get("end", datetime.now(timezone.utc).isoformat()))\
         .order("created_at")\
@@ -321,10 +325,10 @@ async def gather_comprehensive_data(user_id: str, config: dict):
         .order("created_at")\
         .execute()
     
-    # LLM Chat Summaries
+    # LLM Chat Summaries (user_id is TEXT)
     chats = supabase.table("oracle_chats")\
         .select("*")\
-        .eq("user_id", user_id)\
+        .eq("user_id", user_id_str)\
         .gte("created_at", time_range.get("start", "2020-01-01"))\
         .lte("created_at", time_range.get("end", datetime.now(timezone.utc).isoformat()))\
         .order("created_at")\
@@ -403,14 +407,45 @@ async def gather_selected_data(
         # Get specific quick scans
         if quick_scan_ids:
             logger.info(f"Fetching {len(quick_scan_ids)} quick scans...")
-            scans_result = supabase.table("quick_scans")\
-                .select("*")\
+            logger.info(f"Quick scan IDs to fetch: {quick_scan_ids}")
+            logger.info(f"Quick scan IDs type: {type(quick_scan_ids)}")
+            logger.info(f"User ID for filter: {user_id}")
+            
+            # DEBUG: Try fetching without user_id filter first
+            test_result = supabase.table("quick_scans")\
+                .select("id, user_id")\
                 .in_("id", quick_scan_ids)\
-                .eq("user_id", user_id)\
-                .order("created_at")\
                 .execute()
+            logger.info(f"DEBUG - Found {len(test_result.data or [])} quick scans WITHOUT user filter")
+            if test_result.data:
+                logger.info(f"DEBUG - User IDs in results: {[qs.get('user_id') for qs in test_result.data]}")
+            
+            # Now fetch with user_id filter
+            # IMPORTANT: Only filter by user_id if it's provided and not empty
+            # NOTE: quick_scans.user_id is TEXT type, so ensure string comparison
+            if user_id:
+                # Convert user_id to string for proper comparison with TEXT column
+                user_id_str = str(user_id)
+                logger.info(f"Converted user_id to string: {user_id_str}")
+                scans_result = supabase.table("quick_scans")\
+                    .select("*")\
+                    .in_("id", quick_scan_ids)\
+                    .eq("user_id", user_id_str)\
+                    .order("created_at")\
+                    .execute()
+            else:
+                # If no user_id, just fetch by IDs (useful for admin/doctor views)
+                logger.warning("No user_id provided, fetching quick scans without user filter")
+                scans_result = supabase.table("quick_scans")\
+                    .select("*")\
+                    .in_("id", quick_scan_ids)\
+                    .order("created_at")\
+                    .execute()
             data["quick_scans"] = scans_result.data or []
-            logger.info(f"Found {len(data['quick_scans'])} quick scans")
+            logger.info(f"Found {len(data['quick_scans'])} quick scans WITH user filter: {bool(user_id)}")
+            if data["quick_scans"]:
+                logger.info(f"Quick scan IDs found: {[qs.get('id') for qs in data['quick_scans']]}")
+                logger.info(f"Quick scan summaries: {[qs.get('llm_summary', 'No summary')[:100] for qs in data['quick_scans']]}")
             
             # Get ONLY symptom tracking directly linked to these specific scans
             for scan in data["quick_scans"]:
@@ -425,14 +460,37 @@ async def gather_selected_data(
         # Get specific deep dives (any status - active, analysis_ready, completed)
         if deep_dive_ids:
             logger.info(f"Fetching {len(deep_dive_ids)} deep dives...")
-            dives_result = supabase.table("deep_dive_sessions")\
-                .select("*")\
+            logger.info(f"Deep dive IDs to fetch: {deep_dive_ids}")
+            
+            # DEBUG: Try fetching without user_id filter first
+            test_result = supabase.table("deep_dive_sessions")\
+                .select("id, user_id")\
                 .in_("id", deep_dive_ids)\
-                .eq("user_id", user_id)\
-                .order("created_at")\
                 .execute()
+            logger.info(f"DEBUG - Found {len(test_result.data or [])} deep dives WITHOUT user filter")
+            if test_result.data:
+                logger.info(f"DEBUG - User IDs in results: {[dd.get('user_id') for dd in test_result.data]}")
+            
+            # NOTE: deep_dive_sessions.user_id is TEXT type, so ensure string comparison
+            if user_id:
+                # Convert user_id to string for proper comparison with TEXT column
+                user_id_str = str(user_id)
+                logger.info(f"Converted user_id to string for deep dives: {user_id_str}")
+                dives_result = supabase.table("deep_dive_sessions")\
+                    .select("*")\
+                    .in_("id", deep_dive_ids)\
+                    .eq("user_id", user_id_str)\
+                    .order("created_at")\
+                    .execute()
+            else:
+                logger.warning("No user_id provided, fetching deep dives without user filter")
+                dives_result = supabase.table("deep_dive_sessions")\
+                    .select("*")\
+                    .in_("id", deep_dive_ids)\
+                    .order("created_at")\
+                    .execute()
             data["deep_dives"] = dives_result.data or []
-            logger.info(f"Found {len(data['deep_dives'])} deep dives")
+            logger.info(f"Found {len(data['deep_dives'])} deep dives WITH user filter: {bool(user_id)}")
             
             # Get ONLY symptom tracking directly linked to these specific deep dives
             for dive in data["deep_dives"]:
@@ -456,24 +514,42 @@ async def gather_selected_data(
         # Get specific general assessments
         if general_assessment_ids:
             logger.info(f"Fetching {len(general_assessment_ids)} general assessments...")
-            general_result = supabase.table("general_assessments")\
-                .select("*")\
-                .in_("id", general_assessment_ids)\
-                .eq("user_id", user_id)\
-                .order("created_at")\
-                .execute()
+            # NOTE: general_assessments.user_id is UUID type, so use as-is
+            if user_id:
+                general_result = supabase.table("general_assessments")\
+                    .select("*")\
+                    .in_("id", general_assessment_ids)\
+                    .eq("user_id", user_id)\
+                    .order("created_at")\
+                    .execute()
+            else:
+                logger.warning("No user_id provided, fetching general assessments without user filter")
+                general_result = supabase.table("general_assessments")\
+                    .select("*")\
+                    .in_("id", general_assessment_ids)\
+                    .order("created_at")\
+                    .execute()
             data["general_assessments"] = general_result.data or []
             logger.info(f"Found {len(data['general_assessments'])} general assessments")
         
         # Get specific general deep dive sessions (any status)
         if general_deep_dive_ids:
             logger.info(f"Fetching {len(general_deep_dive_ids)} general deep dives...")
-            general_dives_result = supabase.table("general_deepdive_sessions")\
-                .select("*")\
-                .in_("id", general_deep_dive_ids)\
-                .eq("user_id", user_id)\
-                .order("created_at")\
-                .execute()
+            # NOTE: general_deepdive_sessions.user_id is UUID type, so use as-is
+            if user_id:
+                general_dives_result = supabase.table("general_deepdive_sessions")\
+                    .select("*")\
+                    .in_("id", general_deep_dive_ids)\
+                    .eq("user_id", user_id)\
+                    .order("created_at")\
+                    .execute()
+            else:
+                logger.warning("No user_id provided, fetching general deep dives without user filter")
+                general_dives_result = supabase.table("general_deepdive_sessions")\
+                    .select("*")\
+                    .in_("id", general_deep_dive_ids)\
+                    .order("created_at")\
+                    .execute()
             data["general_deep_dives"] = general_dives_result.data or []
             logger.info(f"Found {len(data['general_deep_dives'])} general deep dives")
         
