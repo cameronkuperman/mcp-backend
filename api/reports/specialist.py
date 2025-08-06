@@ -1,6 +1,6 @@
 """Specialist Report API endpoints (8 specialty-specific reports)"""
 from fastapi import APIRouter
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import json
 import uuid
 import logging
@@ -278,17 +278,57 @@ async def generate_specialist_report(request: SpecialistReportRequest):
         logger.info(f"Quick scan IDs type: {type(request.quick_scan_ids)}")
         logger.info(f"Quick scan IDs length: {len(request.quick_scan_ids) if request.quick_scan_ids else 0}")
         
+        # Try to load existing analysis first
         analysis_response = supabase.table("report_analyses")\
             .select("*")\
             .eq("id", request.analysis_id)\
             .execute()
         
         if not analysis_response.data:
-            logger.error(f"Analysis not found for ID: {request.analysis_id}")
-            return {"error": "Analysis not found", "status": "error"}
-        
-        analysis = analysis_response.data[0]
-        config = analysis.get("report_config", {})
+            # CREATE the analysis record as requested by frontend
+            logger.info(f"Creating new analysis record for ID: {request.analysis_id}")
+            
+            # Create appropriate report_config for specialist report
+            config = {
+                "report_type": "specialist_focused",
+                "specialty": request.specialty or "general",
+                "selected_data_only": True,
+                "time_range": {
+                    "start": (datetime.now(timezone.utc) - timedelta(days=30)).isoformat(),
+                    "end": datetime.now(timezone.utc).isoformat()
+                }
+            }
+            
+            # Create the analysis record
+            new_analysis = {
+                "id": request.analysis_id,  # Use the ID provided by frontend
+                "user_id": request.user_id,
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "purpose": f"Specialist report for {request.specialty or 'general'}",
+                "recommended_type": request.specialty or "specialist_focused",
+                "report_config": config,
+                "quick_scan_ids": request.quick_scan_ids or [],
+                "deep_dive_ids": request.deep_dive_ids or [],
+                "photo_session_ids": request.photo_session_ids or [],
+                "general_assessment_ids": request.general_assessment_ids or [],
+                "general_deep_dive_ids": request.general_deep_dive_ids or [],
+                "flash_assessment_ids": getattr(request, 'flash_assessment_ids', None) or [],
+                "confidence": 85.0
+            }
+            
+            insert_response = supabase.table("report_analyses")\
+                .insert(new_analysis)\
+                .execute()
+            
+            if not insert_response.data:
+                logger.error("Failed to create analysis record")
+                return {"error": "Failed to create analysis record", "status": "error"}
+            
+            analysis = insert_response.data[0]
+            logger.info(f"Created analysis record: {analysis['id']}")
+        else:
+            analysis = analysis_response.data[0]
+            config = analysis.get("report_config", {})
         
         logger.info(f"Analysis found: {analysis.get('id')}")
         logger.info(f"Analysis config: {config}")
