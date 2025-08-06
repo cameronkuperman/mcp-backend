@@ -43,7 +43,7 @@ async def save_specialist_report(report_id: str, request, specialty: str, report
         "report_data": report_data,
         "executive_summary": report_data.get("executive_summary", {}).get("one_page_summary", ""),
         "confidence_score": 85,
-        "model_used": "tngtech/deepseek-r1t-chimera:free",
+        "model_used": "google/gemini-2.5-flash",
         "specialty": specialty
     }
     
@@ -53,29 +53,28 @@ async def save_specialist_report(report_id: str, request, specialty: str, report
 async def generate_nephrology_report(request: SpecialistReportRequest):
     """Generate nephrology specialist report"""
     try:
+        # Log incoming request data
+        logger.info(f"[NEPHROLOGY] Incoming request - quick_scan_ids: {request.quick_scan_ids}, "
+                    f"deep_dive_ids: {request.deep_dive_ids}, photo_session_ids: {request.photo_session_ids}")
+        
         analysis = await load_analysis(request.analysis_id)
         config = analysis.get("report_config", {})
         
-        # Check if specific interactions are selected
-        # IMPORTANT: Check for 'is not None' to handle empty arrays properly
-        # Empty arrays [] should still use selected data mode, not fallback to all data
-        if (request.quick_scan_ids is not None or 
-            request.deep_dive_ids is not None or 
-            request.photo_session_ids is not None or 
-            request.general_assessment_ids is not None or 
-            request.general_deep_dive_ids is not None):
-            # Gather only selected data
-            all_data = await gather_selected_data(
-                user_id=request.user_id or analysis["user_id"],
-                quick_scan_ids=request.quick_scan_ids,
-                deep_dive_ids=request.deep_dive_ids,
-                photo_session_ids=request.photo_session_ids,
-                general_assessment_ids=request.general_assessment_ids,
-                general_deep_dive_ids=request.general_deep_dive_ids
-            )
-        else:
-            # Fallback to comprehensive data from time range
-            all_data = await gather_comprehensive_data(request.user_id or analysis["user_id"], config)
+        # ALWAYS use selected data mode for specialist reports
+        # Convert None to empty arrays to ensure we don't load unwanted data
+        all_data = await gather_selected_data(
+            user_id=request.user_id or analysis["user_id"],
+            quick_scan_ids=request.quick_scan_ids if request.quick_scan_ids is not None else [],
+            deep_dive_ids=request.deep_dive_ids if request.deep_dive_ids is not None else [],
+            photo_session_ids=request.photo_session_ids if request.photo_session_ids is not None else [],
+            general_assessment_ids=request.general_assessment_ids if request.general_assessment_ids is not None else [],
+            general_deep_dive_ids=request.general_deep_dive_ids if request.general_deep_dive_ids is not None else []
+        )
+        
+        # Log data counts
+        logger.info(f"[NEPHROLOGY] Data gathered - quick_scans: {len(all_data.get('quick_scans', []))}, "
+                    f"deep_dives: {len(all_data.get('deep_dives', []))}, "
+                    f"photo_sessions: {len(all_data.get('photo_sessions', []))}")
         
         # Build nephrology context with FULL data
         context = f"""Generate a comprehensive nephrology report.
@@ -181,7 +180,7 @@ Return JSON format:
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": context}
             ],
-            model="tngtech/deepseek-r1t-chimera:free",
+            model="google/gemini-2.5-flash",
             temperature=0.3,
             max_tokens=3000
         )
@@ -219,29 +218,28 @@ Return JSON format:
 async def generate_urology_report(request: SpecialistReportRequest):
     """Generate urology specialist report"""
     try:
+        # Log incoming request data
+        logger.info(f"[UROLOGY] Incoming request - quick_scan_ids: {request.quick_scan_ids}, "
+                    f"deep_dive_ids: {request.deep_dive_ids}, photo_session_ids: {request.photo_session_ids}")
+        
         analysis = await load_analysis(request.analysis_id)
         config = analysis.get("report_config", {})
         
-        # Check if specific interactions are selected
-        # IMPORTANT: Check for 'is not None' to handle empty arrays properly
-        # Empty arrays [] should still use selected data mode, not fallback to all data
-        if (request.quick_scan_ids is not None or 
-            request.deep_dive_ids is not None or 
-            request.photo_session_ids is not None or 
-            request.general_assessment_ids is not None or 
-            request.general_deep_dive_ids is not None):
-            # Gather only selected data
-            all_data = await gather_selected_data(
-                user_id=request.user_id or analysis["user_id"],
-                quick_scan_ids=request.quick_scan_ids,
-                deep_dive_ids=request.deep_dive_ids,
-                photo_session_ids=request.photo_session_ids,
-                general_assessment_ids=request.general_assessment_ids,
-                general_deep_dive_ids=request.general_deep_dive_ids
-            )
-        else:
-            # Fallback to comprehensive data from time range
-            all_data = await gather_comprehensive_data(request.user_id or analysis["user_id"], config)
+        # ALWAYS use selected data mode for specialist reports
+        # Convert None to empty arrays to ensure we don't load unwanted data
+        all_data = await gather_selected_data(
+            user_id=request.user_id or analysis["user_id"],
+            quick_scan_ids=request.quick_scan_ids if request.quick_scan_ids is not None else [],
+            deep_dive_ids=request.deep_dive_ids if request.deep_dive_ids is not None else [],
+            photo_session_ids=request.photo_session_ids if request.photo_session_ids is not None else [],
+            general_assessment_ids=request.general_assessment_ids if request.general_assessment_ids is not None else [],
+            general_deep_dive_ids=request.general_deep_dive_ids if request.general_deep_dive_ids is not None else []
+        )
+        
+        # Log data counts
+        logger.info(f"[UROLOGY] Data gathered - quick_scans: {len(all_data.get('quick_scans', []))}, "
+                    f"deep_dives: {len(all_data.get('deep_dives', []))}, "
+                    f"photo_sessions: {len(all_data.get('photo_sessions', []))}")
         
         # Build urology context with FULL data
         context = f"""Generate a comprehensive urology report.
@@ -362,7 +360,7 @@ Return JSON format:
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": context}
             ],
-            model="tngtech/deepseek-r1t-chimera:free",
+            model="google/gemini-2.5-flash",
             temperature=0.3,
             max_tokens=3000
         )
@@ -400,29 +398,28 @@ Return JSON format:
 async def generate_gynecology_report(request: SpecialistReportRequest):
     """Generate gynecology specialist report"""
     try:
+        # Log incoming request data
+        logger.info(f"[GYNECOLOGY] Incoming request - quick_scan_ids: {request.quick_scan_ids}, "
+                    f"deep_dive_ids: {request.deep_dive_ids}, photo_session_ids: {request.photo_session_ids}")
+        
         analysis = await load_analysis(request.analysis_id)
         config = analysis.get("report_config", {})
         
-        # Check if specific interactions are selected
-        # IMPORTANT: Check for 'is not None' to handle empty arrays properly
-        # Empty arrays [] should still use selected data mode, not fallback to all data
-        if (request.quick_scan_ids is not None or 
-            request.deep_dive_ids is not None or 
-            request.photo_session_ids is not None or 
-            request.general_assessment_ids is not None or 
-            request.general_deep_dive_ids is not None):
-            # Gather only selected data
-            all_data = await gather_selected_data(
-                user_id=request.user_id or analysis["user_id"],
-                quick_scan_ids=request.quick_scan_ids,
-                deep_dive_ids=request.deep_dive_ids,
-                photo_session_ids=request.photo_session_ids,
-                general_assessment_ids=request.general_assessment_ids,
-                general_deep_dive_ids=request.general_deep_dive_ids
-            )
-        else:
-            # Fallback to comprehensive data from time range
-            all_data = await gather_comprehensive_data(request.user_id or analysis["user_id"], config)
+        # ALWAYS use selected data mode for specialist reports
+        # Convert None to empty arrays to ensure we don't load unwanted data
+        all_data = await gather_selected_data(
+            user_id=request.user_id or analysis["user_id"],
+            quick_scan_ids=request.quick_scan_ids if request.quick_scan_ids is not None else [],
+            deep_dive_ids=request.deep_dive_ids if request.deep_dive_ids is not None else [],
+            photo_session_ids=request.photo_session_ids if request.photo_session_ids is not None else [],
+            general_assessment_ids=request.general_assessment_ids if request.general_assessment_ids is not None else [],
+            general_deep_dive_ids=request.general_deep_dive_ids if request.general_deep_dive_ids is not None else []
+        )
+        
+        # Log data counts
+        logger.info(f"[GYNECOLOGY] Data gathered - quick_scans: {len(all_data.get('quick_scans', []))}, "
+                    f"deep_dives: {len(all_data.get('deep_dives', []))}, "
+                    f"photo_sessions: {len(all_data.get('photo_sessions', []))}")
         
         # Build gynecology context with FULL data
         context = f"""Generate a comprehensive gynecology report.
@@ -566,7 +563,7 @@ Return JSON format:
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": context}
             ],
-            model="tngtech/deepseek-r1t-chimera:free",
+            model="google/gemini-2.5-flash",
             temperature=0.3,
             max_tokens=3000
         )
@@ -604,29 +601,28 @@ Return JSON format:
 async def generate_oncology_report(request: SpecialistReportRequest):
     """Generate oncology specialist report"""
     try:
+        # Log incoming request data
+        logger.info(f"[ONCOLOGY] Incoming request - quick_scan_ids: {request.quick_scan_ids}, "
+                    f"deep_dive_ids: {request.deep_dive_ids}, photo_session_ids: {request.photo_session_ids}")
+        
         analysis = await load_analysis(request.analysis_id)
         config = analysis.get("report_config", {})
         
-        # Check if specific interactions are selected
-        # IMPORTANT: Check for 'is not None' to handle empty arrays properly
-        # Empty arrays [] should still use selected data mode, not fallback to all data
-        if (request.quick_scan_ids is not None or 
-            request.deep_dive_ids is not None or 
-            request.photo_session_ids is not None or 
-            request.general_assessment_ids is not None or 
-            request.general_deep_dive_ids is not None):
-            # Gather only selected data
-            all_data = await gather_selected_data(
-                user_id=request.user_id or analysis["user_id"],
-                quick_scan_ids=request.quick_scan_ids,
-                deep_dive_ids=request.deep_dive_ids,
-                photo_session_ids=request.photo_session_ids,
-                general_assessment_ids=request.general_assessment_ids,
-                general_deep_dive_ids=request.general_deep_dive_ids
-            )
-        else:
-            # Fallback to comprehensive data from time range
-            all_data = await gather_comprehensive_data(request.user_id or analysis["user_id"], config)
+        # ALWAYS use selected data mode for specialist reports
+        # Convert None to empty arrays to ensure we don't load unwanted data
+        all_data = await gather_selected_data(
+            user_id=request.user_id or analysis["user_id"],
+            quick_scan_ids=request.quick_scan_ids if request.quick_scan_ids is not None else [],
+            deep_dive_ids=request.deep_dive_ids if request.deep_dive_ids is not None else [],
+            photo_session_ids=request.photo_session_ids if request.photo_session_ids is not None else [],
+            general_assessment_ids=request.general_assessment_ids if request.general_assessment_ids is not None else [],
+            general_deep_dive_ids=request.general_deep_dive_ids if request.general_deep_dive_ids is not None else []
+        )
+        
+        # Log data counts
+        logger.info(f"[ONCOLOGY] Data gathered - quick_scans: {len(all_data.get('quick_scans', []))}, "
+                    f"deep_dives: {len(all_data.get('deep_dives', []))}, "
+                    f"photo_sessions: {len(all_data.get('photo_sessions', []))}")
         
         # Build oncology context with FULL data
         context = f"""Generate a comprehensive oncology report.
@@ -663,7 +659,7 @@ Include sections for:
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": context}
             ],
-            model="tngtech/deepseek-r1t-chimera:free",
+            model="google/gemini-2.5-flash",
             temperature=0.3,
             max_tokens=3000
         )
@@ -701,29 +697,28 @@ Include sections for:
 async def generate_physical_therapy_report(request: SpecialistReportRequest):
     """Generate physical therapy report"""
     try:
+        # Log incoming request data
+        logger.info(f"[PHYSICAL-THERAPY] Incoming request - quick_scan_ids: {request.quick_scan_ids}, "
+                    f"deep_dive_ids: {request.deep_dive_ids}, photo_session_ids: {request.photo_session_ids}")
+        
         analysis = await load_analysis(request.analysis_id)
         config = analysis.get("report_config", {})
         
-        # Check if specific interactions are selected
-        # IMPORTANT: Check for 'is not None' to handle empty arrays properly
-        # Empty arrays [] should still use selected data mode, not fallback to all data
-        if (request.quick_scan_ids is not None or 
-            request.deep_dive_ids is not None or 
-            request.photo_session_ids is not None or 
-            request.general_assessment_ids is not None or 
-            request.general_deep_dive_ids is not None):
-            # Gather only selected data
-            all_data = await gather_selected_data(
-                user_id=request.user_id or analysis["user_id"],
-                quick_scan_ids=request.quick_scan_ids,
-                deep_dive_ids=request.deep_dive_ids,
-                photo_session_ids=request.photo_session_ids,
-                general_assessment_ids=request.general_assessment_ids,
-                general_deep_dive_ids=request.general_deep_dive_ids
-            )
-        else:
-            # Fallback to comprehensive data from time range
-            all_data = await gather_comprehensive_data(request.user_id or analysis["user_id"], config)
+        # ALWAYS use selected data mode for specialist reports
+        # Convert None to empty arrays to ensure we don't load unwanted data
+        all_data = await gather_selected_data(
+            user_id=request.user_id or analysis["user_id"],
+            quick_scan_ids=request.quick_scan_ids if request.quick_scan_ids is not None else [],
+            deep_dive_ids=request.deep_dive_ids if request.deep_dive_ids is not None else [],
+            photo_session_ids=request.photo_session_ids if request.photo_session_ids is not None else [],
+            general_assessment_ids=request.general_assessment_ids if request.general_assessment_ids is not None else [],
+            general_deep_dive_ids=request.general_deep_dive_ids if request.general_deep_dive_ids is not None else []
+        )
+        
+        # Log data counts
+        logger.info(f"[PHYSICAL-THERAPY] Data gathered - quick_scans: {len(all_data.get('quick_scans', []))}, "
+                    f"deep_dives: {len(all_data.get('deep_dives', []))}, "
+                    f"photo_sessions: {len(all_data.get('photo_sessions', []))}")
         
         # Build PT context with FULL data
         context = f"""Generate a comprehensive physical therapy evaluation report.
@@ -760,7 +755,7 @@ Include sections for:
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": context}
             ],
-            model="tngtech/deepseek-r1t-chimera:free",
+            model="google/gemini-2.5-flash",
             temperature=0.3,
             max_tokens=3000
         )
@@ -784,7 +779,7 @@ Include sections for:
         return {
             "report_id": report_id,
             "report_type": "physical_therapy",
-            "specialty": "physical-therapy",
+            "specialty": "physical_therapy",
             "generated_at": datetime.now(timezone.utc).isoformat(),
             "report_data": report_data,
             "status": "success"

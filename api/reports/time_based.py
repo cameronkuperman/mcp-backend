@@ -493,7 +493,7 @@ Return JSON format:
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": context}
             ],
-            model="tngtech/deepseek-r1t-chimera:free",
+            model="google/gemini-2.5-flash",
             temperature=0.3,
             max_tokens=4000
         )
@@ -520,7 +520,7 @@ Return JSON format:
             "report_data": report_data,
             "executive_summary": report_data["executive_summary"]["one_page_summary"],
             "confidence_score": 90,
-            "model_used": "tngtech/deepseek-r1t-chimera:free",
+            "model_used": "google/gemini-2.5-flash",
             "time_range": config["time_range"]
         }
         
@@ -866,7 +866,7 @@ Return JSON format:
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": context}
             ],
-            model="tngtech/deepseek-r1t-chimera:free",
+            model="google/gemini-2.5-flash",
             temperature=0.3,
             max_tokens=5000  # Larger for comprehensive annual report
         )
@@ -893,7 +893,7 @@ Return JSON format:
             "report_data": report_data,
             "executive_summary": report_data["executive_summary"]["one_page_summary"],
             "confidence_score": 92,
-            "model_used": "tngtech/deepseek-r1t-chimera:free",
+            "model_used": "google/gemini-2.5-flash",
             "year": year,
             "time_range": config["time_range"]
         }
@@ -1029,7 +1029,7 @@ Seasonal Patterns: {len([s for s in symptoms if '01' in s.get('created_at', '')[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": context}
             ],
-            model="tngtech/deepseek-r1t-chimera:free",
+            model="google/gemini-2.5-flash",
             user_id=request.user_id,
             temperature=0.3,
             max_tokens=2500
@@ -1069,7 +1069,7 @@ Seasonal Patterns: {len([s for s in symptoms if '01' in s.get('created_at', '')[
             "report_data": report_data,
             "executive_summary": report_data["executive_summary"]["one_page_summary"],
             "confidence_score": 88,
-            "model_used": "tngtech/deepseek-r1t-chimera:free",
+            "model_used": "google/gemini-2.5-flash",
             "year": year
         }
         

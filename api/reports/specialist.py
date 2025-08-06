@@ -244,7 +244,7 @@ async def save_specialist_report(report_id: str, request, specialty: str, report
         "report_data": report_data,
         "executive_summary": report_data.get("executive_summary", {}).get("one_page_summary", ""),
         "confidence_score": 85,
-        "model_used": "tngtech/deepseek-r1t-chimera:free",
+        "model_used": "google/gemini-2.5-flash",
         "specialty": specialty
     }
     
@@ -430,7 +430,7 @@ Photo Analysis Data:
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": context}
             ],
-            model="tngtech/deepseek-r1t-chimera:free",
+            model="google/gemini-2.5-flash",
             user_id=request.user_id,
             temperature=0.3,
             max_tokens=2000
@@ -464,7 +464,7 @@ Photo Analysis Data:
             "report_data": report_data,
             "executive_summary": report_data["executive_summary"]["one_page_summary"],
             "confidence_score": 85,
-            "model_used": "tngtech/deepseek-r1t-chimera:free"
+            "model_used": "google/gemini-2.5-flash"
         }
         
         # Add specialty field for future use
@@ -785,7 +785,7 @@ Return JSON format:
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": context}
             ],
-            model="tngtech/deepseek-r1t-chimera:free",
+            model="google/gemini-2.5-flash",
             temperature=0.3,
             max_tokens=4000
         )
@@ -1079,7 +1079,7 @@ Return JSON format:
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": context}
             ],
-            model="tngtech/deepseek-r1t-chimera:free",
+            model="google/gemini-2.5-flash",
             temperature=0.3,
             max_tokens=4000
         )
@@ -1362,7 +1362,7 @@ Return JSON format:
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": context}
             ],
-            model="tngtech/deepseek-r1t-chimera:free",
+            model="google/gemini-2.5-flash",
             temperature=0.3,
             max_tokens=4000
         )
@@ -1636,7 +1636,7 @@ Return JSON format:
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": context}
             ],
-            model="tngtech/deepseek-r1t-chimera:free",
+            model="google/gemini-2.5-flash",
             temperature=0.3,
             max_tokens=4000
         )
@@ -1904,7 +1904,7 @@ Return JSON format:
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": context}
             ],
-            model="tngtech/deepseek-r1t-chimera:free",
+            model="google/gemini-2.5-flash",
             temperature=0.3,
             max_tokens=4000
         )
@@ -2103,7 +2103,7 @@ Return JSON format:
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": context}
             ],
-            model="tngtech/deepseek-r1t-chimera:free",
+            model="google/gemini-2.5-flash",
             temperature=0.3,
             max_tokens=4000
         )
@@ -2308,7 +2308,7 @@ Return JSON format:
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": context}
             ],
-            model="tngtech/deepseek-r1t-chimera:free",
+            model="google/gemini-2.5-flash",
             temperature=0.3,
             max_tokens=4000
         )
@@ -2772,7 +2772,7 @@ Return JSON format:
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": context}
             ],
-            model="tngtech/deepseek-r1t-chimera:free",
+            model="google/gemini-2.5-flash",
             temperature=0.3,
             max_tokens=4000
         )
@@ -3068,7 +3068,7 @@ Return JSON format:
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": context}
             ],
-            model="tngtech/deepseek-r1t-chimera:free",
+            model="google/gemini-2.5-flash",
             temperature=0.3,
             max_tokens=4000
         )

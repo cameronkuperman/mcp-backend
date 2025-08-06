@@ -356,7 +356,7 @@ Photo Analysis ({len(photo_analyses)} analyses):
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": context}
             ],
-            model="tngtech/deepseek-r1t-chimera:free",  # Best model for comprehensive analysis
+            model="google/gemini-2.5-flash",  # Best model for comprehensive analysis
             user_id=request.user_id,
             temperature=0.3,
             max_tokens=3000
@@ -396,7 +396,7 @@ Photo Analysis ({len(photo_analyses)} analyses):
             "report_data": report_data,
             "executive_summary": report_data["executive_summary"]["one_page_summary"],
             "confidence_score": 85,
-            "model_used": "tngtech/deepseek-r1t-chimera:free",
+            "model_used": "google/gemini-2.5-flash",
             "data_sources": config.get("data_sources", {}),
             "time_range": config.get("time_range", {})
         }
@@ -517,7 +517,7 @@ Quick Scans:
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": context}
             ],
-            model="tngtech/deepseek-r1t-chimera:free",
+            model="google/gemini-2.5-flash",
             user_id=request.user_id,
             temperature=0.3,
             max_tokens=2000

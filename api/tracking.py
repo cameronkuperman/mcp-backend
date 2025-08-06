@@ -88,7 +88,7 @@ async def suggest_tracking(request: TrackingSuggestRequest):
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_message}
             ],
-            model="tngtech/deepseek-r1t-chimera:free",
+            model="google/gemini-2.5-flash",
             user_id=request.user_id,
             temperature=0.3,
             max_tokens=1000

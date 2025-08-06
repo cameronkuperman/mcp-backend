@@ -77,7 +77,7 @@ MOST RECENT ASSESSMENTS:
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": urgent_context}
             ],
-            model="tngtech/deepseek-r1t-chimera:free",
+            model="google/gemini-2.5-flash",
             temperature=0.2,  # Lower temp for urgent accuracy
             max_tokens=1000
         )
@@ -101,7 +101,7 @@ MOST RECENT ASSESSMENTS:
             "report_data": {"triage_summary": triage_summary},
             "executive_summary": f"URGENT: {triage_summary.get('recommended_action', 'Seek immediate care')}",
             "confidence_score": 90,
-            "model_used": "tngtech/deepseek-r1t-chimera:free"
+            "model_used": "google/gemini-2.5-flash"
         }
         
         await safe_insert_report(report_record)

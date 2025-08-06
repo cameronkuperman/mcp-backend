@@ -221,6 +221,7 @@ async def start_deep_dive(request: DeepDiveStartRequest):
         WORKING_MODELS = [
             "deepseek/deepseek-chat",  # DeepSeek V3 - most reliable for JSON
             "google/gemini-2.5-pro",  # Good for analysis
+            "google/gemini-2.5-flash",  # Fast Gemini model for reports
             "tngtech/deepseek-r1t-chimera:free",  # Reasoning model (use carefully)
             "meta-llama/llama-3.2-3b-instruct:free",
             "google/gemini-2.0-flash-exp:free",

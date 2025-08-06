@@ -48,12 +48,22 @@ Backend will:
 - NOT load the 36 quick scans from the analysis config
 
 ## Files Changed
-- `/api/reports/specialist.py` - Main specialist endpoint
-- `/api/reports/specialist_extended.py` - All 5 additional specialist endpoints (needs same fix)
-- `/utils/data_gathering.py` - Updated to handle empty arrays properly
+- `/api/reports/specialist.py` - Main specialist endpoint ✓
+- `/api/reports/specialist_extended.py` - All 5 additional specialist endpoints ✓
+  - nephrology
+  - urology  
+  - gynecology
+  - oncology
+  - physical-therapy
+- `/utils/data_gathering.py` - Updated to handle empty arrays properly ✓
 
 ## Tell Frontend
 1. Backend now ALWAYS uses the IDs from the request
 2. Send empty arrays `[]` for categories with no selections
 3. Send `null` only if you want backend to load nothing
 4. The fallback to config data has been completely removed
+
+## About the 429 Error
+The 429 error you saw is a rate limit warning from the LLM provider, but your request actually succeeded (200 OK). The backend handles rate limits by retrying with delays. If responses are coming back quickly, it means the retry worked.
+
+The "createClient is not a function" error is a frontend Supabase import issue, not related to the backend.
