@@ -1,6 +1,6 @@
 """Extended Specialist Report API endpoints (additional specialties)"""
 from fastapi import APIRouter
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import json
 import uuid
 import logging
@@ -19,16 +19,57 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/report", tags=["reports-specialist-extended"])
 
-async def load_analysis(analysis_id: str):
-    """Load analysis from database"""
+async def load_or_create_analysis(analysis_id: str, request, specialty: str):
+    """Load analysis from database or create it if it doesn't exist"""
     from supabase_client import supabase
+    
+    # Try to load existing analysis first
     response = supabase.table("report_analyses")\
         .select("*")\
         .eq("id", analysis_id)\
         .execute()
     
     if not response.data:
-        raise ValueError("Analysis not found")
+        # CREATE the analysis record as requested by frontend
+        logger.info(f"[{specialty.upper()}] Creating new analysis record for ID: {analysis_id}")
+        
+        # Create appropriate report_config for specialist report
+        config = {
+            "report_type": "specialist_focused",
+            "specialty": specialty,
+            "selected_data_only": True,
+            "time_range": {
+                "start": (datetime.now(timezone.utc) - timedelta(days=30)).isoformat(),
+                "end": datetime.now(timezone.utc).isoformat()
+            }
+        }
+        
+        # Create the analysis record
+        new_analysis = {
+            "id": analysis_id,  # Use the ID provided by frontend
+            "user_id": request.user_id,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "purpose": f"Specialist report for {specialty}",
+            "recommended_type": specialty,
+            "report_config": config,
+            "quick_scan_ids": request.quick_scan_ids or [],
+            "deep_dive_ids": request.deep_dive_ids or [],
+            "photo_session_ids": request.photo_session_ids or [],
+            "general_assessment_ids": request.general_assessment_ids or [],
+            "general_deep_dive_ids": request.general_deep_dive_ids or [],
+            "flash_assessment_ids": getattr(request, 'flash_assessment_ids', None) or [],
+            "confidence": 85.0
+        }
+        
+        insert_response = supabase.table("report_analyses")\
+            .insert(new_analysis)\
+            .execute()
+        
+        if not insert_response.data:
+            raise ValueError("Failed to create analysis record")
+        
+        logger.info(f"[{specialty.upper()}] Created analysis record: {analysis_id}")
+        return insert_response.data[0]
     
     return response.data[0]
 
@@ -57,7 +98,7 @@ async def generate_nephrology_report(request: SpecialistReportRequest):
         logger.info(f"[NEPHROLOGY] Incoming request - quick_scan_ids: {request.quick_scan_ids}, "
                     f"deep_dive_ids: {request.deep_dive_ids}, photo_session_ids: {request.photo_session_ids}")
         
-        analysis = await load_analysis(request.analysis_id)
+        analysis = await load_or_create_analysis(request.analysis_id, request, "nephrology")
         config = analysis.get("report_config", {})
         
         # ALWAYS use selected data mode for specialist reports
@@ -222,7 +263,7 @@ async def generate_urology_report(request: SpecialistReportRequest):
         logger.info(f"[UROLOGY] Incoming request - quick_scan_ids: {request.quick_scan_ids}, "
                     f"deep_dive_ids: {request.deep_dive_ids}, photo_session_ids: {request.photo_session_ids}")
         
-        analysis = await load_analysis(request.analysis_id)
+        analysis = await load_or_create_analysis(request.analysis_id, request, "urology")
         config = analysis.get("report_config", {})
         
         # ALWAYS use selected data mode for specialist reports
@@ -402,7 +443,7 @@ async def generate_gynecology_report(request: SpecialistReportRequest):
         logger.info(f"[GYNECOLOGY] Incoming request - quick_scan_ids: {request.quick_scan_ids}, "
                     f"deep_dive_ids: {request.deep_dive_ids}, photo_session_ids: {request.photo_session_ids}")
         
-        analysis = await load_analysis(request.analysis_id)
+        analysis = await load_or_create_analysis(request.analysis_id, request, "gynecology")
         config = analysis.get("report_config", {})
         
         # ALWAYS use selected data mode for specialist reports
@@ -605,7 +646,7 @@ async def generate_oncology_report(request: SpecialistReportRequest):
         logger.info(f"[ONCOLOGY] Incoming request - quick_scan_ids: {request.quick_scan_ids}, "
                     f"deep_dive_ids: {request.deep_dive_ids}, photo_session_ids: {request.photo_session_ids}")
         
-        analysis = await load_analysis(request.analysis_id)
+        analysis = await load_or_create_analysis(request.analysis_id, request, "oncology")
         config = analysis.get("report_config", {})
         
         # ALWAYS use selected data mode for specialist reports
@@ -701,7 +742,7 @@ async def generate_physical_therapy_report(request: SpecialistReportRequest):
         logger.info(f"[PHYSICAL-THERAPY] Incoming request - quick_scan_ids: {request.quick_scan_ids}, "
                     f"deep_dive_ids: {request.deep_dive_ids}, photo_session_ids: {request.photo_session_ids}")
         
-        analysis = await load_analysis(request.analysis_id)
+        analysis = await load_or_create_analysis(request.analysis_id, request, "physical_therapy")
         config = analysis.get("report_config", {})
         
         # ALWAYS use selected data mode for specialist reports
