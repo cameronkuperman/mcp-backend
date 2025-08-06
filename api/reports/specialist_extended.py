@@ -58,7 +58,7 @@ async def load_or_create_analysis(analysis_id: str, request, specialty: str):
             "general_assessment_ids": request.general_assessment_ids or [],
             "general_deep_dive_ids": request.general_deep_dive_ids or [],
             "flash_assessment_ids": getattr(request, 'flash_assessment_ids', None) or [],
-            "confidence": 85.0
+            "confidence": 0.85
         }
         
         insert_response = supabase.table("report_analyses")\

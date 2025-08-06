@@ -1,4 +1,116 @@
-Traceback (most recent call last):
-  File "/Users/iceca/Documents/mcp-backend/run_oracle.py", line 3, in <module>
-    from fastapi import FastAPI
-ModuleNotFoundError: No module named 'fastapi'
+INFO:apscheduler.scheduler:Adding job tentatively -- it will be properly scheduled when the scheduler starts
+INFO:apscheduler.scheduler:Adding job tentatively -- it will be properly scheduled when the scheduler starts
+INFO:apscheduler.scheduler:Adding job tentatively -- it will be properly scheduled when the scheduler starts
+INFO:apscheduler.scheduler:Adding job tentatively -- it will be properly scheduled when the scheduler starts
+INFO:apscheduler.scheduler:Adding job tentatively -- it will be properly scheduled when the scheduler starts
+INFO:apscheduler.scheduler:Adding job tentatively -- it will be properly scheduled when the scheduler starts
+INFO:apscheduler.scheduler:Adding job tentatively -- it will be properly scheduled when the scheduler starts
+INFO:     Started server process [62563]
+INFO:     Waiting for application startup.
+INFO:run_oracle:Starting Oracle Health API with background scheduler...
+WARNING:services.background_jobs:Redis connection failed: Error Multiple exceptions: [Errno 61] Connect call failed ('::1', 6379, 0, 0), [Errno 61] Connect call failed ('127.0.0.1', 6379) connecting to localhost:6379.. Running without cache.
+INFO:apscheduler.scheduler:Added job "weekly_ai_predictions_job" to job store "default"
+INFO:apscheduler.scheduler:Added job "hourly_ai_predictions_check" to job store "default"
+INFO:apscheduler.scheduler:Added job "weekly_health_generation_job" to job store "default"
+INFO:apscheduler.scheduler:Added job "cleanup_expired_shares" to job store "default"
+INFO:apscheduler.scheduler:Added job "reset_weekly_refresh_limits" to job store "default"
+INFO:apscheduler.scheduler:Added job "weekly_intelligence_generation_job" to job store "default"
+INFO:apscheduler.scheduler:Added job "weekly_health_score_generation" to job store "default"
+INFO:apscheduler.scheduler:Scheduler started
+INFO:services.background_jobs:Background job scheduler started
+INFO:services.background_jobs:Prediction regeneration service started
+INFO:httpx:HTTP Request: POST https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/rpc/regenerate_expired_predictions "HTTP/2 404 Not Found"
+ERROR:services.background_predictions:Error checking expired predictions: {'message': 'Could not find the function public.regenerate_expired_predictions without parameters in the schema cache', 'code': 'PGRST202', 'hint': 'Perhaps you meant to call the function public.get_cached_prediction', 'details': 'Searched for the function public.regenerate_expired_predictions without parameters or with a single unnamed json/jsonb parameter, but no matches were found in the schema cache.'}
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+CORS: Allowing origins: ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:3002', 'https://localhost:3000', 'https://localhost:3001', 'https://localhost:3002', 'https://main--flourishing-taiyaki-fd4e09.netlify.app', 'https://flourishing-taiyaki-fd4e09.netlify.app', 'https://proxima-eight-pi.vercel.app', 'https://*.vercel.app', 'https://healthoracle.ai', 'https://www.healthoracle.ai', 'https://app.healthoracle.ai']
+CORS: Allowing origins: ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:3002', 'https://localhost:3000', 'https://localhost:3001', 'https://localhost:3002', 'https://main--flourishing-taiyaki-fd4e09.netlify.app', 'https://flourishing-taiyaki-fd4e09.netlify.app', 'https://proxima-eight-pi.vercel.app', 'https://*.vercel.app', 'https://healthoracle.ai', 'https://www.healthoracle.ai', 'https://app.healthoracle.ai']
+INFO:     127.0.0.1:53875 - "GET /api/health HTTP/1.1" 200 OK
+INFO:api.reports.specialist:[PRIMARY-CARE] Request received: analysis_id=cc70d30f-d16e-43f0-adfa-f48f9975c540, user_id=45b61b67-175d-48a0-aca6-d0be57609383
+INFO:api.reports.specialist:[PRIMARY-CARE] Quick scan IDs: ['f9c935f0-8140-40d9-9698-3abf2bbaa34b']
+INFO:api.reports.specialist:[PRIMARY-CARE] Deep dive IDs: []
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/report_analyses?select=%2A&id=eq.cc70d30f-d16e-43f0-adfa-f48f9975c540 "HTTP/2 200 OK"
+INFO:api.reports.specialist:Creating new analysis record for primary_care ID: cc70d30f-d16e-43f0-adfa-f48f9975c540
+INFO:httpx:HTTP Request: POST https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/report_analyses "HTTP/2 201 Created"
+INFO:api.reports.specialist:Created analysis record for primary_care: cc70d30f-d16e-43f0-adfa-f48f9975c540
+INFO:utils.data_gathering:=== GATHER_SELECTED_DATA START ===
+INFO:utils.data_gathering:User ID: 45b61b67-175d-48a0-aca6-d0be57609383
+INFO:utils.data_gathering:Quick scan IDs: ['f9c935f0-8140-40d9-9698-3abf2bbaa34b']
+INFO:utils.data_gathering:Deep dive IDs: []
+INFO:utils.data_gathering:Photo session IDs: []
+INFO:utils.data_gathering:General assessment IDs: []
+INFO:utils.data_gathering:General deep dive IDs: []
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/medical?select=%2A&id=eq.45b61b67-175d-48a0-aca6-d0be57609383 "HTTP/2 200 OK"
+INFO:utils.data_gathering:Medical profile loaded: True
+INFO:utils.data_gathering:Fetching 1 quick scans...
+INFO:utils.data_gathering:Quick scan IDs to fetch: ['f9c935f0-8140-40d9-9698-3abf2bbaa34b']
+INFO:utils.data_gathering:Quick scan IDs type: <class 'list'>
+INFO:utils.data_gathering:User ID for filter: 45b61b67-175d-48a0-aca6-d0be57609383
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/quick_scans?select=id%2Cuser_id&id=in.%28f9c935f0-8140-40d9-9698-3abf2bbaa34b%29 "HTTP/2 200 OK"
+INFO:utils.data_gathering:DEBUG - Found 1 quick scans WITHOUT user filter
+INFO:utils.data_gathering:DEBUG - User IDs in results: ['45b61b67-175d-48a0-aca6-d0be57609383']
+INFO:utils.data_gathering:Converted user_id to string: 45b61b67-175d-48a0-aca6-d0be57609383
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/quick_scans?select=%2A&id=in.%28f9c935f0-8140-40d9-9698-3abf2bbaa34b%29&user_id=eq.45b61b67-175d-48a0-aca6-d0be57609383&order=created_at.asc "HTTP/2 200 OK"
+INFO:utils.data_gathering:Found 1 quick scans WITH user filter: True
+INFO:utils.data_gathering:Quick scan IDs found: ['f9c935f0-8140-40d9-9698-3abf2bbaa34b']
+ERROR:utils.data_gathering:Error in gather_selected_data: 'NoneType' object is not subscriptable
+INFO:utils.data_gathering:=== GATHER_SELECTED_DATA SUMMARY ===
+INFO:utils.data_gathering:Quick scans: 1
+INFO:utils.data_gathering:Deep dives: 0
+INFO:utils.data_gathering:General assessments: 0
+INFO:utils.data_gathering:General deep dives: 0
+INFO:utils.data_gathering:Photo analyses: 0
+INFO:utils.data_gathering:Symptom tracking: 0
+INFO:utils.data_gathering:LLM summaries: 0
+INFO:utils.data_gathering:=== GATHER_SELECTED_DATA END ===
+INFO:api.reports.specialist:[PRIMARY-CARE] Data gathered - quick_scans: 1, deep_dives: 0
+INFO:api.reports.specialist:[PRIMARY-CARE] Quick scan IDs found: ['f9c935f0-8140-40d9-9698-3abf2bbaa34b']
+INFO:httpx:HTTP Request: POST https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/medical_reports "HTTP/2 400 Bad Request"
+INFO:httpx:HTTP Request: POST https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/medical_reports "HTTP/2 400 Bad Request"
+Full insert failed: {'message': 'new row for relation "medical_reports" violates check constraint "medical_reports_report_type_check"', 'code': '23514', 'hint': None, 'details': 'Failing row contains (a56e3160-36f7-434e-86c4-ea0d59f6a293, 45b61b67-175d-48a0-aca6-d0be57609383, cc70d30f-d16e-43f0-adfa-f48f9975c540, primary_care, 2025-08-06 02:54:06.615144+00, {"diagnostic_plan": {"imaging": [], "screening": ["Testicular se..., , 85, google/gemini-2.5-flash, null, null, null, 0, primary_care, {}).'}
+Essential insert also failed: {'message': 'new row for relation "medical_reports" violates check constraint "medical_reports_report_type_check"', 'code': '23514', 'hint': None, 'details': 'Failing row contains (a56e3160-36f7-434e-86c4-ea0d59f6a293, 45b61b67-175d-48a0-aca6-d0be57609383, cc70d30f-d16e-43f0-adfa-f48f9975c540, primary_care, 2025-08-06 02:54:06.615144+00, {"diagnostic_plan": {"imaging": [], "screening": ["Testicular se..., , 85, google/gemini-2.5-flash, null, null, null, 0, null, {}).'}
+INFO:     127.0.0.1:53925 - "POST /api/report/primary-care HTTP/1.1" 200 OK
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/quick_scans?select=%2A&id=eq.f9c935f0-8140-40d9-9698-3abf2bbaa34b "HTTP/2 200 OK"
+OpenRouter API error: 429
+INFO:     127.0.0.1:54037 - "POST /api/report/specialty-triage HTTP/1.1" 200 OK
+INFO:api.reports.specialist:[PRIMARY-CARE] Request received: analysis_id=cc70d30f-d16e-43f0-adfa-f48f9975c540, user_id=45b61b67-175d-48a0-aca6-d0be57609383
+INFO:api.reports.specialist:[PRIMARY-CARE] Quick scan IDs: ['f9c935f0-8140-40d9-9698-3abf2bbaa34b']
+INFO:api.reports.specialist:[PRIMARY-CARE] Deep dive IDs: []
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/report_analyses?select=%2A&id=eq.cc70d30f-d16e-43f0-adfa-f48f9975c540 "HTTP/2 200 OK"
+INFO:utils.data_gathering:=== GATHER_SELECTED_DATA START ===
+INFO:utils.data_gathering:User ID: 45b61b67-175d-48a0-aca6-d0be57609383
+INFO:utils.data_gathering:Quick scan IDs: ['f9c935f0-8140-40d9-9698-3abf2bbaa34b']
+INFO:utils.data_gathering:Deep dive IDs: []
+INFO:utils.data_gathering:Photo session IDs: []
+INFO:utils.data_gathering:General assessment IDs: []
+INFO:utils.data_gathering:General deep dive IDs: []
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/medical?select=%2A&id=eq.45b61b67-175d-48a0-aca6-d0be57609383 "HTTP/2 200 OK"
+INFO:utils.data_gathering:Medical profile loaded: True
+INFO:utils.data_gathering:Fetching 1 quick scans...
+INFO:utils.data_gathering:Quick scan IDs to fetch: ['f9c935f0-8140-40d9-9698-3abf2bbaa34b']
+INFO:utils.data_gathering:Quick scan IDs type: <class 'list'>
+INFO:utils.data_gathering:User ID for filter: 45b61b67-175d-48a0-aca6-d0be57609383
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/quick_scans?select=id%2Cuser_id&id=in.%28f9c935f0-8140-40d9-9698-3abf2bbaa34b%29 "HTTP/2 200 OK"
+INFO:utils.data_gathering:DEBUG - Found 1 quick scans WITHOUT user filter
+INFO:utils.data_gathering:DEBUG - User IDs in results: ['45b61b67-175d-48a0-aca6-d0be57609383']
+INFO:utils.data_gathering:Converted user_id to string: 45b61b67-175d-48a0-aca6-d0be57609383
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/quick_scans?select=%2A&id=in.%28f9c935f0-8140-40d9-9698-3abf2bbaa34b%29&user_id=eq.45b61b67-175d-48a0-aca6-d0be57609383&order=created_at.asc "HTTP/2 200 OK"
+INFO:utils.data_gathering:Found 1 quick scans WITH user filter: True
+INFO:utils.data_gathering:Quick scan IDs found: ['f9c935f0-8140-40d9-9698-3abf2bbaa34b']
+ERROR:utils.data_gathering:Error in gather_selected_data: 'NoneType' object is not subscriptable
+INFO:utils.data_gathering:=== GATHER_SELECTED_DATA SUMMARY ===
+INFO:utils.data_gathering:Quick scans: 1
+INFO:utils.data_gathering:Deep dives: 0
+INFO:utils.data_gathering:General assessments: 0
+INFO:utils.data_gathering:General deep dives: 0
+INFO:utils.data_gathering:Photo analyses: 0
+INFO:utils.data_gathering:Symptom tracking: 0
+INFO:utils.data_gathering:LLM summaries: 0
+INFO:utils.data_gathering:=== GATHER_SELECTED_DATA END ===
+INFO:api.reports.specialist:[PRIMARY-CARE] Data gathered - quick_scans: 1, deep_dives: 0
+INFO:api.reports.specialist:[PRIMARY-CARE] Quick scan IDs found: ['f9c935f0-8140-40d9-9698-3abf2bbaa34b']
+INFO:httpx:HTTP Request: POST https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/medical_reports "HTTP/2 400 Bad Request"
+INFO:httpx:HTTP Request: POST https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/medical_reports "HTTP/2 400 Bad Request"
+Full insert failed: {'message': 'new row for relation "medical_reports" violates check constraint "medical_reports_report_type_check"', 'code': '23514', 'hint': None, 'details': 'Failing row contains (bf6ce50a-f47a-4bcd-81b7-08e49613377f, 45b61b67-175d-48a0-aca6-d0be57609383, cc70d30f-d16e-43f0-adfa-f48f9975c540, primary_care, 2025-08-06 02:55:34.769937+00, {"diagnostic_plan": {"imaging": [], "screening": ["Age-appropria..., , 85, google/gemini-2.5-flash, null, null, null, 0, primary_care, {}).'}
+Essential insert also failed: {'message': 'new row for relation "medical_reports" violates check constraint "medical_reports_report_type_check"', 'code': '23514', 'hint': None, 'details': 'Failing row contains (bf6ce50a-f47a-4bcd-81b7-08e49613377f, 45b61b67-175d-48a0-aca6-d0be57609383, cc70d30f-d16e-43f0-adfa-f48f9975c540, primary_care, 2025-08-06 02:55:34.769937+00, {"diagnostic_plan": {"imaging": [], "screening": ["Age-appropria..., , 85, google/gemini-2.5-flash, null, null, null, 0, null, {}).'}
+INFO:     127.0.0.1:54044 - "POST /api/report/primary-care HTTP/1.1" 200 OK

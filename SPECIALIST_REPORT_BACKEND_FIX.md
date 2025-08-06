@@ -72,3 +72,22 @@ Backend now properly:
 2. Uses ONLY the provided IDs (respects empty arrays)
 3. Returns the specialty in all responses
 4. Uses faster Gemini 2.5 Flash model
+
+## Endpoints Updated
+All specialist endpoints now create analysis records if they don't exist:
+- `/api/report/specialist` ✓
+- `/api/report/cardiology` ✓
+- `/api/report/neurology` ✓
+- `/api/report/psychiatry` ✓
+- `/api/report/dermatology` ✓
+- `/api/report/gastroenterology` ✓
+- `/api/report/endocrinology` ✓
+- `/api/report/pulmonology` ✓
+- `/api/report/primary-care` ✓
+- `/api/report/orthopedics` ✓
+- `/api/report/rheumatology` ✓
+- `/api/report/nephrology` ✓
+- `/api/report/urology` ✓
+- `/api/report/gynecology` ✓
+- `/api/report/oncology` ✓
+- `/api/report/physical-therapy` ✓
