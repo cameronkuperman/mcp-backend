@@ -1457,6 +1457,12 @@ Return JSON format:
 async def generate_dermatology_report(request: SpecialistReportRequest):
     """Generate dermatology specialist report"""
     try:
+        # Log incoming request data
+        logger.info(f"[DERMATOLOGY] Request received: analysis_id={request.analysis_id}, user_id={request.user_id}")
+        logger.info(f"[DERMATOLOGY] Quick scan IDs: {request.quick_scan_ids}")
+        logger.info(f"[DERMATOLOGY] Deep dive IDs: {request.deep_dive_ids}")
+        logger.info(f"[DERMATOLOGY] Photo session IDs: {request.photo_session_ids}")
+        
         analysis = await load_or_create_analysis(request.analysis_id, request, "dermatology")
         config = analysis.get("report_config", {})
         
@@ -1472,6 +1478,13 @@ async def generate_dermatology_report(request: SpecialistReportRequest):
         )
         # For dermatology, photo_data comes from photo_analyses in all_data
         photo_data = all_data.get("photo_analyses", [])
+        
+        # Log data counts
+        logger.info(f"[DERMATOLOGY] Data gathered - quick_scans: {len(all_data.get('quick_scans', []))}, "
+                    f"deep_dives: {len(all_data.get('deep_dives', []))}, "
+                    f"photo_sessions: {len(photo_data)}")
+        if photo_data:
+            logger.info(f"[DERMATOLOGY] Photo session IDs found: {[photo.get('id', 'unknown') for photo in photo_data]}")
         
         # Build dermatology context with FULL data
         context = f"""Generate a comprehensive dermatology report.
@@ -1699,9 +1712,27 @@ Return JSON format:
                 }
             }
         
+        # Log the results
+        logger.info(f"[DERMATOLOGY] Report generated successfully")
+        if report_data.get('executive_summary'):
+            logger.info(f"[DERMATOLOGY] Summary preview: {report_data['executive_summary'].get('one_page_summary', 'N/A')[:200]}...")
+            logger.info(f"[DERMATOLOGY] Key findings: {report_data['executive_summary'].get('key_findings', [])}")
+            logger.info(f"[DERMATOLOGY] Urgency indicators: {report_data['executive_summary'].get('urgency_indicators', [])}")
+        if report_data.get('lesion_analysis'):
+            lesions = report_data['lesion_analysis']
+            logger.info(f"[DERMATOLOGY] Lesions identified: {len(lesions.get('identified_lesions', []))}")
+            if lesions.get('abcde_assessment'):
+                logger.info(f"[DERMATOLOGY] ABCDE risk score: {lesions['abcde_assessment'].get('overall_risk')}")
+        if report_data.get('clinical_differential'):
+            diff = report_data['clinical_differential']
+            logger.info(f"[DERMATOLOGY] Primary diagnosis: {diff.get('primary_diagnosis')}")
+            logger.info(f"[DERMATOLOGY] Differential diagnoses: {diff.get('differential_diagnoses', [])}")
+        
         # Save report
         report_id = str(uuid.uuid4())
         await save_specialist_report(report_id, request, "dermatology", report_data)
+        
+        logger.info(f"[DERMATOLOGY] Report saved with ID: {report_id}")
         
         return {
             "report_id": report_id,
@@ -2518,9 +2549,22 @@ Return JSON format:
                 }
             }
         
+        # Log the results
+        logger.info(f"[PRIMARY-CARE] Report generated successfully")
+        if report_data.get('clinical_summary'):
+            logger.info(f"[PRIMARY-CARE] Chief complaints: {report_data['clinical_summary'].get('chief_complaints', [])}")
+            logger.info(f"[PRIMARY-CARE] HPI preview: {report_data['clinical_summary'].get('hpi', 'N/A')[:200]}...")
+        if report_data.get('preventive_care_gaps'):
+            logger.info(f"[PRIMARY-CARE] Screening due: {report_data['preventive_care_gaps'].get('screening_due', [])}")
+        if report_data.get('specialist_coordination', {}).get('recommended_referrals'):
+            referrals = report_data['specialist_coordination']['recommended_referrals']
+            logger.info(f"[PRIMARY-CARE] Recommended referrals: {[ref.get('specialty') for ref in referrals]}")
+        
         # Save report
         report_id = str(uuid.uuid4())
         await save_specialist_report(report_id, request, "primary_care", report_data)
+        
+        logger.info(f"[PRIMARY-CARE] Report saved with ID: {report_id}")
         
         return {
             "report_id": report_id,
@@ -2539,6 +2583,12 @@ Return JSON format:
 async def generate_orthopedics_report(request: SpecialistReportRequest):
     """Generate orthopedics specialist report"""
     try:
+        # Log incoming request data
+        logger.info(f"[ORTHOPEDICS] Request received: analysis_id={request.analysis_id}, user_id={request.user_id}")
+        logger.info(f"[ORTHOPEDICS] Quick scan IDs: {request.quick_scan_ids}")
+        logger.info(f"[ORTHOPEDICS] Deep dive IDs: {request.deep_dive_ids}")
+        logger.info(f"[ORTHOPEDICS] Photo session IDs: {request.photo_session_ids}")
+        
         analysis = await load_or_create_analysis(request.analysis_id, request, "orthopedics")
         config = analysis.get("report_config", {})
         
@@ -2552,6 +2602,13 @@ async def generate_orthopedics_report(request: SpecialistReportRequest):
             general_assessment_ids=request.general_assessment_ids if request.general_assessment_ids is not None else [],
             general_deep_dive_ids=request.general_deep_dive_ids if request.general_deep_dive_ids is not None else []
         )
+        
+        # Log data counts
+        logger.info(f"[ORTHOPEDICS] Data gathered - quick_scans: {len(all_data.get('quick_scans', []))}, "
+                    f"deep_dives: {len(all_data.get('deep_dives', []))}, "
+                    f"photo_sessions: {len(all_data.get('photo_sessions', []))}")
+        if all_data.get('quick_scans'):
+            logger.info(f"[ORTHOPEDICS] Quick scan IDs found: {[scan['id'] for scan in all_data['quick_scans']]}")
         
         # Build orthopedics context with FULL data
         context = f"""Generate a comprehensive orthopedics report.
@@ -2795,9 +2852,31 @@ Return JSON format:
                 }
             }
         
+        # Log the results
+        logger.info(f"[ORTHOPEDICS] Report generated successfully")
+        if report_data.get('executive_summary'):
+            logger.info(f"[ORTHOPEDICS] Summary preview: {report_data['executive_summary'].get('one_page_summary', 'N/A')[:200]}...")
+            logger.info(f"[ORTHOPEDICS] Key findings: {report_data['executive_summary'].get('key_findings', [])}")
+            logger.info(f"[ORTHOPEDICS] Chief complaints: {report_data['executive_summary'].get('chief_complaints', [])}")
+        if report_data.get('orthopedic_assessment'):
+            logger.info(f"[ORTHOPEDICS] Affected joints: {report_data['orthopedic_assessment'].get('affected_joints', [])}")
+            if report_data['orthopedic_assessment'].get('pain_characteristics'):
+                pain = report_data['orthopedic_assessment']['pain_characteristics']
+                logger.info(f"[ORTHOPEDICS] Pain location: {pain.get('location')}, severity: {pain.get('severity')}")
+        if report_data.get('diagnostic_recommendations', {}).get('imaging'):
+            imaging = report_data['diagnostic_recommendations']['imaging']
+            logger.info(f"[ORTHOPEDICS] Imaging recommendations: XRays: {bool(imaging.get('xrays'))}, MRI: {imaging.get('mri', {}).get('indicated')}")
+        if report_data.get('clinical_scales'):
+            scales = report_data['clinical_scales']
+            if scales.get('Oswestry_Disability_Index'):
+                odi = scales['Oswestry_Disability_Index']
+                logger.info(f"[ORTHOPEDICS] Oswestry Disability Index: {odi.get('calculated')}, confidence: {odi.get('confidence')}")
+        
         # Save report
         report_id = str(uuid.uuid4())
         await save_specialist_report(report_id, request, "orthopedics", report_data)
+        
+        logger.info(f"[ORTHOPEDICS] Report saved with ID: {report_id}")
         
         return {
             "report_id": report_id,

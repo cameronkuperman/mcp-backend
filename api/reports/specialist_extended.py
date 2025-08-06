@@ -238,9 +238,21 @@ Return JSON format:
                 }
             }
         
+        # Log the results
+        logger.info(f"[NEPHROLOGY] Report generated successfully")
+        if report_data.get('executive_summary'):
+            logger.info(f"[NEPHROLOGY] Summary preview: {report_data['executive_summary'].get('one_page_summary', 'N/A')[:200]}...")
+            logger.info(f"[NEPHROLOGY] Key findings: {report_data['executive_summary'].get('key_findings', [])}")
+            logger.info(f"[NEPHROLOGY] Chief complaints: {report_data['executive_summary'].get('chief_complaints', [])}")
+        if report_data.get('clinical_scales', {}).get('CKD_Staging'):
+            ckd = report_data['clinical_scales']['CKD_Staging']
+            logger.info(f"[NEPHROLOGY] CKD Stage: {ckd.get('ckd_stage')}, eGFR: {ckd.get('estimated_gfr')}, confidence: {ckd.get('confidence')}")
+        
         # Save report
         report_id = str(uuid.uuid4())
         await save_specialist_report(report_id, request, "nephrology", report_data)
+        
+        logger.info(f"[NEPHROLOGY] Report saved with ID: {report_id}")
         
         return {
             "report_id": report_id,
@@ -418,9 +430,20 @@ Return JSON format:
                 }
             }
         
+        # Log the results
+        logger.info(f"[UROLOGY] Report generated successfully")
+        if report_data.get('executive_summary'):
+            logger.info(f"[UROLOGY] Summary preview: {report_data['executive_summary'].get('one_page_summary', 'N/A')[:200]}...")
+            logger.info(f"[UROLOGY] Key findings: {report_data['executive_summary'].get('key_findings', [])}")
+        if report_data.get('clinical_scales', {}).get('IPSS'):
+            ipss = report_data['clinical_scales']['IPSS']
+            logger.info(f"[UROLOGY] IPSS Score: {ipss.get('total_score')}, severity: {ipss.get('severity')}, QOL: {ipss.get('qol_score')}")
+        
         # Save report
         report_id = str(uuid.uuid4())
         await save_specialist_report(report_id, request, "urology", report_data)
+        
+        logger.info(f"[UROLOGY] Report saved with ID: {report_id}")
         
         return {
             "report_id": report_id,
@@ -621,9 +644,20 @@ Return JSON format:
                 }
             }
         
+        # Log the results
+        logger.info(f"[GYNECOLOGY] Report generated successfully")
+        if report_data.get('executive_summary'):
+            logger.info(f"[GYNECOLOGY] Summary preview: {report_data['executive_summary'].get('one_page_summary', 'N/A')[:200]}...")
+            logger.info(f"[GYNECOLOGY] Key findings: {report_data['executive_summary'].get('key_findings', [])}")
+        if report_data.get('clinical_assessment', {}).get('Menstrual_Pattern'):
+            pattern = report_data['clinical_assessment']['Menstrual_Pattern']
+            logger.info(f"[GYNECOLOGY] Menstrual pattern: {pattern.get('classification')}, cycle length: {pattern.get('cycle_length')}")
+        
         # Save report
         report_id = str(uuid.uuid4())
         await save_specialist_report(report_id, request, "gynecology", report_data)
+        
+        logger.info(f"[GYNECOLOGY] Report saved with ID: {report_id}")
         
         return {
             "report_id": report_id,
@@ -717,9 +751,18 @@ Include sections for:
                 }
             }
         
+        # Log the results
+        logger.info(f"[ONCOLOGY] Report generated successfully")
+        if report_data.get('executive_summary'):
+            logger.info(f"[ONCOLOGY] Summary preview: {report_data['executive_summary'].get('one_page_summary', 'N/A')[:200]}...")
+            logger.info(f"[ONCOLOGY] Key findings: {report_data['executive_summary'].get('key_findings', [])}")
+        logger.info(f"[ONCOLOGY] Comprehensive oncology assessment completed")
+        
         # Save report
         report_id = str(uuid.uuid4())
         await save_specialist_report(report_id, request, "oncology", report_data)
+        
+        logger.info(f"[ONCOLOGY] Report saved with ID: {report_id}")
         
         return {
             "report_id": report_id,
@@ -813,9 +856,18 @@ Include sections for:
                 }
             }
         
+        # Log the results
+        logger.info(f"[PHYSICAL-THERAPY] Report generated successfully")
+        if report_data.get('executive_summary'):
+            logger.info(f"[PHYSICAL-THERAPY] Summary preview: {report_data['executive_summary'].get('one_page_summary', 'N/A')[:200]}...")
+            logger.info(f"[PHYSICAL-THERAPY] Key findings: {report_data['executive_summary'].get('key_findings', [])}")
+        logger.info(f"[PHYSICAL-THERAPY] Functional assessment and rehabilitation plan completed")
+        
         # Save report
         report_id = str(uuid.uuid4())
         await save_specialist_report(report_id, request, "physical_therapy", report_data)
+        
+        logger.info(f"[PHYSICAL-THERAPY] Report saved with ID: {report_id}")
         
         return {
             "report_id": report_id,
