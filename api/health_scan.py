@@ -228,7 +228,7 @@ async def start_deep_dive(request: DeepDiveStartRequest):
             "microsoft/phi-3-mini-128k-instruct:free",
             "x-ai/grok-4",  # Grok 4 for Ultra Think
             "openai/gpt-4-turbo",  # Fallback model
-            "openai/o4-mini",  # Think Harder model
+            "openai/gpt-5-mini",  # Think Harder model
             "anthropic/claude-3-sonnet"  # Another fallback
         ]
         
@@ -899,7 +899,7 @@ Return a JSON response with this exact structure:
                 {"role": "system", "content": enhanced_prompt},
                 {"role": "user", "content": "Perform enhanced diagnostic analysis with advanced reasoning"}
             ],
-            model=request.model,  # openai/o4-mini-high by default
+            model=request.model,  # openai/gpt-5-mini-high by default
             user_id=request.user_id or session.get("user_id"),
             temperature=0.2,  # Lower temperature for more consistent reasoning
             max_tokens=2000
@@ -1639,7 +1639,7 @@ async def quick_scan_think_harder_o4(request: QuickScanO4MiniRequest):
                 "o4_mini_analysis": scan["o4_mini_analysis"],
                 "original_confidence": scan.get("confidence", 0),
                 "o4_mini_confidence": scan.get("o4_mini_confidence", 0),
-                "model_used": scan.get("o4_mini_model", "openai/o4-mini")
+                "model_used": scan.get("o4_mini_model", "openai/gpt-5-mini")
             }
         
         # Get user medical data if available
@@ -1711,7 +1711,7 @@ CRITICAL: Output ONLY valid JSON with no text before or after:
                 {"role": "system", "content": o4_mini_prompt},
                 {"role": "user", "content": "Provide enhanced analysis with focused reasoning"}
             ],
-            model=request.model,  # "openai/o4-mini"
+            model=request.model,  # "openai/gpt-5-mini"
             user_id=scan.get("user_id"),
             temperature=0.1,  # Very low temperature for consistency
             max_tokens=1500

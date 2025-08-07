@@ -21,19 +21,22 @@
 - ❌ `deepseek/deepseek-r1` - Same broken model
 
 ### ALWAYS USE THESE WORKING MODELS:
-1. ✅ `deepseek/deepseek-chat` - DeepSeek V3 - DEFAULT for Quick Scan
-2. ✅ `google/gemini-2.5-pro` - BEST for Deep Dive & Photo Analysis
-3. ✅ `openai/o4-mini` - Think Harder tier 2 (balanced cost/performance)
-4. ✅ `x-ai/grok-4` - Ultra Think & Deep Dive Think Harder (maximum reasoning)
-5. ✅ `tngtech/deepseek-r1t-chimera:free` - Fallback option
-6. ✅ `google/gemini-2.0-flash-exp:free` - Good for large contexts
+1. ✅ `openai/gpt-5-mini` - DEFAULT for Quick Scan, Chat & Flash Assessment
+2. ✅ `x-ai/grok-4` - Ultra Think & Deep Dive Think Harder (maximum reasoning)
+3. ✅ `google/gemini-2.5-pro` - Photo Analysis & Deep Dive
+4. ✅ `openai/gpt-5-mini` - Think Harder tier 2 (balanced cost/performance)
+5. ✅ `deepseek/deepseek-chat` - DeepSeek V3 - Fallback option
+6. ✅ `tngtech/deepseek-r1t-chimera:free` - Secondary fallback
+7. ✅ `google/gemini-2.0-flash-exp:free` - Good for large contexts
+8. ✅ `meta-llama/llama-3.2-1b-instruct:free` - Nano model fallback
 
 ### MODEL USAGE BY ENDPOINT:
-- **Quick Scan**: Uses `deepseek/deepseek-chat` (DeepSeek V3)
-- **Deep Dive**: Uses `deepseek/deepseek-chat` (Changed from Gemini for better JSON)
-- **Photo Analysis**: Uses `google/gemini-2.5-pro`
-- **Think Harder (o4)**: Uses `openai/o4-mini`
-- **Ultra Think**: Uses `x-ai/grok-4`
+- **Quick Scan**: Uses `openai/gpt-5-mini` (Updated for better performance)
+- **Chat**: Uses `deepseek/deepseek-chat` (DeepSeek V3)
+- **Deep Dive**: Uses `deepseek/deepseek-chat` (Good JSON compliance)
+- **Photo Analysis**: Uses `openai/gpt-5` (with `google/gemini-2.5-pro` as fallback)
+- **Think Harder**: Uses `openai/gpt-5-mini` (with `deepseek/deepseek-chat` as fallback)
+- **Ultra Think**: Uses `x-ai/grok-4` (UNCHANGED - maximum reasoning)
 - **Deep Dive Think Harder**: Uses `x-ai/grok-4`
 
 ## 🏗️ PROJECT STRUCTURE
@@ -249,5 +252,5 @@ The codebase has been modularized from a single 4,871-line file into organized m
 6. **NEVER add new endpoints to run_oracle.py** - use appropriate modules
 
 ---
-Last Updated: 2025-01-22
+Last Updated: 2025-08-07
 Remember: Security first, functionality second!

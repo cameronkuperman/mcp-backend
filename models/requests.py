@@ -59,12 +59,14 @@ class DeepDiveAskMoreRequest(BaseModel):
 class QuickScanThinkHarderRequest(BaseModel):
     scan_id: str
     user_id: Optional[str] = None
-    model: str = "openai/o4-mini"  # Default to GPT-4 for enhanced analysis
+    model: str = "openai/gpt-5-mini"  # Default to GPT-5-mini for enhanced analysis
+    fallback_model: Optional[str] = "deepseek/deepseek-chat"  # DeepSeek V3 as fallback
 
 class QuickScanO4MiniRequest(BaseModel):
     scan_id: str
     user_id: Optional[str] = None
-    model: str = "openai/o4-mini"  # Regular o4-mini for balanced cost/performance
+    model: str = "openai/gpt-5-mini"  # Regular gpt-5-mini for balanced cost/performance
+    fallback_model: Optional[str] = "deepseek/deepseek-chat"  # DeepSeek V3 as fallback
 
 class QuickScanUltraThinkRequest(BaseModel):
     scan_id: Optional[str] = None  # For quick scans

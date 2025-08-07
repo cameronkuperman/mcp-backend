@@ -221,9 +221,13 @@ async def call_openrouter_with_retry(model: str, messages: List[Dict], max_token
                 wait_time = min(10 * (attempt + 1), 30)  # 10s, 20s, 30s max
                 print(f"Rate limit hit (429), waiting {wait_time}s before retry...")
                 # Try a different model on rate limit
-                if attempt == 0 and model == 'google/gemini-2.5-pro':
-                    print("Switching to gemini-2.0-flash-exp:free due to rate limit")
-                    model = 'google/gemini-2.0-flash-exp:free'
+                if attempt == 0:
+                    if model == 'openai/gpt-5':
+                        print("Switching to google/gemini-2.5-pro due to rate limit")
+                        model = 'google/gemini-2.5-pro'
+                    elif model == 'google/gemini-2.5-pro':
+                        print("Switching to gemini-2.0-flash-exp:free due to rate limit")
+                        model = 'google/gemini-2.0-flash-exp:free'
             else:
                 # Regular exponential backoff for other errors
                 wait_time = 2 ** attempt  # 1s, 2s, 4s
@@ -894,19 +898,36 @@ async def analyze_photos(request: PhotoAnalysisRequest):
     start_time = time.time()
     try:
         print(f"Starting AI analysis at {datetime.now()}")
-        response = await call_openrouter_with_retry(
-            model='google/gemini-2.5-pro',
-            messages=[{
-                'role': 'user',
-                'content': [
-                    {'type': 'text', 'text': analysis_prompt},
-                    *photo_contents
-                ]
-            }],
-            max_tokens=6000,  # Increased 3x for more detailed analysis
-            temperature=0.1,
-            max_retries=3
-        )
+        # Try GPT-5 first, fallback to Gemini
+        try:
+            response = await call_openrouter_with_retry(
+                model='openai/gpt-5',
+                messages=[{
+                    'role': 'user',
+                    'content': [
+                        {'type': 'text', 'text': analysis_prompt},
+                        *photo_contents
+                    ]
+                }],
+                max_tokens=6000,  # Increased 3x for more detailed analysis
+                temperature=0.1,
+                max_retries=2  # Fewer retries for primary model
+            )
+        except Exception as e:
+            print(f"GPT-5 failed, falling back to Gemini: {e}")
+            response = await call_openrouter_with_retry(
+                model='google/gemini-2.5-pro',
+                messages=[{
+                    'role': 'user',
+                    'content': [
+                        {'type': 'text', 'text': analysis_prompt},
+                        *photo_contents
+                    ]
+                }],
+                max_tokens=6000,
+                temperature=0.1,
+                max_retries=3
+            )
         
         elapsed = time.time() - start_time
         print(f"AI response received after {elapsed:.1f} seconds")
@@ -1026,20 +1047,38 @@ async def analyze_photos(request: PhotoAnalysisRequest):
             
             # Call AI for comparison
             try:
-                comp_response = await call_openrouter(
-                    model='google/gemini-2.5-pro',
-                    messages=[{
-                        'role': 'user',
-                        'content': [
-                            {'type': 'text', 'text': PHOTO_COMPARISON_PROMPT},
-                            *photo_contents,
-                            {'type': 'text', 'text': 'COMPARED TO:'},
-                            *comp_contents
-                        ]
-                    }],
-                    max_tokens=3000,  # Increased 3x for detailed comparisons
-                    temperature=0.1
-                )
+                # Try GPT-5 first for comparison
+                try:
+                    comp_response = await call_openrouter(
+                        model='openai/gpt-5',
+                        messages=[{
+                            'role': 'user',
+                            'content': [
+                                {'type': 'text', 'text': PHOTO_COMPARISON_PROMPT},
+                                *photo_contents,
+                                {'type': 'text', 'text': 'COMPARED TO:'},
+                                *comp_contents
+                            ]
+                        }],
+                        max_tokens=3000,  # Increased 3x for detailed comparisons
+                        temperature=0.1
+                    )
+                except Exception as e:
+                    print(f"GPT-5 failed for comparison, using Gemini: {e}")
+                    comp_response = await call_openrouter(
+                        model='google/gemini-2.5-pro',
+                        messages=[{
+                            'role': 'user',
+                            'content': [
+                                {'type': 'text', 'text': PHOTO_COMPARISON_PROMPT},
+                                *photo_contents,
+                                {'type': 'text', 'text': 'COMPARED TO:'},
+                                *comp_contents
+                            ]
+                        }],
+                        max_tokens=3000,
+                        temperature=0.1
+                    )
                 
                 comp_content = comp_response['choices'][0]['message']['content']
                 comparison = extract_json_from_text(comp_content)
@@ -1053,7 +1092,7 @@ async def analyze_photos(request: PhotoAnalysisRequest):
         'session_id': request.session_id,
         'photo_ids': request.photo_ids,
         'analysis_data': analysis,
-        'model_used': 'google/gemini-2.5-pro',
+        'model_used': 'openai/gpt-5',  # Updated to reflect primary model
         'confidence_score': analysis.get('confidence', 0),
         'is_sensitive': session.get('is_sensitive', False) or request.temporary_analysis,
         'expires_at': (datetime.now() + timedelta(hours=24)).isoformat() if request.temporary_analysis else None
@@ -1431,15 +1470,28 @@ Format as JSON:
 }}"""
     
     try:
-        response = await call_openrouter_with_retry(
-            model='google/gemini-2.5-pro',
-            messages=[
-                {"role": "system", "content": "You are a medical AI analyzing photo-based health tracking data."},
-                {"role": "user", "content": insights_prompt}
-            ],
-            max_tokens=1000,
-            temperature=0.3
-        )
+        # Try GPT-5 first, fallback to Gemini
+        try:
+            response = await call_openrouter_with_retry(
+                model='openai/gpt-5',
+                messages=[
+                    {"role": "system", "content": "You are a medical AI analyzing photo-based health tracking data."},
+                    {"role": "user", "content": insights_prompt}
+                ],
+                max_tokens=1000,
+                temperature=0.3
+            )
+        except Exception as e:
+            print(f"GPT-5 failed for insights, using Gemini: {e}")
+            response = await call_openrouter_with_retry(
+                model='google/gemini-2.5-pro',
+                messages=[
+                    {"role": "system", "content": "You are a medical AI analyzing photo-based health tracking data."},
+                    {"role": "user", "content": insights_prompt}
+                ],
+                max_tokens=1000,
+                temperature=0.3
+            )
         
         insights = extract_json_from_text(response['choices'][0]['message']['content'])
         report_data['ai_insights'] = insights
@@ -2184,16 +2236,28 @@ Format as JSON:
 }}"""
     
     try:
-        # Use Gemini for medical reasoning
-        response = await call_openrouter_with_retry(
-            model='google/gemini-2.5-pro',
-            messages=[
-                {"role": "system", "content": "You are a medical AI specializing in visual monitoring of health conditions."},
-                {"role": "user", "content": monitoring_prompt}
-            ],
-            max_tokens=4500,  # Increased 3x for detailed monitoring suggestions
-            temperature=0.3
-        )
+        # Use GPT-5 for medical reasoning, with Gemini fallback
+        try:
+            response = await call_openrouter_with_retry(
+                model='openai/gpt-5',
+                messages=[
+                    {"role": "system", "content": "You are a medical AI specializing in visual monitoring of health conditions."},
+                    {"role": "user", "content": monitoring_prompt}
+                ],
+                max_tokens=4500,  # Increased 3x for detailed monitoring suggestions
+                temperature=0.3
+            )
+        except Exception as e:
+            print(f"GPT-5 failed for monitoring, using Gemini: {e}")
+            response = await call_openrouter_with_retry(
+                model='google/gemini-2.5-pro',
+                messages=[
+                    {"role": "system", "content": "You are a medical AI specializing in visual monitoring of health conditions."},
+                    {"role": "user", "content": monitoring_prompt}
+                ],
+                max_tokens=4500,
+                temperature=0.3
+            )
         
         monitoring_data = extract_json_from_text(response['choices'][0]['message']['content'])
         
