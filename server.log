@@ -153,3 +153,83 @@ ERROR:services.background_predictions:Error checking expired predictions: {'mess
 INFO:apscheduler.executors.default:Running job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-07 17:00:00 EDT)" (scheduled at 2025-08-07 16:00:00-04:00)
 INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/user_ai_preferences?select=%2A&weekly_generation_enabled=eq.True&preferred_hour=eq.20&preferred_day_of_week=eq.3 "HTTP/2 200 OK"
 INFO:apscheduler.executors.default:Job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-07 17:00:00 EDT)" executed successfully
+INFO:httpx:HTTP Request: POST https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/rpc/regenerate_expired_predictions "HTTP/2 404 Not Found"
+ERROR:services.background_predictions:Error checking expired predictions: {'message': 'Could not find the function public.regenerate_expired_predictions without parameters in the schema cache', 'code': 'PGRST202', 'hint': 'Perhaps you meant to call the function public.get_cached_prediction', 'details': 'Searched for the function public.regenerate_expired_predictions without parameters or with a single unnamed json/jsonb parameter, but no matches were found in the schema cache.'}
+INFO:apscheduler.executors.default:Running job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-07 18:00:00 EDT)" (scheduled at 2025-08-07 17:00:00-04:00)
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/user_ai_preferences?select=%2A&weekly_generation_enabled=eq.True&preferred_hour=eq.21&preferred_day_of_week=eq.3 "HTTP/2 200 OK"
+INFO:apscheduler.executors.default:Job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-07 18:00:00 EDT)" executed successfully
+INFO:httpx:HTTP Request: POST https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/rpc/regenerate_expired_predictions "HTTP/2 404 Not Found"
+ERROR:services.background_predictions:Error checking expired predictions: {'message': 'Could not find the function public.regenerate_expired_predictions without parameters in the schema cache', 'code': 'PGRST202', 'hint': 'Perhaps you meant to call the function public.get_cached_prediction', 'details': 'Searched for the function public.regenerate_expired_predictions without parameters or with a single unnamed json/jsonb parameter, but no matches were found in the schema cache.'}
+INFO:apscheduler.executors.default:Running job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-07 19:00:00 EDT)" (scheduled at 2025-08-07 18:00:00-04:00)
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/user_ai_preferences?select=%2A&weekly_generation_enabled=eq.True&preferred_hour=eq.22&preferred_day_of_week=eq.3 "HTTP/2 200 OK"
+INFO:apscheduler.executors.default:Job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-07 19:00:00 EDT)" executed successfully
+INFO:httpx:HTTP Request: POST https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/rpc/regenerate_expired_predictions "HTTP/2 404 Not Found"
+ERROR:services.background_predictions:Error checking expired predictions: {'message': 'Could not find the function public.regenerate_expired_predictions without parameters in the schema cache', 'code': 'PGRST202', 'hint': 'Perhaps you meant to call the function public.get_cached_prediction', 'details': 'Searched for the function public.regenerate_expired_predictions without parameters or with a single unnamed json/jsonb parameter, but no matches were found in the schema cache.'}
+INFO:apscheduler.executors.default:Running job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-07 20:00:00 EDT)" (scheduled at 2025-08-07 19:00:00-04:00)
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/user_ai_preferences?select=%2A&weekly_generation_enabled=eq.True&preferred_hour=eq.23&preferred_day_of_week=eq.3 "HTTP/2 200 OK"
+INFO:apscheduler.executors.default:Job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-07 20:00:00 EDT)" executed successfully
+INFO:httpx:HTTP Request: POST https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/rpc/regenerate_expired_predictions "HTTP/2 404 Not Found"
+ERROR:services.background_predictions:Error checking expired predictions: {'message': 'Could not find the function public.regenerate_expired_predictions without parameters in the schema cache', 'code': 'PGRST202', 'hint': 'Perhaps you meant to call the function public.get_cached_prediction', 'details': 'Searched for the function public.regenerate_expired_predictions without parameters or with a single unnamed json/jsonb parameter, but no matches were found in the schema cache.'}
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/health_scores?select=%2A&user_id=eq.5c9012d0-082d-4e37-8769-f4358162b57a&week_of=eq.2025-08-04T00%3A00%3A00%2B00%3A00&order=created_at.desc&limit=1 "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/medical?select=%2A&id=eq.5c9012d0-082d-4e37-8769-f4358162b57a "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/conversations?select=id&user_id=eq.5c9012d0-082d-4e37-8769-f4358162b57a "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/quick_scans?select=%2A&user_id=eq.5c9012d0-082d-4e37-8769-f4358162b57a "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/deep_dive_sessions?select=%2A&user_id=eq.5c9012d0-082d-4e37-8769-f4358162b57a&created_at=gte.7&created_at=lte.0&order=created_at.asc "HTTP/2 400 Bad Request"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/medical?select=%2A&id=eq.5c9012d0-082d-4e37-8769-f4358162b57a "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: POST https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/health_scores "HTTP/2 201 Created"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/health_scores?select=score&user_id=eq.5c9012d0-082d-4e37-8769-f4358162b57a&week_of=eq.2025-07-28T00%3A00%3A00%2B00%3A00&order=created_at.desc&limit=1 "HTTP/2 200 OK"
+Health story date range: 7 to 0
+Error gathering health story data: {'message': 'invalid input syntax for type timestamp with time zone: "7"', 'code': '22007', 'hint': None, 'details': None}
+INFO:     127.0.0.1:60387 - "GET /api/health-score/5c9012d0-082d-4e37-8769-f4358162b57a?force_refresh=false HTTP/1.1" 200 OK
+INFO:apscheduler.executors.default:Running job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-07 21:00:00 EDT)" (scheduled at 2025-08-07 20:00:00-04:00)
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/user_ai_preferences?select=%2A&weekly_generation_enabled=eq.True&preferred_hour=eq.0&preferred_day_of_week=eq.4 "HTTP/2 200 OK"
+INFO:apscheduler.executors.default:Job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-07 21:00:00 EDT)" executed successfully
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/medical?select=%2A&id=eq.5c9012d0-082d-4e37-8769-f4358162b57a "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/conversations?select=id&user_id=eq.5c9012d0-082d-4e37-8769-f4358162b57a "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/quick_scans?select=%2A&user_id=eq.5c9012d0-082d-4e37-8769-f4358162b57a "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/deep_dive_sessions?select=%2A&user_id=eq.5c9012d0-082d-4e37-8769-f4358162b57a&created_at=gte.2025-08-01T00%3A11%3A10.584986%2B00%3A00&created_at=lte.2025-08-08T00%3A11%3A10.584986%2B00%3A00&order=created_at.asc "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/symptom_tracking?select=%2A&user_id=eq.5c9012d0-082d-4e37-8769-f4358162b57a&occurrence_date=gte.2025-08-01T00%3A11%3A10.584986%2B00%3A00&occurrence_date=lte.2025-08-08T00%3A11%3A10.584986%2B00%3A00&order=occurrence_date.asc "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: POST https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/health_stories "HTTP/2 201 Created"
+Health story request received for user_id: '5c9012d0-082d-4e37-8769-f4358162b57a'
+User ID type: <class 'str'>, length: 36
+Health story date range: 2025-08-01T00:11:10.584986+00:00 to 2025-08-08T00:11:10.584986+00:00
+No quick scans found for health story
+Calling Kimi K2 for health story generation...
+System prompt length: 3183 chars
+Context length: 857 chars
+LLM Response received. Model used: moonshotai/kimi-k2
+Token usage: {'prompt_tokens': 930, 'completion_tokens': 253, 'total_tokens': 1183, 'prompt_tokens_details': None}
+Raw LLM response type: <class 'dict'>
+Raw response (dict): {'title': 'The Week of Quiet Resilience', 'subtitle': 'How your body found its rhythm without daily monitoring', 'content': "This week, your body chose the path of steadiness. Without the daily ritual of scans, your cardiovascular system maintained its gentle cadence—your resting pulse likely hovering in the mid-60s range that has served you well across ninety remarkable years. The absence of acute symptoms suggests your system found a pleasant equilibrium, a testament to the quiet strength that comes from decades of adaptation.\n\nYour musculoskeletal framework showed remarkable cooperation this week. The slight tension that occasionally visits your lower back remained notably absent, while your shoulders maintained their fluid range of motion. Even your typically active knees—those faithful companions through nearly a century of movement—settled into a comfortable pattern free from the twinges that sometimes announce their presence.\n\nMost significantly, your overall system displayed the kind of stability that speaks to deep-rooted health. Without any inflammatory responses demanding attention, your immune system's energy could be directed toward its essential maintenance work. This week of unremarkable readings is, in itself, remarkably good news—your body choosing harmony over drama, a quiet victory written in the language of absence."}
+Successfully extracted JSON. Keys: ['title', 'subtitle', 'content']
+Extracted title: The Week of Quiet Resilience...
+Extracted subtitle: How your body found its rhythm without daily monit...
+Content length: 1232 chars
+INFO:     127.0.0.1:64609 - "POST /api/health-story HTTP/1.1" 200 OK
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/health_scores?select=%2A&user_id=eq.5c9012d0-082d-4e37-8769-f4358162b57a&week_of=eq.2025-08-04T00%3A00%3A00%2B00%3A00&order=created_at.desc&limit=1 "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/health_scores?select=score&user_id=eq.5c9012d0-082d-4e37-8769-f4358162b57a&week_of=eq.2025-07-28T00%3A00%3A00%2B00%3A00&order=created_at.desc&limit=1 "HTTP/2 200 OK"
+INFO:     127.0.0.1:64609 - "GET /api/health-score/5c9012d0-082d-4e37-8769-f4358162b57a HTTP/1.1" 200 OK
+INFO:httpx:HTTP Request: POST https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/rpc/get_cached_prediction "HTTP/2 200 OK"
+INFO:api.ai_predictions:Generating new dashboard alert for user 5c9012d0-082d-4e37-8769-f4358162b57a
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/medical?select=%2A&id=eq.5c9012d0-082d-4e37-8769-f4358162b57a "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/symptom_tracking?select=%2A&user_id=eq.5c9012d0-082d-4e37-8769-f4358162b57a&occurrence_date=gte.2025-07-25T00%3A11%3A17.143945%2B00%3A00&occurrence_date=lte.2025-08-08T00%3A11%3A17.143945%2B00%3A00&order=occurrence_date.asc "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/quick_scans?select=%2A&user_id=eq.5c9012d0-082d-4e37-8769-f4358162b57a&created_at=gte.2025-07-25T00%3A11%3A17.231834%2B00%3A00&created_at=lte.2025-08-08T00%3A11%3A17.231834%2B00%3A00&order=created_at.asc "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/deep_dive_sessions?select=%2A&user_id=eq.5c9012d0-082d-4e37-8769-f4358162b57a&created_at=gte.2025-07-25T00%3A11%3A17.328428%2B00%3A00&created_at=lte.2025-08-08T00%3A11%3A17.328428%2B00%3A00&order=created_at.asc "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/symptom_tracking?select=%2A&user_id=eq.5c9012d0-082d-4e37-8769-f4358162b57a&symptom_name=ilike.%25sleep%25&occurrence_date=gte.2025-07-25T00%3A11%3A17.417822%2B00%3A00&occurrence_date=lte.2025-08-08T00%3A11%3A17.417822%2B00%3A00&order=occurrence_date.asc "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/symptom_tracking?select=%2A&user_id=eq.5c9012d0-082d-4e37-8769-f4358162b57a&or=%28symptom_name.ilike.%25mood%25%2Csymptom_name.ilike.%25anxiety%25%2Csymptom_name.ilike.%25depression%25%29&occurrence_date=gte.2025-07-25T00%3A11%3A17.568633%2B00%3A00&occurrence_date=lte.2025-08-08T00%3A11%3A17.568633%2B00%3A00&order=occurrence_date.asc "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/symptom_tracking?select=%2A&user_id=eq.5c9012d0-082d-4e37-8769-f4358162b57a&symptom_name=ilike.%25medication%25&occurrence_date=gte.2025-07-25T00%3A11%3A17.659473%2B00%3A00&occurrence_date=lte.2025-08-08T00%3A11%3A17.659473%2B00%3A00&order=occurrence_date.asc "HTTP/2 200 OK"
+INFO:api.ai_predictions:Insufficient data for user 5c9012d0-082d-4e37-8769-f4358162b57a: quality score 0
+INFO:     127.0.0.1:64609 - "GET /api/ai/dashboard-alert/5c9012d0-082d-4e37-8769-f4358162b57a HTTP/1.1" 200 OK
+INFO:httpx:HTTP Request: POST https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/rpc/regenerate_expired_predictions "HTTP/2 404 Not Found"
+ERROR:services.background_predictions:Error checking expired predictions: {'message': 'Could not find the function public.regenerate_expired_predictions without parameters in the schema cache', 'code': 'PGRST202', 'hint': 'Perhaps you meant to call the function public.get_cached_prediction', 'details': 'Searched for the function public.regenerate_expired_predictions without parameters or with a single unnamed json/jsonb parameter, but no matches were found in the schema cache.'}
+WARNING:apscheduler.executors.default:Run time of job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-07 22:00:00 EDT)" was missed by 0:00:20.549800
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/medical?select=%2A&id=eq.5c9012d0-082d-4e37-8769-f4358162b57a "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/conversations?select=id&user_id=eq.5c9012d0-082d-4e37-8769-f4358162b57a "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/quick_scans?select=%2A&user_id=eq.5c9012d0-082d-4e37-8769-f4358162b57a "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/deep_dive_sessions?select=%2A&user_id=eq.5c9012d0-082d-4e37-8769-f4358162b57a&created_at=gte.7&created_at=lte.0&order=created_at.asc "HTTP/2 400 Bad Request"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/medical?select=%2A&id=eq.5c9012d0-082d-4e37-8769-f4358162b57a "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: POST https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/health_scores "HTTP/2 201 Created"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/health_scores?select=score&user_id=eq.5c9012d0-082d-4e37-8769-f4358162b57a&week_of=eq.2025-07-28T00%3A00%3A00%2B00%3A00&order=created_at.desc&limit=1 "HTTP/2 200 OK"
+Health story date range: 7 to 0
+Error gathering health story data: {'message': 'invalid input syntax for type timestamp with time zone: "7"', 'code': '22007', 'hint': None, 'details': None}
+INFO:     127.0.0.1:60307 - "GET /api/health-score/5c9012d0-082d-4e37-8769-f4358162b57a?force_refresh=true HTTP/1.1" 200 OK

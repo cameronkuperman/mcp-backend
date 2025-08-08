@@ -445,8 +445,17 @@ async def gather_selected_data(
             data["quick_scans"] = scans_result.data or []
             logger.info(f"Found {len(data['quick_scans'])} quick scans WITH user filter: {bool(user_id)}")
             if data["quick_scans"]:
-                logger.info(f"Quick scan IDs found: {[qs.get('id') for qs in data['quick_scans']]}")
-                logger.info(f"Quick scan summaries: {[qs.get('llm_summary', 'No summary')[:100] for qs in data['quick_scans']]}")
+                logger.info(f"Quick scan IDs found: {[qs.get('id') for qs in data['quick_scans'] if qs]}")
+                # Safely get summaries with proper null checking
+                summaries = []
+                for qs in data['quick_scans']:
+                    if qs:
+                        summary = qs.get('llm_summary')
+                        if summary and isinstance(summary, str):
+                            summaries.append(summary[:100])
+                        else:
+                            summaries.append('No summary')
+                logger.info(f"Quick scan summaries: {summaries}")
             
             # Get ONLY symptom tracking directly linked to these specific scans
             for scan in data["quick_scans"]:

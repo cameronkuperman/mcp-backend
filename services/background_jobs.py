@@ -329,12 +329,25 @@ async def weekly_ai_predictions_job():
     logger.info(f"========== WEEKLY AI PREDICTIONS STARTED at {datetime.utcnow()} ==========")
     
     try:
-        # Get users due for generation based on their preferences
-        users_result = supabase.rpc('get_users_due_for_generation').execute()
+        # Get all users with weekly generation enabled
+        # Since we want to process ALL users as per requirements
+        users_result = supabase.table('user_ai_preferences')\
+            .select('user_id')\
+            .eq('weekly_generation_enabled', True)\
+            .execute()
+        
         users_to_process = users_result.data if users_result.data else []
         
+        # If no preferences exist, get all users from medical profiles
         if not users_to_process:
-            logger.info("No users due for AI predictions generation")
+            logger.info("No user preferences found, getting all users from medical profiles")
+            medical_result = supabase.table('medical')\
+                .select('id')\
+                .execute()
+            users_to_process = [{'user_id': user['id']} for user in (medical_result.data or [])]
+        
+        if not users_to_process:
+            logger.info("No users found for AI predictions generation")
             return
         
         total_users = len(users_to_process)

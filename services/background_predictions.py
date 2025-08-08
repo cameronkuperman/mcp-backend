@@ -26,17 +26,34 @@ class PredictionRegenerationService:
     async def check_and_regenerate_predictions(self):
         """Check for expired predictions and regenerate them"""
         try:
-            # Get users with expired predictions
-            expired_result = supabase.rpc('regenerate_expired_predictions').execute()
+            # Get expired predictions directly from the table
+            # Find predictions where regenerate_after has passed or expires_at has passed
+            current_time = datetime.now(timezone.utc).isoformat()
+            
+            # Query for predictions that need regeneration
+            expired_result = supabase.table('weekly_ai_predictions')\
+                .select('user_id, prediction_type')\
+                .eq('is_current', True)\
+                .or_(f"regenerate_after.lt.{current_time},expires_at.lt.{current_time}")\
+                .execute()
             
             if not expired_result.data:
                 logger.info("No expired predictions to regenerate")
                 return
             
-            logger.info(f"Found {len(expired_result.data)} expired predictions to regenerate")
+            # Get unique user-prediction type combinations
+            seen = set()
+            expired_predictions = []
+            for pred in expired_result.data:
+                key = (pred['user_id'], pred['prediction_type'])
+                if key not in seen:
+                    seen.add(key)
+                    expired_predictions.append(pred)
+            
+            logger.info(f"Found {len(expired_predictions)} expired predictions to regenerate")
             
             # Process each expired prediction
-            for expired in expired_result.data:
+            for expired in expired_predictions:
                 user_id = expired['user_id']
                 prediction_type = expired['prediction_type']
                 

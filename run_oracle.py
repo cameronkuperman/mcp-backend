@@ -29,8 +29,8 @@ from api.general_assessment import router as general_assessment_router
 # Import middleware
 from core.middleware import setup_cors
 
-# Import background jobs
-from services.background_jobs import init_scheduler, shutdown_scheduler
+# Import background jobs - using enhanced v2 with FAANG-level optimizations
+from services.background_jobs_v2 import init_scheduler, shutdown_scheduler
 
 load_dotenv()
 
