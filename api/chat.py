@@ -1,12 +1,20 @@
 """Chat and Oracle API endpoints"""
-from fastapi import APIRouter
+from fastapi import APIRouter, BackgroundTasks
 from datetime import datetime, timezone, timedelta
 import os
 import requests
 from dotenv import load_dotenv
-from typing import Optional, Dict
+from typing import Optional, Dict, List
 
-from models.requests import ChatRequest, GenerateSummaryRequest
+from models.requests import (
+    ChatRequest, 
+    GenerateSummaryRequest,
+    ConversationListRequest,
+    GenerateTitleRequest,
+    ExitSummaryRequest,
+    CheckContextRequest,
+    ResumeConversationRequest
+)
 from supabase_client import supabase
 from business_logic import call_llm, make_prompt, get_llm_context as get_llm_context_biz
 from utils.token_counter import count_tokens
@@ -16,6 +24,14 @@ from utils.summary_helpers import (
 )
 from utils.data_gathering import get_user_medical_data
 from utils.context_builder import get_enhanced_llm_context
+from utils.context_compression import (
+    compress_medical_context,
+    free_tier_context,
+    extract_medical_flags,
+    generate_medical_title,
+    calculate_context_status,
+    generate_medical_summary
+)
 
 load_dotenv()
 
@@ -150,6 +166,9 @@ async def chat(request: ChatRequest):
     
     api_key = os.getenv("OPENROUTER_API_KEY")
     
+    # Check user subscription status for context handling
+    is_premium = False  # Simplified - check subscriptions table in production
+    
     # Fetch user medical data (handle anonymous users)
     user_medical_data = {}
     if request.user_id:
@@ -162,6 +181,17 @@ async def chat(request: ChatRequest):
     
     # Get conversation history
     history = await get_conversation_history(request.conversation_id)
+    
+    # Check context limits and apply compression if needed
+    all_messages = history + [{"role": "user", "content": request.query}]
+    context_status = calculate_context_status(all_messages, is_premium)
+    
+    # Apply compression if needed
+    if context_status.get("needs_compression"):
+        if is_premium:
+            history = await compress_medical_context(history)
+        else:
+            history = await free_tier_context(history)
     
     # Build comprehensive system prompt with all context
     medical_summary = ""
@@ -190,9 +220,9 @@ INSTRUCTIONS:
     # Build messages with history
     messages = [{"role": "system", "content": system_prompt}]
     
-    # Add conversation history (last 5 exchanges)
-    for msg in history[-10:]:  # Last 5 user/assistant pairs
-        if msg.get("role") in ["user", "assistant"]:
+    # Add conversation history (compressed if needed)
+    for msg in history:
+        if msg.get("role") in ["user", "assistant", "system"]:
             messages.append({
                 "role": msg["role"],
                 "content": msg["content"]
@@ -250,16 +280,40 @@ INSTRUCTIONS:
             usage = result.get("usage", {})
             total_tokens = usage.get("total_tokens", 0)
             
-            # Get current total_tokens from conversation
-            conv_response = supabase.table("conversations").select("total_tokens").eq("id", request.conversation_id).execute()
+            # Get current conversation details
+            conv_response = supabase.table("conversations").select("total_tokens, message_count, title").eq("id", request.conversation_id).execute()
             current_tokens = 0
+            current_message_count = 0
+            current_title = "Health Discussion"
+            
             if conv_response.data and len(conv_response.data) > 0:
                 current_tokens = conv_response.data[0].get("total_tokens", 0) or 0
+                current_message_count = conv_response.data[0].get("message_count", 0) or 0
+                current_title = conv_response.data[0].get("title", "Health Discussion")
+            
+            new_message_count = current_message_count + 2  # +2 for new user/assistant messages
             
             supabase.table("conversations").update({
                 "total_tokens": current_tokens + total_tokens,
-                "message_count": len(history) + 2  # +2 for new user/assistant messages
+                "message_count": new_message_count
             }).eq("id", request.conversation_id).execute()
+            
+            # Auto-generate title after 4 messages if still default
+            if new_message_count >= 4 and (not current_title or current_title in ["Health Discussion", "New Conversation", "Health Consultation"]):
+                # Get recent messages for title generation
+                title_messages = history[-4:] + [
+                    {"role": "user", "content": request.query},
+                    {"role": "assistant", "content": content}
+                ]
+                generated_title = await generate_medical_title(title_messages)
+                
+                # Update title
+                supabase.table("conversations").update({
+                    "title": generated_title
+                }).eq("id", request.conversation_id).execute()
+                
+                print(f"Auto-generated title: {generated_title}")
+                
         except Exception as e:
             print(f"Error updating conversation tokens: {e}")
         
@@ -275,7 +329,9 @@ INSTRUCTIONS:
             "status": "success",
             "medical_data_loaded": bool(user_medical_data),
             "context_loaded": bool(llm_context),
-            "history_count": len(history)
+            "history_count": len(history),
+            "context_status": context_status,  # Include context status for frontend
+            "user_tier": "premium" if is_premium else "free"
         }
     else:
         error_msg = f"Error: {response.status_code} - {response.text}"
@@ -369,5 +425,414 @@ async def generate_summary(request: GenerateSummaryRequest):
         print(f"Error generating summary: {e}")
         return {
             "error": str(e),
+            "status": "error"
+        }
+
+@router.get("/oracle/conversations")
+async def list_conversations(user_id: str, limit: int = 20, offset: int = 0, time_filter: str = "all"):
+    """List user's resumable conversations with time grouping"""
+    try:
+        # Get user's conversations
+        query = supabase.table("conversations").select(
+            "id, title, created_at, updated_at, last_message_at, message_count, metadata"
+        ).eq("user_id", user_id).order("last_message_at", desc=True)
+        
+        # Apply time filter
+        if time_filter == "today":
+            today = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+            query = query.gte("last_message_at", today.isoformat())
+        elif time_filter == "week":
+            week_ago = datetime.now(timezone.utc) - timedelta(days=7)
+            query = query.gte("last_message_at", week_ago.isoformat())
+        elif time_filter == "month":
+            month_ago = datetime.now(timezone.utc) - timedelta(days=30)
+            query = query.gte("last_message_at", month_ago.isoformat())
+        
+        # Apply pagination
+        query = query.range(offset, offset + limit - 1)
+        response = query.execute()
+        
+        conversations = []
+        for conv in response.data:
+            # Get last message for preview
+            last_msg_response = supabase.table("messages").select(
+                "content, role"
+            ).eq("conversation_id", conv["id"]).order("created_at", desc=True).limit(1).execute()
+            
+            last_message = ""
+            if last_msg_response.data:
+                content = last_msg_response.data[0]["content"]
+                # Truncate for preview
+                last_message = content[:150] + "..." if len(content) > 150 else content
+            
+            # Extract medical flags from metadata
+            metadata = conv.get("metadata", {}) or {}
+            medical_flags = metadata.get("medical_flags", [])
+            
+            # Calculate time grouping
+            last_message_at = datetime.fromisoformat(conv["last_message_at"].replace("Z", "+00:00"))
+            now = datetime.now(timezone.utc)
+            time_diff = now - last_message_at
+            
+            if time_diff.days == 0:
+                time_group = "today"
+            elif time_diff.days == 1:
+                time_group = "yesterday"
+            elif time_diff.days < 7:
+                time_group = "this_week"
+            else:
+                time_group = "older"
+            
+            conversations.append({
+                "id": conv["id"],
+                "title": conv.get("title") or "Health Discussion",
+                "last_message": last_message,
+                "last_message_at": conv["last_message_at"],
+                "message_count": conv.get("message_count", 0),
+                "medical_flags": medical_flags,
+                "has_urgent_content": metadata.get("has_urgent_content", False),
+                "time_group": time_group,
+                "created_at": conv["created_at"]
+            })
+        
+        # Check if there are more conversations
+        total_response = supabase.table("conversations").select("id", count="exact").eq("user_id", user_id).execute()
+        total = total_response.count if hasattr(total_response, 'count') else len(conversations)
+        has_more = (offset + limit) < total
+        
+        return {
+            "conversations": conversations,
+            "has_more": has_more,
+            "total": total,
+            "status": "success"
+        }
+        
+    except Exception as e:
+        print(f"Error listing conversations: {e}")
+        return {
+            "error": str(e),
+            "conversations": [],
+            "status": "error"
+        }
+
+@router.get("/oracle/resume/{conversation_id}")
+async def resume_conversation(conversation_id: str, user_id: str):
+    """Resume a conversation with smart context handling"""
+    try:
+        # Check user subscription status (simplified for now)
+        # In production, you'd check the subscriptions table
+        is_premium = False  # Default to free tier for now
+        
+        # Fetch conversation details
+        conv_response = supabase.table("conversations").select("*").eq("id", conversation_id).eq("user_id", user_id).execute()
+        if not conv_response.data:
+            return {"error": "Conversation not found", "status": "error"}
+        
+        conversation = conv_response.data[0]
+        
+        # Fetch ALL messages for display
+        messages_response = supabase.table("messages").select("*").eq("conversation_id", conversation_id).order("created_at", desc=False).execute()
+        all_messages = messages_response.data or []
+        
+        # Calculate total tokens
+        total_tokens = sum(msg.get("token_count", 0) for msg in all_messages)
+        
+        # Determine context handling based on user tier and token count
+        context_status = calculate_context_status(all_messages, is_premium)
+        
+        # Prepare AI context based on status
+        if context_status["needs_compression"]:
+            if is_premium:
+                ai_context = await compress_medical_context(all_messages)
+            else:
+                ai_context = await free_tier_context(all_messages)
+        else:
+            ai_context = all_messages
+        
+        # Extract medical context
+        medical_flags = extract_medical_flags(all_messages)
+        
+        # Build medical context summary
+        medical_context = {
+            "symptoms_mentioned": [],
+            "medications_discussed": [],
+            "urgency_level": "low",
+            "last_recommendations": []
+        }
+        
+        # Extract specific medical information
+        for msg in all_messages[-20:]:  # Check last 20 messages
+            content = msg.get("content", "").lower()
+            
+            # Extract symptoms
+            symptom_keywords = ["pain", "fever", "nausea", "headache", "dizzy", "fatigue"]
+            for symptom in symptom_keywords:
+                if symptom in content and symptom not in medical_context["symptoms_mentioned"]:
+                    medical_context["symptoms_mentioned"].append(symptom)
+            
+            # Extract medications
+            if "medication" in content or "prescription" in content:
+                # Simple extraction - in production, use NER
+                words = content.split()
+                for i, word in enumerate(words):
+                    if word in ["medication", "prescription", "taking"]:
+                        if i + 1 < len(words):
+                            medical_context["medications_discussed"].append(words[i + 1])
+            
+            # Check urgency
+            if any(urgent in content for urgent in ["urgent", "emergency", "severe"]):
+                medical_context["urgency_level"] = "high"
+            elif "moderate" in content:
+                medical_context["urgency_level"] = "medium"
+        
+        return {
+            "conversation": {
+                "id": conversation_id,
+                "title": conversation.get("title", "Health Discussion"),
+                "display_messages": all_messages,  # Full history for UI
+                "ai_context": ai_context,  # Compressed context for AI
+                "total_tokens": total_tokens,
+                "message_count": len(all_messages),
+                "medical_context": medical_context,
+                "medical_flags": medical_flags,
+                "created_at": conversation["created_at"],
+                "last_message_at": conversation["last_message_at"]
+            },
+            "context_status": context_status,
+            "user_tier": "premium" if is_premium else "free",
+            "can_continue": True,
+            "status": "success"
+        }
+        
+    except Exception as e:
+        print(f"Error resuming conversation: {e}")
+        return {
+            "error": str(e),
+            "status": "error"
+        }
+
+@router.post("/oracle/generate-title")
+async def generate_title(request: GenerateTitleRequest):
+    """Generate or regenerate conversation title"""
+    try:
+        # Check if conversation exists and title status
+        conv_response = supabase.table("conversations").select("title, metadata").eq("id", request.conversation_id).execute()
+        if not conv_response.data:
+            return {"error": "Conversation not found", "status": "error"}
+        
+        conversation = conv_response.data[0]
+        metadata = conversation.get("metadata", {}) or {}
+        title_locked = metadata.get("title_locked", False)
+        
+        # Check if we should generate
+        if conversation.get("title") and conversation["title"] != "New Conversation" and not request.force:
+            if title_locked:
+                return {
+                    "title": conversation["title"],
+                    "generated": False,
+                    "message": "Title is locked",
+                    "status": "success"
+                }
+        
+        # Get first few messages for title generation
+        messages_response = supabase.table("messages").select("role, content").eq("conversation_id", request.conversation_id).order("created_at", desc=False).limit(6).execute()
+        
+        if not messages_response.data or len(messages_response.data) < 4:
+            return {
+                "title": conversation.get("title", "Health Discussion"),
+                "generated": False,
+                "message": "Not enough messages for title generation",
+                "status": "success"
+            }
+        
+        # Generate title
+        title = await generate_medical_title(messages_response.data)
+        
+        # Update conversation
+        metadata["auto_title_generated"] = True
+        metadata["title_generated_at"] = datetime.now(timezone.utc).isoformat()
+        
+        supabase.table("conversations").update({
+            "title": title,
+            "metadata": metadata,
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }).eq("id", request.conversation_id).execute()
+        
+        return {
+            "title": title,
+            "generated": True,
+            "status": "success"
+        }
+        
+    except Exception as e:
+        print(f"Error generating title: {e}")
+        return {
+            "error": str(e),
+            "status": "error"
+        }
+
+async def generate_summary_background(conversation_id: str, user_id: str):
+    """Background task to generate conversation summary"""
+    try:
+        # Update status to generating
+        conv_response = supabase.table("conversations").select("metadata").eq("id", conversation_id).execute()
+        metadata = conv_response.data[0].get("metadata", {}) if conv_response.data else {}
+        metadata["summary_generation_status"] = "generating"
+        
+        supabase.table("conversations").update({
+            "metadata": metadata
+        }).eq("id", conversation_id).execute()
+        
+        # Get all messages
+        messages_response = supabase.table("messages").select("*").eq("conversation_id", conversation_id).order("created_at", desc=False).execute()
+        messages = messages_response.data or []
+        
+        # Generate medical summary
+        summary = await generate_medical_summary(messages)
+        
+        # Extract medical flags
+        medical_flags = extract_medical_flags(messages)
+        
+        # Check for urgent content
+        has_urgent = any("urgent" in msg.get("content", "").lower() or "emergency" in msg.get("content", "").lower() for msg in messages)
+        
+        # Update or create LLM context
+        existing_context = supabase.table("llm_context").select("id").eq("conversation_id", conversation_id).execute()
+        
+        if existing_context.data:
+            # Update existing
+            supabase.table("llm_context").update({
+                "llm_summary": summary,
+                "updated_at": datetime.now(timezone.utc).isoformat()
+            }).eq("conversation_id", conversation_id).execute()
+        else:
+            # Create new
+            supabase.table("llm_context").insert({
+                "conversation_id": conversation_id,
+                "user_id": user_id,
+                "llm_summary": summary,
+                "created_at": datetime.now(timezone.utc).isoformat()
+            }).execute()
+        
+        # Update conversation metadata
+        metadata["medical_flags"] = medical_flags
+        metadata["has_urgent_content"] = has_urgent
+        metadata["last_summary_at"] = datetime.now(timezone.utc).isoformat()
+        metadata["summary_generation_status"] = "completed"
+        
+        supabase.table("conversations").update({
+            "metadata": metadata,
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }).eq("id", conversation_id).execute()
+        
+        print(f"Summary generated successfully for conversation {conversation_id}")
+        
+    except Exception as e:
+        print(f"Error in background summary generation: {e}")
+        # Update status to failed
+        try:
+            conv_response = supabase.table("conversations").select("metadata").eq("id", conversation_id).execute()
+            metadata = conv_response.data[0].get("metadata", {}) if conv_response.data else {}
+            metadata["summary_generation_status"] = "failed"
+            metadata["summary_error"] = str(e)
+            
+            supabase.table("conversations").update({
+                "metadata": metadata
+            }).eq("id", conversation_id).execute()
+        except:
+            pass
+
+@router.post("/oracle/exit-summary")
+async def exit_summary(request: ExitSummaryRequest, background_tasks: BackgroundTasks):
+    """Queue background summary generation on chat exit"""
+    try:
+        # Add to background tasks
+        background_tasks.add_task(
+            generate_summary_background,
+            request.conversation_id,
+            request.user_id
+        )
+        
+        return {
+            "status": "queued",
+            "message": "Summary generation started in background"
+        }
+        
+    except Exception as e:
+        print(f"Error queuing summary generation: {e}")
+        return {
+            "error": str(e),
+            "status": "error"
+        }
+
+@router.post("/oracle/check-context")
+async def check_context(request: CheckContextRequest):
+    """Check if context limits will be exceeded with new message"""
+    try:
+        # Check user subscription
+        is_premium = False  # Simplified for now
+        
+        # Get current messages
+        messages_response = supabase.table("messages").select("content, token_count").eq("conversation_id", request.conversation_id).execute()
+        messages = messages_response.data or []
+        
+        # Calculate current tokens
+        current_tokens = sum(msg.get("token_count", 0) for msg in messages)
+        
+        # Estimate new message tokens
+        new_tokens = count_tokens(request.new_message)
+        total_tokens = current_tokens + new_tokens
+        
+        # Determine limits
+        limit = 120000 if is_premium else 30000
+        
+        if total_tokens < limit:
+            return {
+                "can_continue": True,
+                "current_tokens": current_tokens,
+                "new_tokens": new_tokens,
+                "total_tokens": total_tokens,
+                "limit": limit,
+                "user_tier": "premium" if is_premium else "free",
+                "status": "success"
+            }
+        else:
+            # Will need compression or upgrade
+            if is_premium:
+                return {
+                    "can_continue": True,
+                    "will_compress": True,
+                    "compression_info": {
+                        "original_tokens": total_tokens,
+                        "compressed_to": 30000,
+                        "method": "medical_context_preservation"
+                    },
+                    "user_tier": "premium",
+                    "status": "success"
+                }
+            else:
+                return {
+                    "can_continue": True,  # Never block
+                    "will_compress": True,
+                    "reason": "context_limit",
+                    "user_tier": "free",
+                    "upgrade_prompt": {
+                        "title": "📈 Unlock Full Context Memory",
+                        "description": "Upgrade to Premium for full conversation memory",
+                        "benefits": [
+                            "✨ Oracle remembers entire conversation",
+                            "🧠 Better medical continuity",
+                            "📊 Unlimited context length"
+                        ],
+                        "cta": "Upgrade to Premium"
+                    },
+                    "status": "success"
+                }
+        
+    except Exception as e:
+        print(f"Error checking context: {e}")
+        return {
+            "error": str(e),
+            "can_continue": True,  # Default to allowing continuation
             "status": "error"
         }

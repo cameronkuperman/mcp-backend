@@ -19,7 +19,11 @@ def setup_cors(app):
         "https://*.vercel.app",
         "https://healthoracle.ai",
         "https://www.healthoracle.ai",
-        "https://app.healthoracle.ai"
+        "https://app.healthoracle.ai",
+        "https://seimeo.com",
+        "https://www.seimeo.com",
+        "http://seimeo.com",
+        "http://www.seimeo.com"
     ]
     
     # Add custom origins from environment variable if present

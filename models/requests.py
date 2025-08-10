@@ -80,6 +80,30 @@ class QuickScanAskMoreRequest(BaseModel):
     target_confidence: int = 90
     max_questions: int = 3  # Quick scan should have fewer questions
 
+# Oracle Conversation Models
+class ConversationListRequest(BaseModel):
+    user_id: str
+    limit: int = 20
+    offset: int = 0
+    time_filter: str = "all"  # "all", "today", "week", "month"
+
+class GenerateTitleRequest(BaseModel):
+    conversation_id: str
+    force: bool = False  # Force regeneration even if title exists
+
+class ExitSummaryRequest(BaseModel):
+    conversation_id: str
+    user_id: str
+
+class CheckContextRequest(BaseModel):
+    conversation_id: str
+    new_message: str
+    user_id: str
+
+class ResumeConversationRequest(BaseModel):
+    conversation_id: str
+    user_id: str
+
 # Health Story Model
 class HealthStoryRequest(BaseModel):
     user_id: str
