@@ -440,13 +440,17 @@ CRITICAL: Output ONLY valid JSON with no text before or after."""
 
 PHOTO_COMPARISON_PROMPT = """Compare these medical photos to identify the most important changes. Focus on what matters most for tracking this specific condition.
 
-Analyze what has VISUALLY CHANGED between photos:
+IMPORTANT: You will receive photos in two groups:
+1. FIRST GROUP (before "COMPARED TO:"): These are the NEW/CURRENT photos taken most recently
+2. SECOND GROUP (after "COMPARED TO:"): These are the PREVIOUS/BASELINE photos taken earlier
+
+Analyze what has VISUALLY CHANGED from the PREVIOUS photos to the NEW photos:
 1. Most significant change observed
 2. Rate of change (rapid/gradual/stable)
 3. Clinical significance of changes
 4. What to monitor next
 
-Provide specific observations:
+Provide specific observations comparing OLD to NEW:
 - Size: "Increased from fingernail-sized to penny-sized" (not just "bigger")
 - Color: "Center darkened from light brown to dark brown"
 - Shape: "Border became more irregular on left side"
@@ -1046,6 +1050,10 @@ async def analyze_photos(request: PhotoAnalysisRequest):
                         continue
             
             # Call AI for comparison
+            # IMPORTANT: Photo order matters for accurate progression analysis:
+            # 1. NEW photos (photo_contents) are sent FIRST - these are the current/latest photos
+            # 2. PREVIOUS photos (comp_contents) are sent SECOND - these are the baseline/older photos
+            # The AI analyzes changes FROM old TO new to determine progression
             try:
                 # Try GPT-5 first for comparison
                 try:
@@ -1055,9 +1063,9 @@ async def analyze_photos(request: PhotoAnalysisRequest):
                             'role': 'user',
                             'content': [
                                 {'type': 'text', 'text': PHOTO_COMPARISON_PROMPT},
-                                *photo_contents,
-                                {'type': 'text', 'text': 'COMPARED TO:'},
-                                *comp_contents
+                                *photo_contents,  # NEW photos (current state)
+                                {'type': 'text', 'text': '--- COMPARED TO PREVIOUS/BASELINE PHOTOS BELOW ---'},
+                                *comp_contents   # PREVIOUS photos (baseline)
                             ]
                         }],
                         max_tokens=3000,  # Increased 3x for detailed comparisons
@@ -1071,9 +1079,9 @@ async def analyze_photos(request: PhotoAnalysisRequest):
                             'role': 'user',
                             'content': [
                                 {'type': 'text', 'text': PHOTO_COMPARISON_PROMPT},
-                                *photo_contents,
-                                {'type': 'text', 'text': 'COMPARED TO:'},
-                                *comp_contents
+                                *photo_contents,  # NEW photos (current state)
+                                {'type': 'text', 'text': '--- COMPARED TO PREVIOUS/BASELINE PHOTOS BELOW ---'},
+                                *comp_contents   # PREVIOUS photos (baseline)
                             ]
                         }],
                         max_tokens=3000,
