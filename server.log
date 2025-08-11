@@ -338,3 +338,10 @@ INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/us
 INFO:apscheduler.executors.default:Job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-10 21:00:00 EDT)" executed successfully
 INFO:httpx:HTTP Request: POST https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/rpc/regenerate_expired_predictions "HTTP/2 404 Not Found"
 ERROR:services.background_predictions:Error checking expired predictions: {'message': 'Could not find the function public.regenerate_expired_predictions without parameters in the schema cache', 'code': 'PGRST202', 'hint': 'Perhaps you meant to call the function public.get_cached_prediction', 'details': 'Searched for the function public.regenerate_expired_predictions without parameters or with a single unnamed json/jsonb parameter, but no matches were found in the schema cache.'}
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:run_oracle:Shutting down Oracle Health API...
+INFO:apscheduler.scheduler:Scheduler has been shut down
+INFO:services.background_jobs:Background job scheduler stopped
+INFO:     Application shutdown complete.
+INFO:     Finished server process [66622]
