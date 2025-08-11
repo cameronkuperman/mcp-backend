@@ -9,9 +9,9 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Token limits by tier
-PREMIUM_TOKEN_LIMIT = 120000  # GPT-4 limit
-FREE_TOKEN_LIMIT = 30000      # Free tier limit
-AGGRESSIVE_COMPRESSION_LIMIT = 200000  # When to use aggressive compression
+PREMIUM_TOKEN_LIMIT = 200000  # Premium users get 200k
+FREE_TOKEN_LIMIT = 100000      # Free users get 100k - HARD STOP
+AGGRESSIVE_COMPRESSION_LIMIT = 250000  # When to use aggressive compression for premium
 
 # Medical keywords to preserve
 URGENT_KEYWORDS = [
@@ -254,7 +254,8 @@ def calculate_context_status(messages: List[Dict[str, Any]], is_premium: bool) -
                 "can_continue": True,
                 "needs_compression": False,
                 "tokens": total_tokens,
-                "limit": PREMIUM_TOKEN_LIMIT
+                "limit": PREMIUM_TOKEN_LIMIT,
+                "percentage": (total_tokens / PREMIUM_TOKEN_LIMIT) * 100
             }
         elif total_tokens < AGGRESSIVE_COMPRESSION_LIMIT:
             return {
@@ -263,7 +264,8 @@ def calculate_context_status(messages: List[Dict[str, Any]], is_premium: bool) -
                 "needs_compression": True,
                 "tokens": total_tokens,
                 "limit": PREMIUM_TOKEN_LIMIT,
-                "notice": "Using intelligent compression to maintain conversation quality"
+                "percentage": (total_tokens / PREMIUM_TOKEN_LIMIT) * 100,
+                "notice": "Using intelligent compression to extend conversation"
             }
         else:
             return {
@@ -272,7 +274,8 @@ def calculate_context_status(messages: List[Dict[str, Any]], is_premium: bool) -
                 "needs_compression": True,
                 "tokens": total_tokens,
                 "limit": PREMIUM_TOKEN_LIMIT,
-                "notice": "Using advanced compression. Consider starting a new conversation for best results."
+                "percentage": (total_tokens / PREMIUM_TOKEN_LIMIT) * 100,
+                "notice": "Maximum compression active. Consider starting a new conversation soon."
             }
     else:  # Free tier
         if total_tokens < FREE_TOKEN_LIMIT:
@@ -281,24 +284,27 @@ def calculate_context_status(messages: List[Dict[str, Any]], is_premium: bool) -
                 "can_continue": True,
                 "needs_compression": False,
                 "tokens": total_tokens,
-                "limit": FREE_TOKEN_LIMIT
+                "limit": FREE_TOKEN_LIMIT,
+                "percentage": (total_tokens / FREE_TOKEN_LIMIT) * 100
             }
         else:
+            # FREE USERS BLOCKED AT 100k
             return {
-                "status": "limited",
-                "can_continue": True,
-                "needs_compression": True,
+                "status": "blocked",
+                "can_continue": False,  # HARD STOP
+                "needs_compression": False,
                 "tokens": total_tokens,
                 "limit": FREE_TOKEN_LIMIT,
+                "percentage": 100,
                 "upgrade_prompt": {
-                    "title": "📈 Unlock Full Context Memory",
-                    "description": "Your conversation history is preserved, but Oracle can only remember the last 10 messages. Upgrade to Premium for full conversation memory.",
+                    "title": "🚫 Conversation Limit Reached",
+                    "description": "You've reached the maximum conversation length for free users (100k tokens).",
                     "benefits": [
-                        "✨ Oracle remembers entire conversation",
-                        "🧠 Better medical continuity",
-                        "📊 Unlimited context length",
-                        "🔄 Seamless conversation resumption"
+                        "📈 2X larger conversations (200k tokens)",
+                        "🧠 Intelligent compression for even longer chats",
+                        "💬 Never lose conversation context",
+                        "🔄 Continue conversations indefinitely"
                     ],
-                    "cta": "Upgrade to Premium"
+                    "cta": "Upgrade to Continue - $9.99/month"
                 }
             }

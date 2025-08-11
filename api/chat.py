@@ -186,11 +186,24 @@ async def chat(request: ChatRequest):
     all_messages = history + [{"role": "user", "content": request.query}]
     context_status = calculate_context_status(all_messages, is_premium)
     
-    # Apply compression if needed
+    # Check if user is blocked (free tier at 100k tokens)
+    if not context_status.get("can_continue"):
+        return {
+            "status": "blocked",
+            "can_continue": False,
+            "message": "Conversation limit reached",
+            "conversation_id": request.conversation_id,
+            "context_status": context_status,
+            "user_tier": "free"
+        }
+    
+    # Apply compression if needed (only for premium users)
     if context_status.get("needs_compression"):
         if is_premium:
             history = await compress_medical_context(history)
         else:
+            # This shouldn't happen since free users are blocked at 100k
+            # But keep as safety fallback
             history = await free_tier_context(history)
     
     # Build comprehensive system prompt with all context
@@ -428,96 +441,14 @@ async def generate_summary(request: GenerateSummaryRequest):
             "status": "error"
         }
 
-@router.get("/oracle/conversations")
-async def list_conversations(user_id: str, limit: int = 20, offset: int = 0, time_filter: str = "all"):
-    """List user's resumable conversations with time grouping"""
-    try:
-        # Get user's conversations
-        query = supabase.table("conversations").select(
-            "id, title, created_at, updated_at, last_message_at, message_count, metadata"
-        ).eq("user_id", user_id).order("last_message_at", desc=True)
-        
-        # Apply time filter
-        if time_filter == "today":
-            today = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
-            query = query.gte("last_message_at", today.isoformat())
-        elif time_filter == "week":
-            week_ago = datetime.now(timezone.utc) - timedelta(days=7)
-            query = query.gte("last_message_at", week_ago.isoformat())
-        elif time_filter == "month":
-            month_ago = datetime.now(timezone.utc) - timedelta(days=30)
-            query = query.gte("last_message_at", month_ago.isoformat())
-        
-        # Apply pagination
-        query = query.range(offset, offset + limit - 1)
-        response = query.execute()
-        
-        conversations = []
-        for conv in response.data:
-            # Get last message for preview
-            last_msg_response = supabase.table("messages").select(
-                "content, role"
-            ).eq("conversation_id", conv["id"]).order("created_at", desc=True).limit(1).execute()
-            
-            last_message = ""
-            if last_msg_response.data:
-                content = last_msg_response.data[0]["content"]
-                # Truncate for preview
-                last_message = content[:150] + "..." if len(content) > 150 else content
-            
-            # Extract medical flags from metadata
-            metadata = conv.get("metadata", {}) or {}
-            medical_flags = metadata.get("medical_flags", [])
-            
-            # Calculate time grouping
-            last_message_at = datetime.fromisoformat(conv["last_message_at"].replace("Z", "+00:00"))
-            now = datetime.now(timezone.utc)
-            time_diff = now - last_message_at
-            
-            if time_diff.days == 0:
-                time_group = "today"
-            elif time_diff.days == 1:
-                time_group = "yesterday"
-            elif time_diff.days < 7:
-                time_group = "this_week"
-            else:
-                time_group = "older"
-            
-            conversations.append({
-                "id": conv["id"],
-                "title": conv.get("title") or "Health Discussion",
-                "last_message": last_message,
-                "last_message_at": conv["last_message_at"],
-                "message_count": conv.get("message_count", 0),
-                "medical_flags": medical_flags,
-                "has_urgent_content": metadata.get("has_urgent_content", False),
-                "time_group": time_group,
-                "created_at": conv["created_at"]
-            })
-        
-        # Check if there are more conversations
-        total_response = supabase.table("conversations").select("id", count="exact").eq("user_id", user_id).execute()
-        total = total_response.count if hasattr(total_response, 'count') else len(conversations)
-        has_more = (offset + limit) < total
-        
-        return {
-            "conversations": conversations,
-            "has_more": has_more,
-            "total": total,
-            "status": "success"
-        }
-        
-    except Exception as e:
-        print(f"Error listing conversations: {e}")
-        return {
-            "error": str(e),
-            "conversations": [],
-            "status": "error"
-        }
+# REMOVED: Frontend should query Supabase directly for better performance
+# The frontend can get conversations and messages directly from Supabase
+# using the Supabase client for faster response times
 
-@router.get("/oracle/resume/{conversation_id}")
-async def resume_conversation(conversation_id: str, user_id: str):
-    """Resume a conversation with smart context handling"""
+# # REMOVED: Frontend should build this from Supabase queries
+# @router.get("/oracle/resume/{conversation_id}")
+# async def resume_conversation(conversation_id: str, user_id: str):
+#     """Resume a conversation with smart context handling"""
     try:
         # Check user subscription status (simplified for now)
         # In production, you'd check the subscriptions table
@@ -765,10 +696,11 @@ async def exit_summary(request: ExitSummaryRequest, background_tasks: Background
             "status": "error"
         }
 
-@router.post("/oracle/check-context")
-async def check_context(request: CheckContextRequest):
-    """Check if context limits will be exceeded with new message"""
-    try:
+# REMOVED: Frontend can calculate token counts locally
+# @router.post("/oracle/check-context")
+# async def check_context(request: CheckContextRequest):
+#     """Check if context limits will be exceeded with new message"""
+#     try:
         # Check user subscription
         is_premium = False  # Simplified for now
         
