@@ -20,8 +20,8 @@
   },
   "basic": {
     "chat": {
-      "models": ["google/gemini-2.5-flash", "openai/gpt-5"],
-      "reasoning_models": ["openai/gpt-5", "google/gemini-2.5-pro"]
+      "models": ["google/gemini-2.5-flash", "openai/gpt-4o"],
+      "reasoning_models": ["openai/gpt-5-mini", "openai/gpt-5"]
     },
     "quick_scan": ["openai/gpt-5-mini", "google/gemini-2.5-flash"],
     "deep_dive": ["openai/gpt-5", "google/gemini-2.5-pro"],
@@ -30,7 +30,7 @@
     "general_deepdive": ["openai/gpt-5", "google/gemini-2.5-pro"],
     "photo_analysis": ["openai/gpt-5", "google/gemini-2.5-pro"],
     "reports": ["openai/gpt-5", "google/gemini-2.5-pro"],
-    "health_story": ["openai/gpt-5-mini", "anthropic/claude-4-sonnet"],
+    "health_story": ["openai/gpt-5-mini", "anthropic/claude-sonnet-4"],
     "predictions": ["openai/gpt-5", "google/gemini-2.5-pro"],
     "health_analysis": ["openai/gpt-5", "google/gemini-2.5-pro"],
     "ultra_think": ["x-ai/grok-4", "google/gemini-2.5-pro"],
@@ -39,8 +39,8 @@
   },
   "pro": {
     "chat": {
-      "models": ["anthropic/claude-4-sonnet", "openai/gpt-5"],
-      "reasoning_models": ["openai/gpt-5", "google/gemini-2.5-pro"]
+      "models": ["anthropic/claude-sonnet-4", "openai/gpt-4o"],
+      "reasoning_models": ["openai/gpt-5-mini", "openai/gpt-5"]
     },
     "quick_scan": ["openai/gpt-5-mini", "google/gemini-2.5-flash"],
     "deep_dive": ["openai/gpt-5", "google/gemini-2.5-pro"],
@@ -49,7 +49,7 @@
     "general_deepdive": ["openai/gpt-5", "google/gemini-2.5-pro"],
     "photo_analysis": ["openai/gpt-5", "google/gemini-2.5-pro"],
     "reports": ["openai/gpt-5", "google/gemini-2.5-pro"],
-    "health_story": ["openai/gpt-5-mini", "anthropic/claude-4-sonnet"],
+    "health_story": ["openai/gpt-5-mini", "anthropic/claude-sonnet-4"],
     "predictions": ["openai/gpt-5", "google/gemini-2.5-pro"],
     "health_analysis": ["openai/gpt-5", "google/gemini-2.5-pro"],
     "ultra_think": ["x-ai/grok-4", "google/gemini-2.5-pro"],
@@ -58,8 +58,8 @@
   },
   "pro_plus": {
     "chat": {
-      "models": ["anthropic/claude-4-sonnet", "openai/gpt-5"],
-      "reasoning_models": ["openai/gpt-5", "google/gemini-2.5-pro"]
+      "models": ["anthropic/claude-sonnet-4", "openai/gpt-4o"],
+      "reasoning_models": ["openai/gpt-5-mini", "openai/gpt-5"]
     },
     "quick_scan": ["openai/gpt-5-mini", "google/gemini-2.5-flash"],
     "deep_dive": ["openai/gpt-5", "google/gemini-2.5-pro"],
@@ -68,7 +68,7 @@
     "general_deepdive": ["openai/gpt-5", "google/gemini-2.5-pro"],
     "photo_analysis": ["openai/gpt-5", "google/gemini-2.5-pro"],
     "reports": ["openai/gpt-5", "google/gemini-2.5-pro"],
-    "health_story": ["openai/gpt-5-mini", "anthropic/claude-4-sonnet"],
+    "health_story": ["openai/gpt-5-mini", "anthropic/claude-sonnet-4"],
     "predictions": ["openai/gpt-5", "google/gemini-2.5-pro"],
     "health_analysis": ["openai/gpt-5", "google/gemini-2.5-pro"],
     "ultra_think": ["x-ai/grok-4", "google/gemini-2.5-pro"],

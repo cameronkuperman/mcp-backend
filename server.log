@@ -163,3 +163,54 @@ Context parts collected: 0 sections
 Full context length: 0 characters
 Error saving message: {'message': 'insert or update on table "messages" violates foreign key constraint "messages_conversation_id_fkey"', 'code': '23503', 'hint': None, 'details': 'Key (conversation_id)=(550e8400-e29b-41d4-a716-446655440003) is not present in table "conversations".'}
 INFO:     127.0.0.1:57545 - "POST /api/chat HTTP/1.1" 200 OK
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/medical?select=%2A&id=eq.0086a58d-1081-4496-92a1-e4a73a2c6f35 "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/llm_context?select=llm_summary%2Ccreated_at&user_id=eq.0086a58d-1081-4496-92a1-e4a73a2c6f35&order=created_at.desc&limit=5 "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/quick_scans?select=created_at%2Cbody_part%2Canalysis_result%2Cform_data&user_id=eq.0086a58d-1081-4496-92a1-e4a73a2c6f35&created_at=gte.2025-07-14T17%3A08%3A02.310718%2B00%3A00&order=created_at.desc&limit=5 "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/deep_dive_sessions?select=created_at%2Cbody_part%2Cfinal_analysis%2Cfinal_confidence&user_id=eq.0086a58d-1081-4496-92a1-e4a73a2c6f35&status=eq.completed&created_at=gte.2025-07-14T17%3A08%3A02.310718%2B00%3A00&order=created_at.desc&limit=3 "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/llm_context?select=llm_summary&user_id=eq.0086a58d-1081-4496-92a1-e4a73a2c6f35&conversation_id=eq.550e8400-e29b-41d4-a716-446655440004 "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/messages?select=%2A&conversation_id=eq.550e8400-e29b-41d4-a716-446655440004&order=created_at.asc&limit=10 "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: POST https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/messages "HTTP/2 409 Conflict"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/conversations?select=id&id=eq.550e8400-e29b-41d4-a716-446655440004 "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: POST https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/conversations "HTTP/2 201 Created"
+INFO:httpx:HTTP Request: POST https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/messages "HTTP/2 201 Created"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/conversations?select=total_tokens%2Cmessage_count%2Ctitle&id=eq.550e8400-e29b-41d4-a716-446655440004 "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: PATCH https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/conversations?id=eq.550e8400-e29b-41d4-a716-446655440004 "HTTP/2 200 OK"
+Building enhanced context for user: 0086a58d-1081-4496-92a1-e4a73a2c6f35
+User ID type: <class 'str'>, value: '0086a58d-1081-4496-92a1-e4a73a2c6f35'
+LLM summaries response: data=[] count=None
+Found 0 LLM summaries
+Quick scans cutoff date: 2025-07-14T17:08:02.310718+00:00
+Quick scans query response: data=[] count=None
+Found 0 quick scans
+Deep dives query response: data=[] count=None
+Found 0 deep dives
+Context parts collected: 0 sections
+Full context length: 0 characters
+Error saving message: {'message': 'insert or update on table "messages" violates foreign key constraint "messages_conversation_id_fkey"', 'code': '23503', 'hint': None, 'details': 'Key (conversation_id)=(550e8400-e29b-41d4-a716-446655440004) is not present in table "conversations".'}
+INFO:     127.0.0.1:58199 - "POST /api/chat HTTP/1.1" 200 OK
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/medical?select=%2A&id=eq.0086a58d-1081-4496-92a1-e4a73a2c6f35 "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/llm_context?select=llm_summary%2Ccreated_at&user_id=eq.0086a58d-1081-4496-92a1-e4a73a2c6f35&order=created_at.desc&limit=5 "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/quick_scans?select=created_at%2Cbody_part%2Canalysis_result%2Cform_data&user_id=eq.0086a58d-1081-4496-92a1-e4a73a2c6f35&created_at=gte.2025-07-14T17%3A10%3A38.920022%2B00%3A00&order=created_at.desc&limit=5 "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/deep_dive_sessions?select=created_at%2Cbody_part%2Cfinal_analysis%2Cfinal_confidence&user_id=eq.0086a58d-1081-4496-92a1-e4a73a2c6f35&status=eq.completed&created_at=gte.2025-07-14T17%3A10%3A38.920022%2B00%3A00&order=created_at.desc&limit=3 "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/llm_context?select=llm_summary&user_id=eq.0086a58d-1081-4496-92a1-e4a73a2c6f35&conversation_id=eq.550e8400-e29b-41d4-a716-446655440005 "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/messages?select=%2A&conversation_id=eq.550e8400-e29b-41d4-a716-446655440005&order=created_at.asc&limit=10 "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: POST https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/messages "HTTP/2 409 Conflict"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/conversations?select=id&id=eq.550e8400-e29b-41d4-a716-446655440005 "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: POST https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/conversations "HTTP/2 201 Created"
+INFO:httpx:HTTP Request: POST https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/messages "HTTP/2 201 Created"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/conversations?select=total_tokens%2Cmessage_count%2Ctitle&id=eq.550e8400-e29b-41d4-a716-446655440005 "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: PATCH https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/conversations?id=eq.550e8400-e29b-41d4-a716-446655440005 "HTTP/2 200 OK"
+Building enhanced context for user: 0086a58d-1081-4496-92a1-e4a73a2c6f35
+User ID type: <class 'str'>, value: '0086a58d-1081-4496-92a1-e4a73a2c6f35'
+LLM summaries response: data=[] count=None
+Found 0 LLM summaries
+Quick scans cutoff date: 2025-07-14T17:10:38.920022+00:00
+Quick scans query response: data=[] count=None
+Found 0 quick scans
+Deep dives query response: data=[] count=None
+Found 0 deep dives
+Context parts collected: 0 sections
+Full context length: 0 characters
+Error saving message: {'message': 'insert or update on table "messages" violates foreign key constraint "messages_conversation_id_fkey"', 'code': '23503', 'hint': None, 'details': 'Key (conversation_id)=(550e8400-e29b-41d4-a716-446655440005) is not present in table "conversations".'}
+INFO:     127.0.0.1:58703 - "POST /api/chat HTTP/1.1" 200 OK
+WARNING:apscheduler.executors.default:Run time of job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-13 14:00:00 EDT)" was missed by 0:11:04.368351

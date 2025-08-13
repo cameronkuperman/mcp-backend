@@ -33,8 +33,8 @@ MODEL_CONFIG = {
     },
     "basic": {
         "chat": {
-            "models": ["google/gemini-2.5-flash", "openai/gpt-5"],
-            "reasoning_models": ["openai/gpt-5", "google/gemini-2.5-pro"]
+            "models": ["google/gemini-2.5-flash", "openai/gpt-4o"],
+            "reasoning_models": ["openai/gpt-5-mini", "openai/gpt-5"]
         },
         "quick_scan": ["openai/gpt-5-mini", "google/gemini-2.5-flash"],
         "deep_dive": ["openai/gpt-5", "google/gemini-2.5-pro"],
@@ -45,8 +45,8 @@ MODEL_CONFIG = {
     },
     "pro": {
         "chat": {
-            "models": ["anthropic/claude-4-sonnet", "openai/gpt-5"],
-            "reasoning_models": ["openai/gpt-5", "google/gemini-2.5-pro"]
+            "models": ["anthropic/claude-sonnet-4", "openai/gpt-4o"],
+            "reasoning_models": ["openai/gpt-5-mini", "openai/gpt-5"]
         },
         "quick_scan": ["openai/gpt-5-mini", "google/gemini-2.5-flash"],
         "deep_dive": ["openai/gpt-5", "google/gemini-2.5-pro"],
@@ -57,8 +57,8 @@ MODEL_CONFIG = {
     },
     "pro_plus": {
         "chat": {
-            "models": ["anthropic/claude-4-sonnet", "openai/gpt-5"],
-            "reasoning_models": ["openai/gpt-5", "google/gemini-2.5-pro"]
+            "models": ["anthropic/claude-sonnet-4", "openai/gpt-4o"],
+            "reasoning_models": ["openai/gpt-5-mini", "openai/gpt-5"]
         },
         "quick_scan": ["openai/gpt-5-mini", "google/gemini-2.5-flash"],
         "deep_dive": ["openai/gpt-5", "google/gemini-2.5-pro"],

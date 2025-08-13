@@ -464,7 +464,7 @@ async def call_llm_with_fallback(
             )
             
             # Check if we got a valid response
-            if result and result.get("choices") and result["choices"][0].get("message"):
+            if result and result.get("choices") and len(result["choices"]) > 0 and result["choices"][0].get("message"):
                 print(f"Success with model: {model}")
                 return result
                 
@@ -543,12 +543,33 @@ async def call_llm(
     # Make the request using requests library (proven to work)
     def make_request():
         try:
+            # Build headers
+            headers = {
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json"
+            }
+            
+            # Add provider API keys for BYOK (Bring Your Own Key)
+            if model:
+                # OpenAI models (GPT-5, GPT-4, etc.)
+                if "gpt-" in model.lower() or "o1-" in model.lower():
+                    openai_key = os.getenv("OPENAI_API_KEY")
+                    if openai_key:
+                        headers["X-API-Key"] = openai_key
+                        print(f"Using OpenAI API key for {model}")
+                
+                # Anthropic models (Claude)
+                elif "claude" in model.lower():
+                    anthropic_key = os.getenv("ANTHROPIC_API_KEY")
+                    if anthropic_key:
+                        headers["X-API-Key"] = anthropic_key
+                        print(f"Using Anthropic API key for {model}")
+                    else:
+                        print(f"No Anthropic API key found for {model}, using OpenRouter credits")
+            
             response = requests.post(
                 "https://openrouter.ai/api/v1/chat/completions",
-                headers={
-                    "Authorization": f"Bearer {api_key}",
-                    "Content-Type": "application/json"
-                },
+                headers=headers,
                 json=request_params,
                 timeout=240  # 4 minutes for reasoning models
             )
@@ -556,18 +577,11 @@ async def call_llm(
             if response.status_code == 200:
                 return response.json()
             else:
-                # Log error but don't crash
+                # Log error with details
                 print(f"OpenRouter API error: {response.status_code}")
-                # Return mock response as fallback
-                return {
-                    "choices": [{
-                        "message": {
-                            "content": f"I understand your query. (Note: Using fallback response due to API issue: {response.status_code})"
-                        },
-                        "finish_reason": "stop"
-                    }],
-                    "usage": {"prompt_tokens": 10, "completion_tokens": 20, "total_tokens": 30}
-                }
+                print(f"Error response: {response.text[:500]}")  # First 500 chars of error
+                # Raise exception to trigger fallback
+                raise Exception(f"OpenRouter API error {response.status_code}: {response.text[:200]}")
                 
         except Exception as e:
             print(f"Request exception: {str(e)}")
@@ -596,13 +610,19 @@ async def call_llm(
     except json.JSONDecodeError:
         pass
     
-    # Return full response data
+    # Return full response data in OpenRouter format
     return {
-        "content": parsed_content,
-        "raw_content": content,
+        "choices": [{
+            "message": {
+                "content": content
+            },
+            "finish_reason": data["choices"][0].get("finish_reason", "stop")
+        }],
         "usage": data.get("usage", {}),
         "model": model,
-        "finish_reason": data["choices"][0].get("finish_reason", "stop")
+        # Keep these for backward compatibility
+        "content": parsed_content,
+        "raw_content": content
     }
 
 # Copy all the other functions from business_logic.py

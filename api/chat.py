@@ -156,6 +156,7 @@ async def update_conversation(conversation_id: str, user_id: str):
 @router.post("/chat")
 async def chat(request: ChatRequest):
     """Oracle chat endpoint with real OpenRouter AI and Supabase integration"""
+    print(f"Chat endpoint called with user_id: {request.user_id}, reasoning_mode: {getattr(request, 'reasoning_mode', False)}")
     # Handle both 'query' and 'message' fields from frontend
     user_message = request.message or request.query
     if not user_message:
