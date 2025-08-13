@@ -367,29 +367,17 @@ async def weekly_health_insights_job():
             """Generate insights for a user"""
             week_of = get_current_week_monday()
             
-            # Check if insights already exist
-            existing = supabase.table('health_insights')\
-                .select('id')\
-                .eq('user_id', user_id)\
-                .eq('week_of', week_of.isoformat())\
-                .limit(1)\
-                .execute()
-            
-            if existing.data:
-                logger.info(f"Insights already exist for user {user_id} this week")
-                return {'status': 'already_exists'}
+            # Always regenerate weekly insights (don't check for existing)
+            # This ensures fresh data every week
+            logger.info(f"Generating fresh insights for user {user_id}")
             
             # Generate insights using the health analysis endpoint
             try:
                 async with httpx.AsyncClient(timeout=120.0) as client:
                     response = await client.post(
-                        f"{API_URL}/api/analysis/generate",
+                        f"{API_URL}/api/generate-insights/{user_id}",
                         json={
-                            "user_id": user_id,
-                            "force_refresh": False,
-                            "include_predictions": False,
-                            "include_patterns": False,
-                            "include_strategies": False
+                            "force_refresh": True
                         }
                     )
                     
@@ -397,7 +385,7 @@ async def weekly_health_insights_job():
                         data = response.json()
                         
                         # Store insights
-                        insights = data.get('insights', [])
+                        insights = data.get('data', [])
                         for insight in insights:
                             supabase.table('health_insights').insert({
                                 'user_id': user_id,
@@ -446,29 +434,17 @@ async def weekly_shadow_patterns_job():
             """Generate shadow patterns for a user"""
             week_of = get_current_week_monday()
             
-            # Check if patterns already exist
-            existing = supabase.table('shadow_patterns')\
-                .select('id')\
-                .eq('user_id', user_id)\
-                .eq('week_of', week_of.isoformat())\
-                .limit(1)\
-                .execute()
-            
-            if existing.data:
-                logger.info(f"Patterns already exist for user {user_id} this week")
-                return {'status': 'already_exists'}
+            # Always regenerate weekly patterns (don't check for existing)
+            # This ensures fresh data every week
+            logger.info(f"Generating fresh shadow patterns for user {user_id}")
             
             # Generate patterns using the health analysis endpoint
             try:
                 async with httpx.AsyncClient(timeout=120.0) as client:
                     response = await client.post(
-                        f"{API_URL}/api/analysis/generate",
+                        f"{API_URL}/api/generate-shadow-patterns/{user_id}",
                         json={
-                            "user_id": user_id,
-                            "force_refresh": False,
-                            "include_predictions": False,
-                            "include_patterns": True,
-                            "include_strategies": False
+                            "force_refresh": True
                         }
                     )
                     
@@ -476,7 +452,7 @@ async def weekly_shadow_patterns_job():
                         data = response.json()
                         
                         # Store shadow patterns
-                        patterns = data.get('shadow_patterns', [])
+                        patterns = data.get('data', [])
                         for pattern in patterns:
                             supabase.table('shadow_patterns').insert({
                                 'user_id': user_id,
@@ -527,29 +503,17 @@ async def weekly_strategic_moves_job():
             """Generate strategic moves for a user"""
             week_of = get_current_week_monday()
             
-            # Check if strategies already exist
-            existing = supabase.table('strategic_moves')\
-                .select('id')\
-                .eq('user_id', user_id)\
-                .eq('week_of', week_of.isoformat())\
-                .limit(1)\
-                .execute()
-            
-            if existing.data:
-                logger.info(f"Strategies already exist for user {user_id} this week")
-                return {'status': 'already_exists'}
+            # Always regenerate weekly strategies (don't check for existing)
+            # This ensures fresh data every week
+            logger.info(f"Generating fresh strategies for user {user_id}")
             
             # Generate strategies using the health analysis endpoint
             try:
                 async with httpx.AsyncClient(timeout=120.0) as client:
                     response = await client.post(
-                        f"{API_URL}/api/analysis/generate",
+                        f"{API_URL}/api/generate-strategies/{user_id}",
                         json={
-                            "user_id": user_id,
-                            "force_refresh": False,
-                            "include_predictions": False,
-                            "include_patterns": False,
-                            "include_strategies": True
+                            "force_refresh": True
                         }
                     )
                     
@@ -557,7 +521,7 @@ async def weekly_strategic_moves_job():
                         data = response.json()
                         
                         # Store strategic moves
-                        strategies = data.get('strategic_moves', [])
+                        strategies = data.get('data', [])
                         for idx, strategy in enumerate(strategies):
                             supabase.table('strategic_moves').insert({
                                 'user_id': user_id,

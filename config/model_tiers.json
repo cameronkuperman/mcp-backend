@@ -20,8 +20,8 @@
   },
   "basic": {
     "chat": {
-      "models": ["google/gemini-2.5-flash", "openai/gpt-4o"],
-      "reasoning_models": ["openai/gpt-5-mini", "openai/gpt-5"]
+      "models": ["openai/gpt-5-mini", "google/gemini-2.5-flash"],
+      "reasoning_models": ["openai/gpt-5", "google/gemini-2.5-pro"]
     },
     "quick_scan": ["openai/gpt-5-mini", "google/gemini-2.5-flash"],
     "deep_dive": ["openai/gpt-5", "google/gemini-2.5-pro"],
@@ -39,8 +39,8 @@
   },
   "pro": {
     "chat": {
-      "models": ["anthropic/claude-sonnet-4", "openai/gpt-4o"],
-      "reasoning_models": ["openai/gpt-5-mini", "openai/gpt-5"]
+      "models": ["openai/gpt-5-mini", "anthropic/claude-sonnet-4"],
+      "reasoning_models": ["openai/gpt-5", "anthropic/claude-sonnet-4"]
     },
     "quick_scan": ["openai/gpt-5-mini", "google/gemini-2.5-flash"],
     "deep_dive": ["openai/gpt-5", "google/gemini-2.5-pro"],
@@ -58,8 +58,8 @@
   },
   "pro_plus": {
     "chat": {
-      "models": ["anthropic/claude-sonnet-4", "openai/gpt-4o"],
-      "reasoning_models": ["openai/gpt-5-mini", "openai/gpt-5"]
+      "models": ["openai/gpt-5-mini", "anthropic/claude-sonnet-4"],
+      "reasoning_models": ["openai/gpt-5", "anthropic/claude-sonnet-4"]
     },
     "quick_scan": ["openai/gpt-5-mini", "google/gemini-2.5-flash"],
     "deep_dive": ["openai/gpt-5", "google/gemini-2.5-pro"],
