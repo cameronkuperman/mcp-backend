@@ -1,10 +1,13 @@
 from supabase_client import supabase
-from typing import Optional
+from typing import Optional, List
 import os
 from dotenv import load_dotenv
 import json
 import requests
 import asyncio
+import sys
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+from core.model_selector import get_models_for_endpoint, select_model_with_fallback
 
 # Load .env file
 load_dotenv()
@@ -416,18 +419,115 @@ async def get_user_model(user_id: str) -> str:
         # If preferred_model column doesn't exist, just use default
         return "deepseek/deepseek-chat"
 
-async def call_llm(messages: list, model: Optional[str] = None, user_id: Optional[str] = None, temperature: float = 0.7, max_tokens: int = 2048, top_p: float = 1.0) -> dict:
-    """Call the LLM via OpenRouter - now working with credits!"""
+async def call_llm_with_fallback(
+    messages: list,
+    user_id: Optional[str] = None,
+    endpoint_type: Optional[str] = None,
+    reasoning_mode: bool = False,
+    **kwargs
+) -> dict:
+    """Call LLM with automatic fallback to secondary models if primary fails"""
+    
+    # Get all available models for this endpoint
+    models = None
+    if user_id and endpoint_type:
+        models = await get_models_for_endpoint(user_id, endpoint_type, reasoning_mode)
+    
+    if not models:
+        # Fallback to single model
+        return await call_llm(messages=messages, user_id=user_id, reasoning_mode=reasoning_mode, endpoint_type=endpoint_type, **kwargs)
+    
+    # Try each model in order
+    last_error = None
+    for i, model in enumerate(models):
+        try:
+            print(f"Trying model: {model}")
+            result = await call_llm(
+                messages=messages,
+                model=model,
+                user_id=user_id,
+                reasoning_mode=reasoning_mode,
+                endpoint_type=endpoint_type,
+                **kwargs
+            )
+            
+            # Check if we got a valid response
+            if result and result.get("choices") and result["choices"][0].get("message"):
+                print(f"Success with model: {model}")
+                return result
+                
+        except Exception as e:
+            print(f"Model {model} failed: {e}")
+            last_error = e
+            if i < len(models) - 1:
+                print(f"Trying fallback model {i+2}/{len(models)}")
+            continue
+    
+    # All models failed
+    print(f"All models failed. Last error: {last_error}")
+    raise Exception(f"All models failed. Last error: {last_error}")
+
+async def call_llm(
+    messages: list, 
+    model: Optional[str] = None, 
+    user_id: Optional[str] = None, 
+    reasoning_mode: bool = False,
+    endpoint_type: Optional[str] = None,
+    temperature: float = 0.7, 
+    max_tokens: int = 2048, 
+    top_p: float = 1.0
+) -> dict:
+    """Call the LLM via OpenRouter with tier-based model selection and reasoning support"""
     api_key = os.getenv("OPENROUTER_API_KEY")
     if not api_key:
         raise ValueError("OPENROUTER_API_KEY not set in .env file")
 
-    # Fetch model if not provided
-    if not model and user_id:
-        model = await get_user_model(user_id)
-    elif not model:
-        model = "deepseek/deepseek-chat"  # DeepSeek V3 - default model
+    # Get tier-based model if not provided
+    if not model:
+        if user_id and endpoint_type:
+            # Use new tier-based selection
+            model = await select_model_with_fallback(
+                user_id=user_id,
+                endpoint=endpoint_type,
+                reasoning_mode=reasoning_mode,
+                preferred_index=0
+            )
+        elif user_id:
+            # Fallback to old method
+            model = await get_user_model(user_id)
+        
+        if not model:
+            model = "deepseek/deepseek-chat"  # Ultimate fallback
 
+    # Adjust parameters for reasoning mode or specific endpoints
+    request_params = {
+        "model": model,
+        "messages": messages,
+        "temperature": temperature,
+        "top_p": top_p,
+    }
+    
+    # Handle reasoning models and high-reasoning endpoints
+    if reasoning_mode or endpoint_type in ["deep_dive", "reports", "health_analysis", "ultra_think"]:
+        if "o1" in model or "gpt-5" in model:
+            # Use max_completion_tokens for o1/GPT-5 models
+            request_params["max_completion_tokens"] = 8000  # Allow up to 8k, model uses what it needs
+        elif "deepseek-r1" in model:
+            # Enable reasoning output for DeepSeek R1
+            request_params["include_reasoning"] = True
+            request_params["max_tokens"] = 8000  # DeepSeek uses regular max_tokens
+        elif "grok" in model:
+            # Grok models for ultra thinking
+            request_params["max_tokens"] = 12000  # Higher for Grok
+            request_params["temperature"] = 0.3  # Lower for focused reasoning
+        else:
+            # Regular models with enhanced limits
+            request_params["max_tokens"] = 6000  # Higher limit, model uses what it needs
+            request_params["temperature"] = 0.3  # Lower for focused reasoning
+    else:
+        # Standard completion
+        request_params["max_tokens"] = max_tokens
+    
     # Make the request using requests library (proven to work)
     def make_request():
         try:
@@ -437,13 +537,7 @@ async def call_llm(messages: list, model: Optional[str] = None, user_id: Optiona
                     "Authorization": f"Bearer {api_key}",
                     "Content-Type": "application/json"
                 },
-                json={
-                    "model": model,
-                    "messages": messages,
-                    "temperature": temperature,
-                    "max_tokens": max_tokens,
-                    "top_p": top_p,
-                },
+                json=request_params,
                 timeout=240  # 4 minutes for reasoning models
             )
             
