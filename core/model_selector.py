@@ -106,12 +106,25 @@ async def get_user_tier(user_id: str) -> str:
             subscription = response.data[0]
             
             # Check if subscription is still valid
-            if subscription.get("current_period_end"):
+            # If current_period_end is null, subscription is active indefinitely
+            if subscription.get("current_period_end") is None:
+                # No end date means active subscription
+                tier = subscription.get("tier") or "free"  # Handle null/empty tier values
+                
+                # Cache the result
+                _tier_cache[user_id] = {
+                    'tier': tier,
+                    'expires': datetime.now() + CACHE_DURATION
+                }
+                
+                return tier
+            elif subscription.get("current_period_end"):
+                # Check if end date is in the future
                 end_date = datetime.fromisoformat(
                     subscription["current_period_end"].replace('Z', '+00:00')
                 )
                 if end_date > datetime.now(end_date.tzinfo):
-                    tier = subscription.get("tier", "free")
+                    tier = subscription.get("tier") or "free"  # Handle null/empty tier values
                     
                     # Cache the result
                     _tier_cache[user_id] = {

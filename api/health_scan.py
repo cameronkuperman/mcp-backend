@@ -20,6 +20,11 @@ from supabase_client import supabase
 from business_logic import call_llm, make_prompt, get_llm_context as get_llm_context_biz, get_user_data
 from utils.json_parser import extract_json_from_response
 from utils.data_gathering import get_user_medical_data
+from utils.assessment_formatter import add_minimal_fields
+from utils.db_storage import (
+    store_minimal_fields_for_quick_scan,
+    store_minimal_fields_for_deep_dive
+)
 
 router = APIRouter(prefix="/api", tags=["health-scan"])
 
@@ -178,7 +183,8 @@ async def quick_scan_endpoint(request: QuickScanRequest):
                 print(f"Database error (non-critical): {db_error}")
                 # Continue even if DB save fails
         
-        return {
+        # Add minimal new fields (what_this_means and immediate_actions)
+        response_data = {
             "scan_id": scan_id,
             "analysis": analysis_result,
             "body_part": request.body_part,
@@ -188,6 +194,26 @@ async def quick_scan_endpoint(request: QuickScanRequest):
             "model": llm_response.get("model", ""),
             "status": "success"
         }
+        
+        # Apply minimal field enhancements
+        response_data = add_minimal_fields(
+            response_data,
+            what_this_means=analysis_result.get("what_this_means"),
+            immediate_actions=analysis_result.get("immediate_actions")
+        )
+        
+        # Store the enhanced fields in the database
+        if scan_id and request.user_id:  # Only store if we have a scan_id and user
+            try:
+                store_minimal_fields_for_quick_scan(
+                    scan_id,
+                    response_data.get("what_this_means"),
+                    response_data.get("immediate_actions")
+                )
+            except Exception as storage_error:
+                print(f"Failed to store enhanced fields for quick scan: {storage_error}")
+        
+        return response_data
         
     except Exception as e:
         print(f"Error in quick scan: {e}")
@@ -791,7 +817,8 @@ Key Findings: {', '.join(analysis_result.get('reasoning_snippets', [])[:3])}"""
             except Exception as summary_error:
                 print(f"Summary generation error (non-critical): {summary_error}")
         
-        return {
+        # Build response with minimal new fields
+        response_data = {
             "deep_dive_id": request.session_id,
             "analysis": analysis_result,
             "body_part": session.get("body_part"),
@@ -801,6 +828,26 @@ Key Findings: {', '.join(analysis_result.get('reasoning_snippets', [])[:3])}"""
             "usage": llm_response.get("usage", {}),
             "status": "success"
         }
+        
+        # Apply minimal field enhancements (what_this_means and immediate_actions)
+        response_data = add_minimal_fields(
+            response_data,
+            what_this_means=analysis_result.get("what_this_means"),
+            immediate_actions=analysis_result.get("immediate_actions")
+        )
+        
+        # Store the enhanced fields in the database
+        if request.session_id:  # Store if we have a session_id
+            try:
+                store_minimal_fields_for_deep_dive(
+                    request.session_id,
+                    response_data.get("what_this_means"),
+                    response_data.get("immediate_actions")
+                )
+            except Exception as storage_error:
+                print(f"Failed to store enhanced fields for deep dive: {storage_error}")
+        
+        return response_data
         
     except Exception as e:
         print(f"Error in deep dive complete: {e}")

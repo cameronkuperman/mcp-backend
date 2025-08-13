@@ -16,7 +16,10 @@ from models.requests import (
     ResumeConversationRequest
 )
 from supabase_client import supabase
-from business_logic import call_llm, make_prompt, get_llm_context as get_llm_context_biz
+from business_logic import call_llm, make_prompt, get_llm_context as get_llm_context_biz, call_llm_with_fallback
+import sys
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from core.model_selector import get_user_tier
 from utils.token_counter import count_tokens
 from utils.summary_helpers import (
     create_conversational_summary, 
@@ -258,26 +261,46 @@ INSTRUCTIONS:
     # Update conversation record
     await update_conversation(request.conversation_id, request.user_id)
     
-    # Direct API call that we know works
-    response = requests.post(
-        "https://openrouter.ai/api/v1/chat/completions",
-        headers={
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json"
-        },
-        json={
-            "model": request.model or "deepseek/deepseek-chat",
-            "messages": messages,
-            "temperature": 0.7,
-            "max_tokens": 2048
-        },
-        timeout=30
-    )
+    # Use tier-based model selection with fallback
+    try:
+        print(f"Using tier-based selection for user: {request.user_id}")
+        result = await call_llm_with_fallback(
+            messages=messages,
+            user_id=request.user_id,
+            endpoint_type="chat",
+            reasoning_mode=getattr(request, 'reasoning_mode', False),
+            temperature=0.7,
+            max_tokens=2048
+        )
+        print(f"Model selection result: {result.get('model', 'unknown')}")
+        response_success = True
+    except Exception as e:
+        # Fallback to direct API call if tier system fails
+        print(f"Tier-based selection failed: {e}, using direct call")
+        response = requests.post(
+            "https://openrouter.ai/api/v1/chat/completions",
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json"
+            },
+            json={
+                "model": request.model or "deepseek/deepseek-chat",
+                "messages": messages,
+                "temperature": 0.7,
+                "max_tokens": 2048
+            },
+            timeout=30
+        )
+        if response.status_code == 200:
+            result = response.json()
+            response_success = True
+        else:
+            result = None
+            response_success = False
     
-    if response.status_code == 200:
-        result = response.json()
+    if response_success and result and "choices" in result:
         content = result["choices"][0]["message"]["content"]
-        model_used = request.model or "deepseek/deepseek-chat"
+        model_used = result.get("model", request.model or "deepseek/deepseek-chat")
         
         # Save assistant response to Supabase
         await save_message(
@@ -330,6 +353,14 @@ INSTRUCTIONS:
         except Exception as e:
             print(f"Error updating conversation tokens: {e}")
         
+        # Get actual user tier
+        user_tier = "free"
+        if request.user_id:
+            try:
+                user_tier = await get_user_tier(request.user_id)
+            except:
+                pass
+        
         return {
             "response": content,
             "message": content,  # Include both formats for frontend compatibility
@@ -339,12 +370,15 @@ INSTRUCTIONS:
             "category": request.category,
             "usage": result.get("usage", {}),
             "model": model_used,
+            "model_used": model_used,  # Alternative field name
+            "tier": user_tier,  # Actual user tier
+            "reasoning_mode": getattr(request, 'reasoning_mode', False),
             "status": "success",
             "medical_data_loaded": bool(user_medical_data),
             "context_loaded": bool(llm_context),
             "history_count": len(history),
             "context_status": context_status,  # Include context status for frontend
-            "user_tier": "premium" if is_premium else "free"
+            "user_tier": user_tier  # Keep for compatibility
         }
     else:
         error_msg = f"Error: {response.status_code} - {response.text}"

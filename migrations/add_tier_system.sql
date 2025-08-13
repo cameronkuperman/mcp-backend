@@ -60,9 +60,9 @@ VALUES
      '{"ultra_think": true, "reports": "all", "chat_reasoning": true, "deep_dive": true, "claude_chat": true, "experimental": true}')
 ON CONFLICT (tier_name) DO NOTHING;
 
--- 4. Add function to get user's current tier
+-- 4. Add function to get user's current tier (with unique name)
 -- This function can be called from the backend or used in RLS policies
-CREATE OR REPLACE FUNCTION get_user_tier(p_user_id uuid)
+CREATE OR REPLACE FUNCTION get_user_subscription_tier(p_user_id uuid)
 RETURNS text AS $$
 DECLARE
     v_tier text;
@@ -98,7 +98,7 @@ DECLARE
     v_id uuid;
 BEGIN
     -- Get user's current tier
-    v_tier := get_user_tier(p_user_id::uuid);
+    v_tier := get_user_subscription_tier(p_user_id::uuid);
     
     -- Insert usage record
     INSERT INTO public.model_usage (
@@ -137,13 +137,13 @@ GROUP BY DATE_TRUNC('day', created_at), tier_at_time, endpoint, model_used;
 GRANT USAGE ON SCHEMA public TO authenticated;
 GRANT SELECT ON public.tier_config TO authenticated;
 GRANT SELECT, INSERT ON public.model_usage TO authenticated;
-GRANT EXECUTE ON FUNCTION get_user_tier TO authenticated;
+GRANT EXECUTE ON FUNCTION get_user_subscription_tier TO authenticated;
 GRANT EXECUTE ON FUNCTION log_model_usage TO authenticated;
 GRANT SELECT ON model_usage_analytics TO authenticated;
 
 -- Add comment for documentation
 COMMENT ON TABLE public.model_usage IS 'Tracks model usage per user for analytics and cost tracking';
 COMMENT ON TABLE public.tier_config IS 'Configuration for subscription tiers and their features';
-COMMENT ON FUNCTION get_user_tier IS 'Returns the current subscription tier for a user';
+COMMENT ON FUNCTION get_user_subscription_tier IS 'Returns the current subscription tier for a user';
 COMMENT ON FUNCTION log_model_usage IS 'Logs model usage for analytics and monitoring';
 COMMENT ON VIEW model_usage_analytics IS 'Aggregated view of model usage for analytics dashboards';

@@ -104,8 +104,14 @@ interface AnalysisResult {{
   timeline: string;            // Expected recovery timeline
   followUp: string;            // When to seek further care
   relatedSymptoms: string[];   // Things to monitor
+  what_this_means: string;      // Plain English explanation (2-3 sentences, no medical jargon)
+  immediate_actions: string[];  // 3-5 specific actions to take right now
 }}
 ```
+
+## Additional Requirements
+- what_this_means: Provide a clear, non-medical explanation of what the symptoms indicate. Focus on helping the patient understand their situation in plain language.
+- immediate_actions: List 3-5 specific, actionable steps the patient can take immediately based on their symptoms.
 
 ## Input Format
 - Selected Body Region: {body_part} (IMPORTANT: This is a GENERAL AREA selection, not necessarily the exact location of symptoms)
@@ -364,10 +370,16 @@ Return EXACTLY this JSON structure (no other text):
   "timeline": string,            // e.g., "2-3 days", "1-2 weeks"
   "followUp": string,            // When to seek further care
   "relatedSymptoms": string[],   // Things to monitor
-  "reasoning_snippets": ["key insights from Q&A that led to diagnosis"]
+  "reasoning_snippets": ["key insights from Q&A that led to diagnosis"],
+  "what_this_means": string,      // Comprehensive plain English explanation based on full Q&A (2-3 sentences)
+  "immediate_actions": string[]   // 3-5 personalized actions based on deep dive findings
 }}
 
-IMPORTANT: Provide more detailed and confident analysis than Quick Scan due to additional Q&A information."""
+IMPORTANT: Provide more detailed and confident analysis than Quick Scan due to additional Q&A information.
+
+Additional Requirements:
+- what_this_means: Provide a comprehensive but clear explanation of your findings based on the full Q&A session. Use plain language that helps the patient understand their situation.
+- immediate_actions: List 3-5 personalized, specific actions based on the detailed understanding gained from the diagnostic conversation."""
     
     else:
         base_prompt += f"General query\n"

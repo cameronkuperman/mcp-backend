@@ -15,6 +15,15 @@ from models.requests import (
 )
 from utils.json_parser import extract_json_from_text
 from utils.data_gathering import get_user_medical_data
+from utils.assessment_formatter import (
+    add_general_assessment_fields,
+    add_minimal_fields,
+    enhance_general_assessment_prompt
+)
+from utils.db_storage import (
+    store_enhanced_fields_for_general_assessment,
+    store_enhanced_fields_for_general_deepdive
+)
 from business_logic import call_llm
 from supabase_client import supabase
 
@@ -282,8 +291,23 @@ Provide a comprehensive analysis in JSON format:
     ],
     "recommendations": ["specific recommendation 1", "recommendation 2", ...],
     "urgency": "low|medium|high|emergency",
-    "follow_up_questions": ["question to clarify diagnosis", ...]
-}}"""
+    "follow_up_questions": ["question to clarify diagnosis", ...],
+    "severity_level": "low|moderate|high|urgent",
+    "confidence_level": "low|medium|high",
+    "what_this_means": "Plain English explanation of what symptoms indicate (2-3 sentences, no medical jargon)",
+    "immediate_actions": ["3-5 specific actionable steps to take right now"],
+    "red_flags": ["Specific warning signs requiring immediate medical attention"],
+    "tracking_metrics": ["3-4 specific symptoms/measurements to monitor daily with how to measure"],
+    "follow_up_timeline": {{
+        "check_progress": "When to reassess (e.g., '3 days')",
+        "see_doctor_if": "Specific conditions for seeking medical care"
+    }}
+}}
+
+Example for what_this_means:
+- Good: "Your fatigue and difficulty concentrating suggest your body is dealing with stress. This pattern is common and usually responds well to lifestyle adjustments."
+- Avoid: "You have chronic fatigue syndrome with cognitive dysfunction."
+"""
 
         # Call LLM
         llm_response = await call_llm(
@@ -320,6 +344,22 @@ Provide a comprehensive analysis in JSON format:
                 "follow_up_questions": []
             }
         
+        # Add new required fields using formatter
+        analysis = add_general_assessment_fields({
+            "analysis": analysis
+        }, llm_generated=analysis)
+        
+        # Extract analysis back out since we wrapped it
+        if "analysis" in analysis:
+            base_analysis = analysis["analysis"]
+            del analysis["analysis"]
+            # Merge base analysis fields back
+            for key, value in base_analysis.items():
+                if key not in analysis:
+                    analysis[key] = value
+        
+        logger.info(f"Enhanced analysis with new fields: severity={analysis.get('severity_level')}, confidence={analysis.get('confidence_level')}")
+        
         # Save to database
         try:
             assessment_result = supabase.table("general_assessments").insert({
@@ -339,6 +379,12 @@ Provide a comprehensive analysis in JSON format:
             assessment_result = type('obj', (object,), {'data': [{'id': str(uuid.uuid4())}]})
         
         assessment_id = assessment_result.data[0]["id"] if assessment_result.data else str(uuid.uuid4())
+        
+        # Store the enhanced fields in the database
+        try:
+            store_enhanced_fields_for_general_assessment(assessment_id, analysis)
+        except Exception as storage_error:
+            logger.warning(f"Failed to store enhanced fields: {storage_error}")
         
         return {
             "assessment_id": assessment_id,
@@ -618,10 +664,21 @@ Provide a comprehensive final analysis in JSON format:
         "key_findings": ["important finding 1", "finding 2", ...],
         "recommendations": ["specific recommendation 1", ...],
         "red_flags": ["warning sign to watch for", ...],
-        "follow_up": "suggested follow-up plan"
+        "follow_up": "suggested follow-up plan",
+        "urgency": "low|medium|high|emergency"
     }},
     "confidence": 0-100,
-    "reasoning_snippets": ["key reasoning point 1", "point 2", ...]
+    "reasoning_snippets": ["key reasoning point 1", "point 2", ...],
+    "severity_level": "low|moderate|high|urgent",
+    "confidence_level": "low|medium|high",
+    "what_this_means": "Comprehensive plain English explanation based on full diagnostic conversation (2-3 sentences)",
+    "immediate_actions": ["3-5 personalized action steps based on deep dive findings"],
+    "red_flags": ["Specific warning signs based on diagnosis"],
+    "tracking_metrics": ["Personalized metrics to monitor"],
+    "follow_up_timeline": {{
+        "check_progress": "When to reassess",
+        "see_doctor_if": "Specific conditions for medical care"
+    }}
 }}"""
 
         logger.info(f"Calling LLM for final analysis of category: {category}")
@@ -658,11 +715,20 @@ Provide a comprehensive final analysis in JSON format:
                     "key_findings": ["Incomplete analysis"],
                     "recommendations": ["Please consult with a healthcare provider"],
                     "red_flags": [],
-                    "follow_up": "Medical evaluation recommended"
+                    "follow_up": "Medical evaluation recommended",
+                    "urgency": "medium"
                 },
                 "confidence": 50,
                 "reasoning_snippets": []
             }
+        
+        # Add new required fields using formatter
+        analysis_data = add_general_assessment_fields(
+            analysis_data,
+            llm_generated=analysis_data
+        )
+        
+        logger.info(f"Enhanced deep dive with new fields: severity={analysis_data.get('severity_level')}, confidence_level={analysis_data.get('confidence_level')}")
         
         # Calculate session duration
         try:
@@ -697,16 +763,37 @@ Provide a comprehensive final analysis in JSON format:
             logger.error(f"Database update error in deep dive complete: {str(e)}")
             # Continue anyway - we have the analysis
         
-        return {
+        # Build response with new fields
+        response = {
             "deep_dive_id": session_id,
             "analysis": analysis_data.get("analysis", {}),
             "category": category,
             "confidence": analysis_data.get("confidence", 50),
+            # Add new fields
+            "severity_level": analysis_data.get("severity_level", "moderate"),
+            "confidence_level": analysis_data.get("confidence_level", "medium"),
+            "what_this_means": analysis_data.get("what_this_means", "Based on our conversation, further evaluation is recommended."),
+            "immediate_actions": analysis_data.get("immediate_actions", []),
+            "red_flags": analysis_data.get("red_flags", []),
+            "tracking_metrics": analysis_data.get("tracking_metrics", []),
+            "follow_up_timeline": analysis_data.get("follow_up_timeline", {}),
+        }
+        
+        # Store the enhanced fields in the database
+        try:
+            store_enhanced_fields_for_general_deepdive(session_id, response)
+        except Exception as storage_error:
+            logger.warning(f"Failed to store enhanced fields for deep dive: {storage_error}")
+        
+        # Continue building response
+        response.update({
             "questions_asked": len(session.get("questions", [])),
             "session_duration_ms": session_duration_ms,
             "reasoning_snippets": analysis_data.get("reasoning_snippets", []),
             "status": "success"
-        }
+        })
+        
+        return response
         
     except Exception as e:
         logger.error(f"Complete deep dive error: {str(e)}")
