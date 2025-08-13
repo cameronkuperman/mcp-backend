@@ -8,6 +8,7 @@ import asyncio
 import sys
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from core.model_selector import get_models_for_endpoint, select_model_with_fallback
+from utils.token_counter import count_tokens
 
 # Load .env file
 load_dotenv()
@@ -525,20 +526,42 @@ async def call_llm(
             # Use max_completion_tokens for o1/GPT-5 models
             request_params["max_completion_tokens"] = 8000  # Allow up to 8k, model uses what it needs
         elif "deepseek-r1" in model:
-            # Enable reasoning output for DeepSeek R1
-            request_params["include_reasoning"] = True
-            request_params["max_tokens"] = 8000  # DeepSeek uses regular max_tokens
+            # Use OpenRouter's standardized reasoning parameter for DeepSeek R1
+            request_params["reasoning"] = {
+                "effort": "high"  # High effort for detailed reasoning (no max_tokens when using effort)
+            }
+            request_params["max_tokens"] = 8000  # Overall max tokens
+        elif "claude" in model.lower():
+            # Claude models support reasoning parameter
+            # IMPORTANT: max_tokens must be strictly higher than reasoning budget
+            # For Claude, we use max_tokens approach for precise control
+            request_params["reasoning"] = {
+                "max_tokens": 4000  # Direct specification of reasoning token budget
+            }
+            request_params["max_tokens"] = 6000  # Must be > reasoning.max_tokens (4000)
         elif "grok" in model:
             # Grok models for ultra thinking
+            request_params["reasoning"] = {
+                "effort": "high"  # Use effort-based approach
+            }
             request_params["max_tokens"] = 12000  # Higher for Grok
             request_params["temperature"] = 0.3  # Lower for focused reasoning
         else:
-            # Regular models with enhanced limits
+            # Other models with reasoning support
+            request_params["reasoning"] = {
+                "effort": "medium"  # Use effort-based approach
+            }
             request_params["max_tokens"] = 6000  # Higher limit, model uses what it needs
             request_params["temperature"] = 0.3  # Lower for focused reasoning
     else:
-        # Standard completion
+        # Standard completion (no reasoning)
         request_params["max_tokens"] = max_tokens
+    
+    # Debug logging for reasoning mode
+    if reasoning_mode:
+        print(f"=== REQUEST PARAMS DEBUG ===")
+        print(f"Model: {model}")
+        print(f"Request params: {json.dumps(request_params, indent=2)}")
     
     # Make the request using requests library (proven to work)
     def make_request():
@@ -566,6 +589,12 @@ async def call_llm(
                         print(f"Using Anthropic API key for {model}")
                     else:
                         print(f"No Anthropic API key found for {model}, using OpenRouter credits")
+            
+            # Final debug before sending
+            if reasoning_mode:
+                print(f"=== FINAL REQUEST TO OPENROUTER ===")
+                print(f"Headers: {headers}")
+                print(f"Request JSON: {json.dumps(request_params, indent=2)}")
             
             response = requests.post(
                 "https://openrouter.ai/api/v1/chat/completions",
@@ -600,7 +629,52 @@ async def call_llm(
     loop = asyncio.get_event_loop()
     data = await loop.run_in_executor(None, make_request)
     
+    # Debug logging to see exact response structure
+    if reasoning_mode:
+        print(f"=== REASONING MODE RESPONSE DEBUG ===")
+        print(f"Model: {model}")
+        if "choices" in data and len(data["choices"]) > 0:
+            message_keys = data["choices"][0].get("message", {}).keys()
+            print(f"Message keys: {list(message_keys)}")
+            if "reasoning" in data["choices"][0].get("message", {}):
+                reasoning_preview = data["choices"][0]["message"]["reasoning"]
+                print(f"Reasoning found! Length: {len(reasoning_preview) if reasoning_preview else 0} chars")
+                if reasoning_preview:
+                    print(f"Reasoning preview: {reasoning_preview[:200]}...")
+            else:
+                print("No reasoning field in message")
+    
+    # Extract reasoning if present
+    reasoning_content = None
+    reasoning_tokens = 0
     content = data["choices"][0]["message"]["content"].strip()
+    
+    # Check if reasoning is in the response
+    if "choices" in data and len(data["choices"]) > 0:
+        choice = data["choices"][0]
+        if "message" in choice:
+            # Check for reasoning field (Claude 3.7, DeepSeek R1, etc.)
+            if "reasoning" in choice["message"] and choice["message"]["reasoning"]:
+                reasoning_content = choice["message"]["reasoning"]
+                # Count reasoning tokens (since OpenRouter includes them in completion_tokens)
+                reasoning_tokens = count_tokens(reasoning_content) if reasoning_content else 0
+                print(f"✅ Extracted reasoning: {len(reasoning_content) if reasoning_content else 0} chars, ~{reasoning_tokens} tokens")
+            
+            # Also check for reasoning_details (Claude 3.7 format)
+            if "reasoning_details" in choice["message"] and not reasoning_content:
+                details = choice["message"]["reasoning_details"]
+                if details and len(details) > 0 and "text" in details[0]:
+                    reasoning_content = details[0]["text"]
+                    reasoning_tokens = count_tokens(reasoning_content) if reasoning_content else 0
+                    print(f"✅ Extracted reasoning from details: {len(reasoning_content)} chars, ~{reasoning_tokens} tokens")
+    
+    # Also check for reasoning tokens in usage details (OpenRouter format)
+    if "usage" in data and "completion_tokens_details" in data["usage"]:
+        if "reasoning_tokens" in data["usage"]["completion_tokens_details"]:
+            reported_reasoning_tokens = data["usage"]["completion_tokens_details"]["reasoning_tokens"]
+            if reported_reasoning_tokens > 0:
+                reasoning_tokens = reported_reasoning_tokens
+                print(f"OpenRouter reported {reasoning_tokens} reasoning tokens")
     
     # Try to parse as JSON if it looks like JSON
     parsed_content = content
@@ -610,16 +684,32 @@ async def call_llm(
     except json.JSONDecodeError:
         pass
     
-    # Return full response data in OpenRouter format
+    # Build enhanced usage info
+    usage = data.get("usage", {})
+    
+    # Pass through completion_tokens_details if present (contains reasoning_tokens for DeepSeek)
+    if "completion_tokens_details" in data.get("usage", {}):
+        usage["completion_tokens_details"] = data["usage"]["completion_tokens_details"]
+    
+    if reasoning_tokens > 0:
+        # Add reasoning_tokens to usage (these are included in completion_tokens)
+        usage["reasoning_tokens"] = reasoning_tokens
+        # Calculate actual response tokens (completion minus reasoning)
+        usage["response_tokens"] = usage.get("completion_tokens", 0) - reasoning_tokens
+    
+    # Return full response data in OpenRouter format with reasoning
     return {
         "choices": [{
             "message": {
-                "content": content
+                "content": content,
+                "reasoning": reasoning_content  # Include reasoning in message
             },
             "finish_reason": data["choices"][0].get("finish_reason", "stop")
         }],
-        "usage": data.get("usage", {}),
+        "usage": usage,
         "model": model,
+        "reasoning": reasoning_content,  # Top-level reasoning for easy access
+        "has_reasoning": bool(reasoning_content),  # Flag for frontend
         # Keep these for backward compatibility
         "content": parsed_content,
         "raw_content": content

@@ -11,6 +11,7 @@ class ChatRequest(BaseModel):
     category: str = "health-scan"
     model: Optional[str] = None
     context: Optional[str] = None  # Frontend sends context
+    reasoning_mode: bool = False  # Enable chain of thought reasoning
 
 class GenerateSummaryRequest(BaseModel):
     conversation_id: Optional[str] = None

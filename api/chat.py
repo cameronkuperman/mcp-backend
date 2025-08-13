@@ -156,7 +156,7 @@ async def update_conversation(conversation_id: str, user_id: str):
 @router.post("/chat")
 async def chat(request: ChatRequest):
     """Oracle chat endpoint with real OpenRouter AI and Supabase integration"""
-    print(f"Chat endpoint called with user_id: {request.user_id}, reasoning_mode: {getattr(request, 'reasoning_mode', False)}")
+    print(f"Chat endpoint called with user_id: {request.user_id}, reasoning_mode: {request.reasoning_mode}")
     # Handle both 'query' and 'message' fields from frontend
     user_message = request.message or request.query
     if not user_message:
@@ -269,7 +269,7 @@ INSTRUCTIONS:
             messages=messages,
             user_id=request.user_id,
             endpoint_type="chat",
-            reasoning_mode=getattr(request, 'reasoning_mode', False),
+            reasoning_mode=request.reasoning_mode,
             temperature=0.7,
             max_tokens=2048
         )
@@ -366,14 +366,16 @@ INSTRUCTIONS:
             "response": content,
             "message": content,  # Include both formats for frontend compatibility
             "raw_response": content,
+            "reasoning": result.get("reasoning"),  # Separated reasoning content
+            "has_reasoning": result.get("has_reasoning", False),  # Flag indicating if reasoning is present
             "conversation_id": request.conversation_id,
             "user_id": request.user_id,
             "category": request.category,
-            "usage": result.get("usage", {}),
+            "usage": result.get("usage", {}),  # Includes reasoning_tokens if present
             "model": model_used,
             "model_used": model_used,  # Alternative field name
             "tier": user_tier,  # Actual user tier
-            "reasoning_mode": getattr(request, 'reasoning_mode', False),
+            "reasoning_mode": request.reasoning_mode,
             "status": "success",
             "medical_data_loaded": bool(user_medical_data),
             "context_loaded": bool(llm_context),
