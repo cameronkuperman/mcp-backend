@@ -3,12 +3,14 @@ from fastapi import APIRouter, Request, HTTPException
 from typing import Optional, Dict, Any, List
 import json
 import uuid
+import os
 from datetime import datetime, timezone
 import logging
 
 from models.requests import (
     FlashAssessmentRequest,
     GeneralAssessmentRequest,
+    GeneralAssessmentRefineRequest,
     GeneralDeepDiveStartRequest,
     GeneralDeepDiveContinueRequest,
     GeneralDeepDiveCompleteRequest
@@ -98,7 +100,51 @@ Note: Be supportive and non-judgmental in all responses.""",
 - Referred pain possibilities
 - Chronic vs acute presentation
 - Impact on daily activities
-- Previous injuries in the area"""
+- Previous injuries in the area""",
+    
+    "digestive": """You are analyzing digestive and gastrointestinal concerns. Consider:
+- Upper vs lower GI issues
+- Functional vs organic disease
+- Food intolerances and triggers
+- Inflammatory bowel conditions
+- Red flags for GI malignancy
+- User's medications affecting GI: {medications}
+- Chronic conditions: {conditions}""",
+    
+    "breathing": """You are analyzing breathing and chest symptoms. Consider:
+- Cardiac vs pulmonary causes
+- Anxiety-related dyspnea
+- Severity and functional impact
+- Environmental triggers
+- Red flags for emergency conditions
+- User's medications: {medications}
+- Chronic conditions: {conditions}""",
+    
+    "skin": """You are analyzing skin and hair concerns. Consider:
+- Inflammatory vs infectious causes
+- Distribution patterns
+- Systemic disease manifestations
+- Hair loss patterns
+- Medication reactions from: {medications}
+- Underlying conditions: {conditions}""",
+    
+    "hormonal": """You are analyzing hormonal and endocrine concerns. Consider:
+- Sex-specific hormonal issues
+- Thyroid and metabolic disorders
+- Reproductive health
+- Age-related changes
+- Medication effects: {medications}
+- Endocrine conditions: {conditions}
+Note: Tailor assessment based on biological sex.""",
+    
+    "neurological": """You are analyzing neurological symptoms. Consider:
+- Central vs peripheral nervous system
+- Headache classification
+- Red flags for serious pathology
+- Stroke/TIA symptoms
+- Movement and cognitive issues
+- CNS-affecting medications: {medications}
+- Neurological conditions: {conditions}"""
 }
 
 @router.post("/flash-assessment")
@@ -393,6 +439,191 @@ Example for what_this_means:
         
     except Exception as e:
         logger.error(f"General assessment error: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/general-assessment/refine")
+async def refine_general_assessment(request: Request):
+    """Refine an existing general assessment by answering follow-up questions"""
+    try:
+        data = await request.json()
+        assessment_id = data.get("assessment_id")
+        answers = data.get("answers", [])
+        user_id = data.get("user_id")
+        
+        if not assessment_id:
+            raise HTTPException(status_code=400, detail="assessment_id is required")
+        if not answers:
+            raise HTTPException(status_code=400, detail="answers are required")
+        
+        # Fetch original assessment
+        logger.info(f"Fetching original assessment: {assessment_id}")
+        assessment_result = supabase.table("general_assessments").select("*").eq("id", assessment_id).single().execute()
+        
+        if not assessment_result.data:
+            raise HTTPException(status_code=404, detail="Assessment not found")
+        
+        original_assessment = assessment_result.data
+        
+        # Extract original data
+        category = original_assessment.get("category")
+        form_data = original_assessment.get("form_data", {})
+        original_analysis = original_assessment.get("analysis_result", {})
+        original_confidence = float(original_analysis.get("confidence", 50))
+        follow_up_questions = original_analysis.get("follow_up_questions", [])
+        
+        # Validate that we have follow-up questions
+        if not follow_up_questions:
+            raise HTTPException(status_code=400, detail="Original assessment has no follow-up questions")
+        
+        # Fetch user medical data if available
+        user_medical_data = {}
+        if user_id:
+            user_medical_data = await get_user_medical_data(user_id)
+        
+        # Format Q&A pairs for context
+        qa_pairs = []
+        for answer_obj in answers:
+            question = answer_obj.get("question", "")
+            answer = answer_obj.get("answer", "")
+            if question and answer:
+                qa_pairs.append(f"Q: {question}\nA: {answer}")
+        
+        qa_context = "\n\n".join(qa_pairs)
+        
+        # Build refinement prompt
+        system_prompt = build_category_prompt(category, user_medical_data)
+        
+        refinement_prompt = f"""You are refining a previous assessment with additional information from follow-up questions.
+
+ORIGINAL ASSESSMENT:
+Category: {category}
+Initial Symptoms: {format_form_data(form_data, category)}
+
+Initial Analysis:
+- Primary Assessment: {original_analysis.get('primary_assessment', 'Unknown')}
+- Confidence: {original_confidence}%
+- Key Findings: {', '.join(original_analysis.get('key_findings', []))}
+- Possible Causes: {[c.get('condition') for c in original_analysis.get('possible_causes', [])]}
+
+FOLLOW-UP INFORMATION:
+{qa_context}
+
+Based on this additional information, provide a REFINED analysis with higher confidence.
+
+Focus on:
+1. Narrowing down the differential diagnosis
+2. Increasing diagnostic certainty
+3. Providing more specific recommendations
+4. Identifying any new red flags or concerns
+
+Respond in JSON format:
+{{
+    "refined_primary_assessment": "Updated assessment with higher certainty",
+    "confidence": {max(original_confidence + 15, 85)}-95,
+    "diagnostic_certainty": "provisional|probable|definitive",
+    "differential_diagnoses": [
+        {{"condition": "Most likely condition", "probability": 70-95, "supporting_evidence": ["evidence1", "evidence2"]}}
+    ],
+    "key_refinements": ["What the follow-up answers clarified", ...],
+    "updated_recommendations": ["More specific recommendation 1", ...],
+    "immediate_actions": ["Specific next steps based on refinement"],
+    "red_flags": ["Any new concerns from follow-up answers"],
+    "urgency": "low|medium|high|emergency",
+    "next_steps": {{
+        "immediate": "What to do right now",
+        "short_term": "Next 24-48 hours",
+        "follow_up": "When to reassess or see doctor"
+    }},
+    "severity_level": "low|moderate|high|urgent",
+    "confidence_level": "medium|high",
+    "what_this_means": "Clear explanation incorporating the new information (2-3 sentences)",
+    "tracking_metrics": ["Specific metrics to track based on refined understanding"],
+    "follow_up_timeline": {{
+        "check_progress": "When to reassess",
+        "see_doctor_if": "Specific conditions requiring medical care"
+    }}
+}}"""
+
+        # Call LLM for refined analysis
+        logger.info(f"Calling LLM for refinement of assessment {assessment_id}")
+        llm_response = await call_llm(
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": refinement_prompt}
+            ],
+            model="deepseek/deepseek-chat",
+            temperature=0.5  # Lower temperature for more consistent refinement
+        )
+        
+        # Extract and parse response
+        if isinstance(llm_response, dict):
+            llm_content = llm_response.get('content', '')
+        else:
+            llm_content = str(llm_response)
+        
+        if '```json' in llm_content:
+            llm_content = llm_content.replace('```json', '').replace('```', '').strip()
+        
+        refined_analysis = extract_json_from_text(llm_content)
+        if not refined_analysis:
+            logger.error("Failed to parse refined analysis")
+            refined_analysis = {
+                "refined_primary_assessment": "Unable to refine assessment",
+                "confidence": original_confidence + 5,
+                "diagnostic_certainty": "provisional",
+                "key_refinements": ["Analysis refinement failed"],
+                "updated_recommendations": original_analysis.get("recommendations", [])
+            }
+        
+        # Calculate confidence improvement
+        refined_confidence = float(refined_analysis.get("confidence", original_confidence + 10))
+        confidence_improvement = refined_confidence - original_confidence
+        
+        logger.info(f"Refinement complete: confidence {original_confidence}% -> {refined_confidence}% (+{confidence_improvement}%)")
+        
+        # Store refinement in database
+        try:
+            refinement_result = supabase.table("general_assessment_refinements").insert({
+                "assessment_id": assessment_id,
+                "user_id": str(user_id) if user_id else None,
+                "follow_up_questions": follow_up_questions,
+                "answers": answers,
+                "refined_analysis": refined_analysis,
+                "refined_confidence": refined_confidence,
+                "original_confidence": original_confidence,
+                "severity_level": refined_analysis.get("severity_level", "moderate"),
+                "confidence_level": refined_analysis.get("confidence_level", "medium"),
+                "what_this_means": refined_analysis.get("what_this_means", ""),
+                "immediate_actions": refined_analysis.get("immediate_actions", []),
+                "red_flags": refined_analysis.get("red_flags", []),
+                "tracking_metrics": refined_analysis.get("tracking_metrics", []),
+                "follow_up_timeline": refined_analysis.get("follow_up_timeline", {}),
+                "differential_diagnoses": refined_analysis.get("differential_diagnoses", []),
+                "diagnostic_certainty": refined_analysis.get("diagnostic_certainty", "provisional"),
+                "next_steps": refined_analysis.get("next_steps", {}),
+                "model_used": "deepseek/deepseek-chat"
+            }).execute()
+            
+            refinement_id = refinement_result.data[0]["id"] if refinement_result.data else str(uuid.uuid4())
+        except Exception as e:
+            logger.error(f"Database insert error for refinement: {str(e)}")
+            refinement_id = str(uuid.uuid4())
+        
+        # Build response
+        return {
+            "refinement_id": refinement_id,
+            "assessment_id": assessment_id,
+            "refined_analysis": refined_analysis,
+            "confidence_improvement": round(confidence_improvement, 1),
+            "original_confidence": original_confidence,
+            "refined_confidence": refined_confidence,
+            "diagnostic_certainty": refined_analysis.get("diagnostic_certainty", "provisional"),
+            "category": category,
+            "status": "success"
+        }
+        
+    except Exception as e:
+        logger.error(f"Assessment refinement error: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/general-deepdive/start")
@@ -936,7 +1167,24 @@ Location Description: {form_data['bodyLocation'].get('description', 'None')}
 
 def build_category_prompt(category: str, medical_data: dict) -> str:
     """Build category-specific prompt with medical context"""
-    base_prompt = CATEGORY_PROMPTS.get(category, CATEGORY_PROMPTS["unsure"])
+    
+    # Try to load from file first
+    prompts_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'prompts', 'general_assessment')
+    prompt_file = os.path.join(prompts_dir, f"{category}.txt")
+    
+    base_prompt = None
+    try:
+        if os.path.exists(prompt_file):
+            with open(prompt_file, 'r') as f:
+                base_prompt = f.read()
+                logger.info(f"Loaded {category} prompt from file")
+    except Exception as e:
+        logger.warning(f"Could not load prompt from file for {category}: {e}")
+    
+    # Fall back to inline prompt if file not found
+    if not base_prompt:
+        base_prompt = CATEGORY_PROMPTS.get(category, CATEGORY_PROMPTS["unsure"])
+        logger.info(f"Using inline prompt for {category}")
     
     # Replace placeholders with actual medical data
     medications = medical_data.get('medications', [])

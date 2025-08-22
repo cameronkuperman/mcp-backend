@@ -1,0 +1,59 @@
+You are completing a comprehensive diagnostic assessment. Based on the full clinical interview, provide your final diagnostic impression and treatment recommendations.
+
+## COMPLETE CLINICAL INTERVIEW
+{questions}
+
+## INITIAL PRESENTATION
+{form_data}
+
+## MEDICAL HISTORY
+{medical_data}
+
+## PREVIOUS ENCOUNTERS
+{llm_context}
+
+## CLINICAL SYNTHESIS TASK
+As the attending physician, you must now:
+1. Synthesize all information into a coherent clinical picture
+2. Provide your primary diagnosis with confidence level
+3. List differential diagnoses in order of probability
+4. Identify any red flags requiring immediate attention
+5. Recommend specific next steps for the patient
+
+## DIAGNOSTIC REASONING
+Apply clinical reasoning principles:
+- Occam's razor (simplest explanation fitting all symptoms)
+- Consider prevalence (common things are common)
+- Don't miss serious but treatable conditions
+- Account for all reported symptoms
+- Consider patient's specific risk factors
+
+## OUTPUT FORMAT
+You MUST output ONLY a JSON object. No text before or after. Start with {{ and end with }}.
+
+Return EXACTLY this JSON structure (no other text):
+{{
+  "confidence": number,           // 0-100 your diagnostic certainty
+  "primaryCondition": "Medical diagnosis (patient-friendly term)",
+  "likelihood": "Very likely" | "Likely" | "Possible",
+  "symptoms": string[],          // All symptoms identified during interview
+  "recommendations": string[],    // 3-5 specific, actionable next steps
+  "urgency": "low" | "medium" | "high",
+  "differentials": [
+    {{"condition": "Alternative diagnosis (patient term)", "probability": number}}
+  ],
+  "redFlags": string[],          // Any symptoms requiring immediate evaluation
+  "selfCare": string[],
+  "timeline": string,            // e.g., "2-3 days", "1-2 weeks"
+  "followUp": string,            // When to seek further care
+  "relatedSymptoms": string[],   // Things to monitor
+  "reasoning_snippets": ["key insights from Q&A that led to diagnosis"],
+  "what_this_means": string,      // Comprehensive plain English explanation based on full Q&A (2-3 sentences)
+  "immediate_actions": string[]   // 3-5 personalized actions based on deep dive findings
+}}
+
+IMPORTANT: Provide more detailed and confident analysis than Quick Scan due to additional Q&A information.
+
+Additional Requirements:
+- what_this_means: Provide a comprehensive but clear explanation of your findings based on the full Q&A session. Use plain language that helps the patient understand their situation.
+- immediate_actions: List 3-5 personalized, specific actions based on the detailed understanding gained from the diagnostic conversation.

@@ -1,5 +1,5 @@
 """Chat and Oracle API endpoints"""
-from fastapi import APIRouter, BackgroundTasks
+from fastapi import APIRouter
 from datetime import datetime, timezone, timedelta
 import os
 import requests
@@ -106,52 +106,9 @@ async def get_conversation_history(conversation_id: str) -> list:
     except:
         return []
 
-async def save_message(conversation_id: str, role: str, content: str, user_id: str = None, model: str = None):
-    """Save message to Supabase"""
-    try:
-        message_data = {
-            "conversation_id": conversation_id,
-            "role": role,
-            "content": content,
-            "content_type": "text",
-            "token_count": len(content.split()),
-            "model_used": model,
-            "created_at": datetime.now(timezone.utc).isoformat()
-        }
-        supabase.table("messages").insert(message_data).execute()
-    except Exception as e:
-        print(f"Error saving message: {e}")
+# Message saving removed - backend no longer stores messages to Supabase
 
-async def update_conversation(conversation_id: str, user_id: str):
-    """Update or create conversation record"""
-    try:
-        # Check if conversation exists
-        existing = supabase.table("conversations").select("id").eq("id", conversation_id).execute()
-        
-        if not existing.data:
-            # Create new conversation
-            supabase.table("conversations").insert({
-                "id": conversation_id,
-                "user_id": user_id,
-                "title": "Health Consultation",
-                "ai_provider": "openrouter",
-                "model_name": "deepseek/deepseek-chat",
-                "conversation_type": "health_analysis",
-                "status": "active",
-                "message_count": 0,
-                "total_tokens": 0,
-                "created_at": datetime.now(timezone.utc).isoformat(),
-                "updated_at": datetime.now(timezone.utc).isoformat(),
-                "last_message_at": datetime.now(timezone.utc).isoformat()
-            }).execute()
-        else:
-            # Update existing
-            supabase.table("conversations").update({
-                "last_message_at": datetime.now(timezone.utc).isoformat(),
-                "updated_at": datetime.now(timezone.utc).isoformat()
-            }).eq("id", conversation_id).execute()
-    except Exception as e:
-        print(f"Error updating conversation: {e}")
+# Conversation update removed - backend no longer manages conversation records
 
 @router.post("/chat")
 async def chat(request: ChatRequest):
@@ -251,16 +208,7 @@ INSTRUCTIONS:
         "content": request.query
     })
     
-    # Save user message to Supabase
-    await save_message(
-        conversation_id=request.conversation_id,
-        role="user",
-        content=request.query,
-        user_id=request.user_id
-    )
-    
-    # Update conversation record
-    await update_conversation(request.conversation_id, request.user_id)
+    # Message storage removed - messages are no longer saved to Supabase
     
     # Use tier-based model selection with fallback
     try:
@@ -303,56 +251,9 @@ INSTRUCTIONS:
         content = result["choices"][0]["message"]["content"]
         model_used = result.get("model", request.model or "deepseek/deepseek-chat")
         
-        # Save assistant response to Supabase
-        await save_message(
-            conversation_id=request.conversation_id,
-            role="assistant",
-            content=content,
-            user_id=request.user_id,
-            model=model_used
-        )
+        # Assistant response storage removed - messages are no longer saved to Supabase
         
-        # Update conversation with token usage
-        try:
-            usage = result.get("usage", {})
-            total_tokens = usage.get("total_tokens", 0)
-            
-            # Get current conversation details
-            conv_response = supabase.table("conversations").select("total_tokens, message_count, title").eq("id", request.conversation_id).execute()
-            current_tokens = 0
-            current_message_count = 0
-            current_title = "Health Discussion"
-            
-            if conv_response.data and len(conv_response.data) > 0:
-                current_tokens = conv_response.data[0].get("total_tokens", 0) or 0
-                current_message_count = conv_response.data[0].get("message_count", 0) or 0
-                current_title = conv_response.data[0].get("title", "Health Discussion")
-            
-            new_message_count = current_message_count + 2  # +2 for new user/assistant messages
-            
-            supabase.table("conversations").update({
-                "total_tokens": current_tokens + total_tokens,
-                "message_count": new_message_count
-            }).eq("id", request.conversation_id).execute()
-            
-            # Auto-generate title after 4 messages if still default
-            if new_message_count >= 4 and (not current_title or current_title in ["Health Discussion", "New Conversation", "Health Consultation"]):
-                # Get recent messages for title generation
-                title_messages = history[-4:] + [
-                    {"role": "user", "content": request.query},
-                    {"role": "assistant", "content": content}
-                ]
-                generated_title = await generate_medical_title(title_messages)
-                
-                # Update title
-                supabase.table("conversations").update({
-                    "title": generated_title
-                }).eq("id", request.conversation_id).execute()
-                
-                print(f"Auto-generated title: {generated_title}")
-                
-        except Exception as e:
-            print(f"Error updating conversation tokens: {e}")
+        # Conversation updates removed - backend no longer tracks tokens or message counts
         
         # Get actual user tier
         user_tier = "free"
@@ -386,14 +287,7 @@ INSTRUCTIONS:
     else:
         error_msg = f"Error: {response.status_code} - {response.text}"
         
-        # Save error as assistant message
-        await save_message(
-            conversation_id=request.conversation_id,
-            role="assistant",
-            content=error_msg,
-            user_id=request.user_id,
-            model="error"
-        )
+        # Error message storage removed - messages are no longer saved to Supabase
         
         return {
             "response": error_msg,
@@ -639,99 +533,9 @@ async def generate_title(request: GenerateTitleRequest):
             "status": "error"
         }
 
-async def generate_summary_background(conversation_id: str, user_id: str):
-    """Background task to generate conversation summary"""
-    try:
-        # Update status to generating
-        conv_response = supabase.table("conversations").select("metadata").eq("id", conversation_id).execute()
-        metadata = conv_response.data[0].get("metadata", {}) if conv_response.data else {}
-        metadata["summary_generation_status"] = "generating"
-        
-        supabase.table("conversations").update({
-            "metadata": metadata
-        }).eq("id", conversation_id).execute()
-        
-        # Get all messages
-        messages_response = supabase.table("messages").select("*").eq("conversation_id", conversation_id).order("created_at", desc=False).execute()
-        messages = messages_response.data or []
-        
-        # Generate medical summary
-        summary = await generate_medical_summary(messages)
-        
-        # Extract medical flags
-        medical_flags = extract_medical_flags(messages)
-        
-        # Check for urgent content
-        has_urgent = any("urgent" in msg.get("content", "").lower() or "emergency" in msg.get("content", "").lower() for msg in messages)
-        
-        # Update or create LLM context
-        existing_context = supabase.table("llm_context").select("id").eq("conversation_id", conversation_id).execute()
-        
-        if existing_context.data:
-            # Update existing
-            supabase.table("llm_context").update({
-                "llm_summary": summary,
-                "updated_at": datetime.now(timezone.utc).isoformat()
-            }).eq("conversation_id", conversation_id).execute()
-        else:
-            # Create new
-            supabase.table("llm_context").insert({
-                "conversation_id": conversation_id,
-                "user_id": user_id,
-                "llm_summary": summary,
-                "created_at": datetime.now(timezone.utc).isoformat()
-            }).execute()
-        
-        # Update conversation metadata
-        metadata["medical_flags"] = medical_flags
-        metadata["has_urgent_content"] = has_urgent
-        metadata["last_summary_at"] = datetime.now(timezone.utc).isoformat()
-        metadata["summary_generation_status"] = "completed"
-        
-        supabase.table("conversations").update({
-            "metadata": metadata,
-            "updated_at": datetime.now(timezone.utc).isoformat()
-        }).eq("id", conversation_id).execute()
-        
-        print(f"Summary generated successfully for conversation {conversation_id}")
-        
-    except Exception as e:
-        print(f"Error in background summary generation: {e}")
-        # Update status to failed
-        try:
-            conv_response = supabase.table("conversations").select("metadata").eq("id", conversation_id).execute()
-            metadata = conv_response.data[0].get("metadata", {}) if conv_response.data else {}
-            metadata["summary_generation_status"] = "failed"
-            metadata["summary_error"] = str(e)
-            
-            supabase.table("conversations").update({
-                "metadata": metadata
-            }).eq("id", conversation_id).execute()
-        except:
-            pass
+# Background summary generation removed - no longer needed without message storage
 
-@router.post("/oracle/exit-summary")
-async def exit_summary(request: ExitSummaryRequest, background_tasks: BackgroundTasks):
-    """Queue background summary generation on chat exit"""
-    try:
-        # Add to background tasks
-        background_tasks.add_task(
-            generate_summary_background,
-            request.conversation_id,
-            request.user_id
-        )
-        
-        return {
-            "status": "queued",
-            "message": "Summary generation started in background"
-        }
-        
-    except Exception as e:
-        print(f"Error queuing summary generation: {e}")
-        return {
-            "error": str(e),
-            "status": "error"
-        }
+# Exit summary endpoint removed - no longer needed without message storage
 
 # REMOVED: Frontend can calculate token counts locally
 # @router.post("/oracle/check-context")

@@ -1,0 +1,55 @@
+You are analyzing skin and hair concerns. Consider:
+- Inflammatory conditions (eczema, psoriasis, dermatitis)
+- Infectious causes (bacterial, fungal, viral)
+- Allergic and hypersensitivity reactions
+- Autoimmune conditions affecting skin
+- Hair disorders (alopecia types, telogen effluvium)
+- Skin cancers and precancerous lesions
+- Systemic diseases with skin manifestations
+- Medication reactions: {medications}
+- Underlying conditions: {conditions}
+
+Key Assessment Areas:
+1. Characterize the lesion type (macule, papule, vesicle, etc.)
+2. Assess distribution pattern (localized vs generalized)
+3. Identify potential triggers or allergens
+4. Screen for systemic disease manifestations
+5. Evaluate for malignancy risk factors
+
+Distribution patterns and their significance:
+- Symmetric = systemic or endogenous cause
+- Sun-exposed areas = photosensitive reaction
+- Flexural = atopic dermatitis, psoriasis
+- Pressure areas = contact dermatitis
+- Dermatomal = herpes zoster
+- Random = drug reaction, viral exanthem
+
+Hair loss patterns:
+- Circular patches = alopecia areata
+- Diffuse thinning = telogen effluvium, thyroid
+- Male/female pattern = androgenetic alopecia
+- With scalp changes = inflammatory or infectious
+- Sudden onset = stress, medication, autoimmune
+
+Red flags requiring urgent evaluation:
+- Rapidly spreading rash with fever (cellulitis, erythema multiforme)
+- Blistering rash (Stevens-Johnson syndrome)
+- Purpuric rash (vasculitis, meningococcemia)
+- Target lesions with mucosal involvement
+- Changing mole (ABCDE criteria)
+- Non-healing wounds (malignancy, diabetes)
+
+Systemic disease associations:
+- Butterfly rash = lupus
+- Heliotrope rash = dermatomyositis
+- Pretibial myxedema = thyroid disease
+- Acanthosis nigricans = insulin resistance
+- Erythema nodosum = IBD, sarcoidosis, infections
+
+Common triggers to assess:
+- New products or cosmetics
+- Medications started in past 2-4 weeks
+- Environmental exposures
+- Stress or life changes
+- Dietary changes
+- Sun exposure

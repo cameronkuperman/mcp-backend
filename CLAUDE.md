@@ -39,6 +39,69 @@
 - **Ultra Think**: Uses `x-ai/grok-4` (UNCHANGED - maximum reasoning)
 - **Deep Dive Think Harder**: Uses `x-ai/grok-4`
 
+## 🚀 SCALABILITY & BEST PRACTICES
+
+### Industry-Standard Design Principles
+Following FAANG-level scalability patterns for production-ready systems:
+
+#### 1. **Data Immutability**
+- ✅ DO: Create new records for updates (audit trail)
+- ✅ DO: Use chain_id or similar for linking related records
+- ❌ DON'T: Modify existing health assessment records
+- **Why**: Ensures complete medical history and compliance
+
+#### 2. **Event Sourcing for Medical Data**
+- ✅ DO: Track all state changes as events
+- ✅ DO: Store progression/evolution as temporal events
+- ✅ DO: Maintain complete audit trails
+- **Example**: Follow-ups create new assessments, not modify existing
+
+#### 3. **Database Design Patterns**
+- **Proper Indexing**: Add indexes for all foreign keys and query patterns
+- **Temporal Queries**: Design for "state at any point in time" queries
+- **Denormalization**: Strategic denormalization for read-heavy operations
+- **JSONB Usage**: Use for flexible schema (medical data evolves)
+
+#### 4. **API Design Standards**
+- **Idempotency**: All POST operations should be idempotent
+- **Pagination**: All list endpoints must support pagination
+- **Versioning**: Prepare for API versioning from day one
+- **Rate Limiting**: Implement rate limiting for all endpoints
+
+#### 5. **Performance Optimization**
+- **Caching Strategy**: Cache expensive LLM calls when appropriate
+- **Async Operations**: Use async/await for all I/O operations
+- **Connection Pooling**: Proper database connection management
+- **Batch Operations**: Support batch operations where sensible
+
+#### 6. **Error Handling & Resilience**
+- **Retry Logic**: Implement exponential backoff for external services
+- **Circuit Breakers**: Prevent cascade failures
+- **Graceful Degradation**: System should degrade gracefully
+- **Dead Letter Queues**: For failed async operations
+
+#### 7. **Medical Data Specific**
+- **Temporal Awareness**: All medical data must maintain temporal context
+- **Chain of Custody**: Clear audit trail for all medical records
+- **Privacy by Design**: HIPAA-compliant data handling
+- **Progressive Disclosure**: Reveal complexity gradually
+
+### Code Quality Standards
+```python
+# ✅ GOOD: Immutable, traceable, scalable
+async def create_follow_up(assessment_id: str, responses: dict):
+    chain_id = get_or_create_chain_id(assessment_id)
+    new_assessment = create_new_assessment(chain_id, responses)
+    track_event("follow_up_created", assessment_id, new_assessment.id)
+    return new_assessment
+
+# ❌ BAD: Mutating existing records
+def update_assessment(assessment_id: str, responses: dict):
+    assessment = get_assessment(assessment_id)
+    assessment.update(responses)  # Don't do this!
+    assessment.save()
+```
+
 ## 🏗️ PROJECT STRUCTURE
 
 ### Python Version:
@@ -226,12 +289,34 @@ curl -X POST http://localhost:8000/api/deep-dive/start \
   }'
 ```
 
+## 🧠 CORE PHILOSOPHY: LLM-FIRST PRINCIPLE
+
+### All Health Metrics & Scores Are LLM-Generated
+**CRITICAL**: This application uses LLMs to generate ALL health scores, metrics, and insights from first principles.
+- ✅ DO: Use LLMs to analyze data and generate scores/patterns/insights
+- ❌ DON'T: Use hardcoded algorithms or formulas for health metrics
+- ✅ DO: Let the LLM evaluate symptom severity, body system health, patterns
+- ❌ DON'T: Calculate scores with simple math (unless extremely beneficial)
+
+**Rationale**: LLMs understand context, nuance, and relationships better than rigid algorithms.
+
+Example:
+```python
+# ❌ WRONG - Hardcoded calculation
+health_velocity = (10 - avg_symptom_severity) * 10
+
+# ✅ RIGHT - LLM analysis
+prompt = "Analyze this week's health data and provide a velocity score 0-100..."
+health_velocity = llm_response.score
+```
+
 ## 🏗️ CODE ORGANIZATION
 
 ### Modular Structure (Completed 2025-01-17):
 The codebase has been modularized from a single 4,871-line file into organized modules:
 - **api/** - Feature-based endpoint modules (chat, health_scan, tracking, etc.)
 - **api/reports/** - Report-specific endpoints (general, specialist, time_based, urgent)
+- **api/intelligence/** - NEW: Data intelligence endpoints (health velocity, patterns, etc.)
 - **models/** - Pydantic request/response models
 - **utils/** - Shared utilities (JSON parsing, token counting, data gathering)
 - **core/** - Core functionality (middleware, config)

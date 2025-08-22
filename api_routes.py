@@ -4,7 +4,7 @@ from pydantic import BaseModel
 from typing import Optional, Union, Dict, List, Any
 from business_logic import (
     get_user_data, get_llm_context, make_prompt, call_llm,
-    build_messages_for_llm, store_message, update_conversation_timestamp
+    build_messages_for_llm
 )
 from supabase_client import supabase
 import uuid
@@ -65,13 +65,7 @@ async def chat_endpoint(request: ChatRequest):
             user_id=request.user_id
         )
         
-        # Store user message
-        await store_message(
-            conversation_id=request.conversation_id,
-            role="user",
-            content=request.query,
-            token_count=len(request.query.split())
-        )
+        # User message storage removed - messages are no longer saved
         
         # Call LLM with messages
         llm_response = await call_llm(
@@ -82,21 +76,8 @@ async def chat_endpoint(request: ChatRequest):
             max_tokens=request.max_tokens
         )
         
-        # Store assistant response
-        await store_message(
-            conversation_id=request.conversation_id,
-            role="assistant",
-            content=llm_response["raw_content"],  # Store raw for consistency
-            token_count=llm_response["usage"].get("completion_tokens", 0),
-            model_used=llm_response["model"],
-            metadata={
-                "finish_reason": llm_response["finish_reason"],
-                "total_tokens": llm_response["usage"].get("total_tokens", 0)
-            }
-        )
-        
-        # Update conversation metadata
-        await update_conversation_timestamp(request.conversation_id, llm_response["raw_content"])
+        # Assistant response storage removed - messages are no longer saved
+        # Conversation metadata updates removed
         
         return {
             "response": llm_response["content"],  # Can be string or JSON

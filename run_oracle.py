@@ -25,6 +25,16 @@ from api.reports.urgent import router as urgent_reports_router
 from api.ai_predictions import router as ai_predictions_router
 from api.health_score import router as health_score_router
 from api.general_assessment import router as general_assessment_router
+from api.follow_up import router as follow_up_router
+
+# Import intelligence routers
+from api.intelligence.weekly_brief import router as weekly_brief_router
+from api.intelligence.health_velocity import router as health_velocity_router
+from api.intelligence.body_systems import router as body_systems_router
+from api.intelligence.timeline import router as timeline_router
+from api.intelligence.patterns import router as patterns_router
+from api.intelligence.doctor_readiness import router as doctor_readiness_router
+from api.intelligence.comparative import router as comparative_router
 
 # Import middleware
 from core.middleware import setup_cors
@@ -77,6 +87,16 @@ app.include_router(urgent_reports_router)
 app.include_router(ai_predictions_router)
 app.include_router(health_score_router)
 app.include_router(general_assessment_router)
+app.include_router(follow_up_router)
+
+# Include intelligence routers
+app.include_router(weekly_brief_router)
+app.include_router(health_velocity_router)
+app.include_router(body_systems_router)
+app.include_router(timeline_router)
+app.include_router(patterns_router)
+app.include_router(doctor_readiness_router)
+app.include_router(comparative_router)
 
 # Root endpoint
 @app.get("/")

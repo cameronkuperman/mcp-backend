@@ -1,0 +1,65 @@
+You are analyzing neurological symptoms. Consider:
+- Primary headache disorders (migraine, tension, cluster)
+- Secondary headaches (tumor, infection, vascular)
+- Peripheral neuropathies
+- Central nervous system disorders
+- Vestibular and balance disorders
+- Seizure disorders
+- Movement disorders
+- Cognitive and memory issues
+- User's medications that affect CNS: {medications}
+- Existing neurological conditions: {conditions}
+
+Key Assessment Areas:
+1. Differentiate central from peripheral nervous system involvement
+2. Identify red flags requiring immediate neuroimaging
+3. Classify headache type using ICHD criteria
+4. Assess for stroke/TIA symptoms
+5. Screen for neurodegenerative diseases
+
+Headache red flags (SNOOP):
+- Systemic symptoms (fever, weight loss)
+- Neurological signs (confusion, focal deficits)
+- Onset sudden (thunderclap)
+- Older age (new headache >50)
+- Pattern change or progressive
+
+Common headache patterns:
+- Unilateral throbbing + nausea + photophobia = migraine
+- Bilateral pressure + neck tension = tension-type
+- Periorbital severe + autonomic symptoms = cluster
+- Worse with Valsalva + papilledema = increased ICP
+- Sudden severe "worst ever" = subarachnoid hemorrhage
+
+Dizziness differentiation:
+- Vertigo (spinning) = vestibular
+- Presyncope (faint feeling) = cardiovascular
+- Disequilibrium (unsteady) = neurological
+- Nonspecific dizziness = metabolic/psychiatric
+
+Peripheral vs Central vertigo:
+- Peripheral: severe vertigo, horizontal nystagmus, hearing symptoms
+- Central: mild vertigo, vertical/multidirectional nystagmus, neurological signs
+
+FAST stroke symptoms:
+- Face drooping
+- Arm weakness
+- Speech difficulty
+- Time to call emergency
+
+Neuropathy patterns:
+- Stocking-glove = diabetic, B12 deficiency
+- Asymmetric = mononeuropathy, radiculopathy
+- Ascending = Guillain-Barré
+- With autonomic symptoms = diabetic, amyloid
+
+Seizure red flags:
+- First seizure in adult = needs imaging
+- Status epilepticus = medical emergency
+- Todd's paralysis = post-seizure weakness
+
+Cognitive concerns:
+- Rapid onset = delirium (infection, medication)
+- Gradual progression = dementia
+- Stepwise decline = vascular dementia
+- With movement disorder = Parkinson's, Huntington's

@@ -382,8 +382,23 @@ Respond with ONLY this JSON format:
   "quality_score": 85
 }"""
 
-PHOTO_ANALYSIS_PROMPT = """You are an expert medical AI analyzing photos. Provide the most leveraged and trackable observations based on what you can actually see.
+PHOTO_ANALYSIS_PROMPT = """You are an expert medical AI analyzing photos. 
 
+FIRST STEP - QUESTION DETECTION:
+Check if the user's description contains a question that needs answering.
+Questions can be:
+- Direct questions: "Is this serious?", "What is this?", "Should I see a doctor?", "Does this look normal?"
+- Implied questions: "I'm worried about...", "I'm not sure if...", "Could this be...", "I wonder if..."
+- Comparative questions: "Is this getting worse?", "Has this improved?", "Is it bigger than before?"
+- Concern expressions: "This looks concerning", "I'm scared about this", "Is this dangerous?"
+
+IF A QUESTION IS DETECTED:
+- Set question_detected to true
+- Provide a direct, specific answer in question_answer field addressing their concern
+- The answer should be reassuring when appropriate but always medically accurate
+- Continue with standard analysis
+
+SECOND STEP - VISUAL ANALYSIS:
 Focus on what's VISUALLY OBSERVABLE and MEASURABLE over time. Be specific with estimates even without measuring tools.
 
 Analyze and provide:
@@ -399,6 +414,8 @@ For measurements, estimate using visual cues:
 
 Format your response as JSON:
 {
+  "question_detected": boolean,
+  "question_answer": "Direct, specific answer to the user's question" (ONLY include this field if question_detected is true),
   "primary_assessment": "string",
   "confidence": number,
   "visual_observations": ["string"],
@@ -431,7 +448,9 @@ Format your response as JSON:
     },
     "optimal_photo_angle": "string",
     "optimal_lighting": "string"
-  }
+  },
+  "urgency_level": "low|medium|high|urgent",
+  "follow_up_timing": "string"
 }
 
 IMPORTANT: Focus on what YOU can see and track visually. Don't force measurements that aren't possible from the image.
@@ -892,10 +911,10 @@ async def analyze_photos(request: PhotoAnalysisRequest):
             'image_url': {'url': f'data:{mime_type};base64,{base64_image}'}
         })
     
-    # Build analysis prompt
+    # Build analysis prompt with user's description for question detection
     analysis_prompt = PHOTO_ANALYSIS_PROMPT
     if request.context:
-        analysis_prompt += f"\n\nUser context: {request.context}"
+        analysis_prompt += f"\n\nUser's description/question: {request.context}"
     
     # Call Gemini for analysis with retry
     import time
@@ -945,6 +964,10 @@ async def analyze_photos(request: PhotoAnalysisRequest):
         if analysis is None:
             raise ValueError(f"Failed to parse JSON from AI response. Content: {content[:1000]}")
         
+        # Log if a question was detected
+        if analysis.get('question_detected'):
+            print(f"✓ Question detected! Answer: {analysis.get('question_answer', 'No answer provided')[:200]}...")
+        
         # Ensure all expected fields exist as arrays
         if not isinstance(analysis.get('visual_observations'), list):
             analysis['visual_observations'] = [str(analysis.get('visual_observations', 'No observations'))]
@@ -985,6 +1008,10 @@ async def analyze_photos(request: PhotoAnalysisRequest):
             # Check if JSON extraction failed
             if analysis is None:
                 raise ValueError(f"Failed to parse JSON from fallback AI response. Content: {content[:1000]}")
+            
+            # Log if a question was detected in fallback
+            if analysis.get('question_detected'):
+                print(f"✓ Question detected (fallback)! Answer: {analysis.get('question_answer', 'No answer')[:200]}...")
             
             # Ensure all expected fields exist as arrays (same as above)
             if not isinstance(analysis.get('visual_observations'), list):

@@ -7,7 +7,7 @@ INFO:apscheduler.scheduler:Adding job tentatively -- it will be properly schedul
 INFO:apscheduler.scheduler:Adding job tentatively -- it will be properly scheduled when the scheduler starts
 INFO:apscheduler.scheduler:Adding job tentatively -- it will be properly scheduled when the scheduler starts
 INFO:apscheduler.scheduler:Adding job tentatively -- it will be properly scheduled when the scheduler starts
-INFO:     Started server process [45347]
+INFO:     Started server process [70028]
 INFO:     Waiting for application startup.
 INFO:run_oracle:Starting Oracle Health API with background scheduler...
 WARNING:services.background_jobs_v2:Redis connection failed: Error Multiple exceptions: [Errno 61] Connect call failed ('::1', 6379, 0, 0), [Errno 61] Connect call failed ('127.0.0.1', 6379) connecting to localhost:6379.. Running without cache.
@@ -36,181 +36,544 @@ INFO:     Application startup complete.
 INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
 CORS: Allowing origins: ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:3002', 'https://localhost:3000', 'https://localhost:3001', 'https://localhost:3002', 'https://main--flourishing-taiyaki-fd4e09.netlify.app', 'https://flourishing-taiyaki-fd4e09.netlify.app', 'https://proxima-eight-pi.vercel.app', 'https://*.vercel.app', 'https://healthoracle.ai', 'https://www.healthoracle.ai', 'https://app.healthoracle.ai', 'https://seimeo.com', 'https://www.seimeo.com', 'http://seimeo.com', 'http://www.seimeo.com']
 CORS: Allowing origins: ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:3002', 'https://localhost:3000', 'https://localhost:3001', 'https://localhost:3002', 'https://main--flourishing-taiyaki-fd4e09.netlify.app', 'https://flourishing-taiyaki-fd4e09.netlify.app', 'https://proxima-eight-pi.vercel.app', 'https://*.vercel.app', 'https://healthoracle.ai', 'https://www.healthoracle.ai', 'https://app.healthoracle.ai', 'https://seimeo.com', 'https://www.seimeo.com', 'http://seimeo.com', 'http://www.seimeo.com']
-INFO:     127.0.0.1:53170 - "GET /api/health HTTP/1.1" 200 OK
-INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/medical?select=%2A&id=eq.test-free-user "HTTP/2 400 Bad Request"
-INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/llm_context?select=llm_summary%2Ccreated_at&user_id=eq.test-free-user&order=created_at.desc&limit=5 "HTTP/2 400 Bad Request"
-INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/messages?select=%2A&conversation_id=eq.conv-123&order=created_at.asc&limit=10 "HTTP/2 400 Bad Request"
-INFO:httpx:HTTP Request: POST https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/messages "HTTP/2 400 Bad Request"
-INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/conversations?select=id&id=eq.conv-123 "HTTP/2 400 Bad Request"
-INFO:httpx:HTTP Request: POST https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/messages "HTTP/2 400 Bad Request"
-INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/conversations?select=total_tokens%2Cmessage_count%2Ctitle&id=eq.conv-123 "HTTP/2 400 Bad Request"
-Error fetching medical data: {'message': 'invalid input syntax for type uuid: "test-free-user"', 'code': '22P02', 'hint': None, 'details': None}
-Building enhanced context for user: test-free-user
-User ID type: <class 'str'>, value: 'test-free-user'
-Error building enhanced context: {'message': 'invalid input syntax for type uuid: "test-free-user"', 'code': '22P02', 'hint': None, 'details': None}
-Full traceback: Traceback (most recent call last):
-  File "/Users/iceca/Documents/mcp-backend/utils/context_builder.py", line 25, in get_enhanced_llm_context
+INFO:     127.0.0.1:57478 - "GET /api/health HTTP/1.1" 200 OK
+INFO:api.general_assessment:Loaded energy prompt from file
+INFO:api.general_assessment:General assessment LLM Response: {'choices': [{'message': {'content': '```json\n{\n    "primary_assessment": "Fatigue likely related to stress and poor sleep, though underlying causes need to be ruled out",\n    "confidence": 75,\n    "key_findings": [\n        "Extreme fatigue lasting 3 weeks",\n        "Aggravated by stress and poor sleep",\n        "Moderate to high impact on daily functioning (8/10)",\n        "No improvement with increased sleep and vitamins"\n    ],\n    "possible_causes": [\n        {\n            "condi...
+INFO:utils.assessment_formatter:Added general assessment fields. Severity: moderate, Confidence: medium
+INFO:api.general_assessment:Enhanced analysis with new fields: severity=moderate, confidence=medium
+INFO:httpx:HTTP Request: POST https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/general_assessments "HTTP/2 201 Created"
+INFO:httpx:HTTP Request: PATCH https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/general_assessments?id=eq.bb8aa482-495c-432b-88a0-ce4268ac2c03 "HTTP/2 200 OK"
+INFO:utils.db_storage:Stored enhanced fields for general assessment bb8aa482-495c-432b-88a0-ce4268ac2c03
+INFO:     127.0.0.1:57759 - "POST /api/general-assessment HTTP/1.1" 200 OK
+INFO:api.general_assessment:Fetching original assessment: bb8aa482-495c-432b-88a0-ce4268ac2c03
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/general_assessments?select=%2A&id=eq.bb8aa482-495c-432b-88a0-ce4268ac2c03 "HTTP/2 200 OK"
+INFO:api.general_assessment:Loaded energy prompt from file
+INFO:api.general_assessment:Calling LLM for refinement of assessment bb8aa482-495c-432b-88a0-ce4268ac2c03
+INFO:api.general_assessment:Refinement complete: confidence 75.0% -> 92.5% (+17.5%)
+INFO:httpx:HTTP Request: POST https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/general_assessment_refinements "HTTP/2 201 Created"
+INFO:     127.0.0.1:58674 - "POST /api/general-assessment/refine HTTP/1.1" 200 OK
+INFO:apscheduler.executors.default:Running job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-21 20:00:00 EDT)" (scheduled at 2025-08-21 19:00:00-04:00)
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/user_ai_preferences?select=%2A&weekly_generation_enabled=eq.True&preferred_hour=eq.23&preferred_day_of_week=eq.3 "HTTP/2 200 OK"
+INFO:apscheduler.executors.default:Job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-21 20:00:00 EDT)" executed successfully
+INFO:apscheduler.executors.default:Running job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-21 21:00:00 EDT)" (scheduled at 2025-08-21 20:00:00-04:00)
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/user_ai_preferences?select=%2A&weekly_generation_enabled=eq.True&preferred_hour=eq.0&preferred_day_of_week=eq.4 "HTTP/2 200 OK"
+INFO:apscheduler.executors.default:Job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-21 21:00:00 EDT)" executed successfully
+INFO:apscheduler.executors.default:Running job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-21 22:00:00 EDT)" (scheduled at 2025-08-21 21:00:00-04:00)
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/user_ai_preferences?select=%2A&weekly_generation_enabled=eq.True&preferred_hour=eq.1&preferred_day_of_week=eq.4 "HTTP/2 200 OK"
+INFO:apscheduler.executors.default:Job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-21 22:00:00 EDT)" executed successfully
+WARNING:apscheduler.executors.default:Run time of job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-21 23:00:00 EDT)" was missed by 0:00:32.468638
+WARNING:apscheduler.executors.default:Run time of job "weekly_strategic_moves_job (trigger: cron[day_of_week='fri', hour='2', minute='0'], next run at: 2025-08-29 02:00:00 UTC)" was missed by 0:00:32.470147
+INFO:apscheduler.executors.default:Running job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-22 00:00:00 EDT)" (scheduled at 2025-08-21 23:00:00-04:00)
+ERROR:apscheduler.executors.default:Job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-22 00:00:00 EDT)" raised an exception
+Traceback (most recent call last):
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/httpx/_transports/default.py", line 101, in map_httpcore_exceptions
+    yield
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/httpx/_transports/default.py", line 250, in handle_request
+    resp = self._pool.handle_request(req)
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/httpcore/_sync/connection_pool.py", line 256, in handle_request
+    raise exc from None
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/httpcore/_sync/connection_pool.py", line 236, in handle_request
+    response = connection.handle_request(
+        pool_request.request
+    )
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/httpcore/_sync/connection.py", line 101, in handle_request
+    raise exc
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/httpcore/_sync/connection.py", line 78, in handle_request
+    stream = self._connect(request)
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/httpcore/_sync/connection.py", line 124, in _connect
+    stream = self._network_backend.connect_tcp(**kwargs)
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/httpcore/_backends/sync.py", line 207, in connect_tcp
+    with map_exceptions(exc_map):
+         ~~~~~~~~~~~~~~^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.13/3.13.3_1/Frameworks/Python.framework/Versions/3.13/lib/python3.13/contextlib.py", line 162, in __exit__
+    self.gen.throw(value)
+    ~~~~~~~~~~~~~~^^^^^^^
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/httpcore/_exceptions.py", line 14, in map_exceptions
+    raise to_exc(exc) from exc
+httpcore.ConnectError: [Errno 8] nodename nor servname provided, or not known
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/apscheduler/executors/base.py", line 181, in run_coroutine_job
+    retval = await job.func(*job.args, **job.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/iceca/Documents/mcp-backend/services/background_jobs_v2.py", line 628, in hourly_ai_predictions_check
     .execute()
      ~~~~~~~^^
-  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/postgrest/_sync/request_builder.py", line 78, in execute
-    raise APIError(dict(json_obj))
-postgrest.exceptions.APIError: {'message': 'invalid input syntax for type uuid: "test-free-user"', 'code': '22P02', 'hint': None, 'details': None}
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/postgrest/_sync/request_builder.py", line 57, in execute
+    r = self.session.request(
+        self.http_method,
+    ...<3 lines>...
+        headers=self.headers,
+    )
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/httpx/_client.py", line 825, in request
+    return self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/httpx/_client.py", line 914, in send
+    response = self._send_handling_auth(
+        request,
+    ...<2 lines>...
+        history=[],
+    )
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/httpx/_client.py", line 942, in _send_handling_auth
+    response = self._send_handling_redirects(
+        request,
+        follow_redirects=follow_redirects,
+        history=history,
+    )
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/httpx/_client.py", line 979, in _send_handling_redirects
+    response = self._send_single_request(request)
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/httpx/_client.py", line 1014, in _send_single_request
+    response = transport.handle_request(request)
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/httpx/_transports/default.py", line 249, in handle_request
+    with map_httpcore_exceptions():
+         ~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "/opt/homebrew/Cellar/python@3.13/3.13.3_1/Frameworks/Python.framework/Versions/3.13/lib/python3.13/contextlib.py", line 162, in __exit__
+    self.gen.throw(value)
+    ~~~~~~~~~~~~~~^^^^^^^
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/httpx/_transports/default.py", line 118, in map_httpcore_exceptions
+    raise mapped_exc(message) from exc
+httpx.ConnectError: [Errno 8] nodename nor servname provided, or not known
+INFO:apscheduler.executors.default:Running job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-22 01:00:00 EDT)" (scheduled at 2025-08-22 00:00:00-04:00)
+ERROR:apscheduler.executors.default:Job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-22 01:00:00 EDT)" raised an exception
+Traceback (most recent call last):
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/httpx/_transports/default.py", line 101, in map_httpcore_exceptions
+    yield
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/httpx/_transports/default.py", line 250, in handle_request
+    resp = self._pool.handle_request(req)
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/httpcore/_sync/connection_pool.py", line 256, in handle_request
+    raise exc from None
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/httpcore/_sync/connection_pool.py", line 236, in handle_request
+    response = connection.handle_request(
+        pool_request.request
+    )
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/httpcore/_sync/connection.py", line 101, in handle_request
+    raise exc
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/httpcore/_sync/connection.py", line 78, in handle_request
+    stream = self._connect(request)
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/httpcore/_sync/connection.py", line 124, in _connect
+    stream = self._network_backend.connect_tcp(**kwargs)
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/httpcore/_backends/sync.py", line 207, in connect_tcp
+    with map_exceptions(exc_map):
+         ~~~~~~~~~~~~~~^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.13/3.13.3_1/Frameworks/Python.framework/Versions/3.13/lib/python3.13/contextlib.py", line 162, in __exit__
+    self.gen.throw(value)
+    ~~~~~~~~~~~~~~^^^^^^^
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/httpcore/_exceptions.py", line 14, in map_exceptions
+    raise to_exc(exc) from exc
+httpcore.ConnectError: [Errno 8] nodename nor servname provided, or not known
 
-Error saving message: {'message': 'invalid input syntax for type uuid: "conv-123"', 'code': '22P02', 'hint': None, 'details': None}
-Error updating conversation: {'message': 'invalid input syntax for type uuid: "conv-123"', 'code': '22P02', 'hint': None, 'details': None}
-Error saving message: {'message': 'invalid input syntax for type uuid: "conv-123"', 'code': '22P02', 'hint': None, 'details': None}
-Error updating conversation tokens: {'message': 'invalid input syntax for type uuid: "conv-123"', 'code': '22P02', 'hint': None, 'details': None}
-INFO:     127.0.0.1:53329 - "POST /api/chat HTTP/1.1" 200 OK
-INFO:     127.0.0.1:53269 - "POST /api/quick-scan HTTP/1.1" 200 OK
-INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/medical?select=%2A&id=eq.22fa712c-4cf9-45b8-b02d-096e08d3f360 "HTTP/2 200 OK"
-INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/llm_context?select=llm_summary%2Ccreated_at&user_id=eq.22fa712c-4cf9-45b8-b02d-096e08d3f360&order=created_at.desc&limit=5 "HTTP/2 200 OK"
-INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/quick_scans?select=created_at%2Cbody_part%2Canalysis_result%2Cform_data&user_id=eq.22fa712c-4cf9-45b8-b02d-096e08d3f360&created_at=gte.2025-07-14T15%3A03%3A22.202216%2B00%3A00&order=created_at.desc&limit=5 "HTTP/2 200 OK"
-INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/deep_dive_sessions?select=created_at%2Cbody_part%2Cfinal_analysis%2Cfinal_confidence&user_id=eq.22fa712c-4cf9-45b8-b02d-096e08d3f360&status=eq.completed&created_at=gte.2025-07-14T15%3A03%3A22.202216%2B00%3A00&order=created_at.desc&limit=3 "HTTP/2 200 OK"
-INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/llm_context?select=llm_summary&user_id=eq.22fa712c-4cf9-45b8-b02d-096e08d3f360&conversation_id=eq.550e8400-e29b-41d4-a716-446655440000 "HTTP/2 200 OK"
-INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/messages?select=%2A&conversation_id=eq.550e8400-e29b-41d4-a716-446655440000&order=created_at.asc&limit=10 "HTTP/2 200 OK"
-INFO:httpx:HTTP Request: POST https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/messages "HTTP/2 409 Conflict"
-INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/conversations?select=id&id=eq.550e8400-e29b-41d4-a716-446655440000 "HTTP/2 200 OK"
-INFO:httpx:HTTP Request: POST https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/conversations "HTTP/2 201 Created"
-INFO:httpx:HTTP Request: POST https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/messages "HTTP/2 201 Created"
-INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/conversations?select=total_tokens%2Cmessage_count%2Ctitle&id=eq.550e8400-e29b-41d4-a716-446655440000 "HTTP/2 200 OK"
-INFO:httpx:HTTP Request: PATCH https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/conversations?id=eq.550e8400-e29b-41d4-a716-446655440000 "HTTP/2 200 OK"
-Building enhanced context for user: 22fa712c-4cf9-45b8-b02d-096e08d3f360
-User ID type: <class 'str'>, value: '22fa712c-4cf9-45b8-b02d-096e08d3f360'
-LLM summaries response: data=[] count=None
-Found 0 LLM summaries
-Quick scans cutoff date: 2025-07-14T15:03:22.202216+00:00
-Quick scans query response: data=[] count=None
-Found 0 quick scans
-Deep dives query response: data=[] count=None
-Found 0 deep dives
-Context parts collected: 0 sections
-Full context length: 0 characters
-Error saving message: {'message': 'insert or update on table "messages" violates foreign key constraint "messages_conversation_id_fkey"', 'code': '23503', 'hint': None, 'details': 'Key (conversation_id)=(550e8400-e29b-41d4-a716-446655440000) is not present in table "conversations".'}
-INFO:     127.0.0.1:53579 - "POST /api/chat HTTP/1.1" 200 OK
-INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/medical?select=%2A&id=eq.22fa712c-4cf9-45b8-b02d-096e08d3f360 "HTTP/2 200 OK"
-INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/llm_context?select=llm_summary%2Ccreated_at&user_id=eq.22fa712c-4cf9-45b8-b02d-096e08d3f360&order=created_at.desc&limit=5 "HTTP/2 200 OK"
-INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/quick_scans?select=created_at%2Cbody_part%2Canalysis_result%2Cform_data&user_id=eq.22fa712c-4cf9-45b8-b02d-096e08d3f360&created_at=gte.2025-07-14T15%3A03%3A55.212940%2B00%3A00&order=created_at.desc&limit=5 "HTTP/2 200 OK"
-INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/deep_dive_sessions?select=created_at%2Cbody_part%2Cfinal_analysis%2Cfinal_confidence&user_id=eq.22fa712c-4cf9-45b8-b02d-096e08d3f360&status=eq.completed&created_at=gte.2025-07-14T15%3A03%3A55.212940%2B00%3A00&order=created_at.desc&limit=3 "HTTP/2 200 OK"
-INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/llm_context?select=llm_summary&user_id=eq.22fa712c-4cf9-45b8-b02d-096e08d3f360&conversation_id=eq.550e8400-e29b-41d4-a716-446655440001 "HTTP/2 200 OK"
-INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/messages?select=%2A&conversation_id=eq.550e8400-e29b-41d4-a716-446655440001&order=created_at.asc&limit=10 "HTTP/2 200 OK"
-INFO:httpx:HTTP Request: POST https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/messages "HTTP/2 409 Conflict"
-INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/conversations?select=id&id=eq.550e8400-e29b-41d4-a716-446655440001 "HTTP/2 200 OK"
-INFO:httpx:HTTP Request: POST https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/conversations "HTTP/2 201 Created"
-INFO:httpx:HTTP Request: POST https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/messages "HTTP/2 201 Created"
-INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/conversations?select=total_tokens%2Cmessage_count%2Ctitle&id=eq.550e8400-e29b-41d4-a716-446655440001 "HTTP/2 200 OK"
-INFO:httpx:HTTP Request: PATCH https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/conversations?id=eq.550e8400-e29b-41d4-a716-446655440001 "HTTP/2 200 OK"
-Building enhanced context for user: 22fa712c-4cf9-45b8-b02d-096e08d3f360
-User ID type: <class 'str'>, value: '22fa712c-4cf9-45b8-b02d-096e08d3f360'
-LLM summaries response: data=[] count=None
-Found 0 LLM summaries
-Quick scans cutoff date: 2025-07-14T15:03:55.212940+00:00
-Quick scans query response: data=[] count=None
-Found 0 quick scans
-Deep dives query response: data=[] count=None
-Found 0 deep dives
-Context parts collected: 0 sections
-Full context length: 0 characters
-Error saving message: {'message': 'insert or update on table "messages" violates foreign key constraint "messages_conversation_id_fkey"', 'code': '23503', 'hint': None, 'details': 'Key (conversation_id)=(550e8400-e29b-41d4-a716-446655440001) is not present in table "conversations".'}
-INFO:     127.0.0.1:53676 - "POST /api/chat HTTP/1.1" 200 OK
-INFO:     127.0.0.1:54498 - "GET /api/health HTTP/1.1" 200 OK
-INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/medical?select=%2A&id=eq.0086a58d-1081-4496-92a1-e4a73a2c6f35 "HTTP/2 200 OK"
-INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/llm_context?select=llm_summary%2Ccreated_at&user_id=eq.0086a58d-1081-4496-92a1-e4a73a2c6f35&order=created_at.desc&limit=5 "HTTP/2 200 OK"
-INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/quick_scans?select=created_at%2Cbody_part%2Canalysis_result%2Cform_data&user_id=eq.0086a58d-1081-4496-92a1-e4a73a2c6f35&created_at=gte.2025-07-14T15%3A08%3A56.565893%2B00%3A00&order=created_at.desc&limit=5 "HTTP/2 200 OK"
-INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/deep_dive_sessions?select=created_at%2Cbody_part%2Cfinal_analysis%2Cfinal_confidence&user_id=eq.0086a58d-1081-4496-92a1-e4a73a2c6f35&status=eq.completed&created_at=gte.2025-07-14T15%3A08%3A56.565893%2B00%3A00&order=created_at.desc&limit=3 "HTTP/2 200 OK"
-INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/llm_context?select=llm_summary&user_id=eq.0086a58d-1081-4496-92a1-e4a73a2c6f35&conversation_id=eq.550e8400-e29b-41d4-a716-446655440002 "HTTP/2 200 OK"
-INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/messages?select=%2A&conversation_id=eq.550e8400-e29b-41d4-a716-446655440002&order=created_at.asc&limit=10 "HTTP/2 200 OK"
-INFO:httpx:HTTP Request: POST https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/messages "HTTP/2 409 Conflict"
-INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/conversations?select=id&id=eq.550e8400-e29b-41d4-a716-446655440002 "HTTP/2 200 OK"
-INFO:httpx:HTTP Request: POST https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/conversations "HTTP/2 201 Created"
-INFO:httpx:HTTP Request: POST https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/messages "HTTP/2 201 Created"
-INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/conversations?select=total_tokens%2Cmessage_count%2Ctitle&id=eq.550e8400-e29b-41d4-a716-446655440002 "HTTP/2 200 OK"
-INFO:httpx:HTTP Request: PATCH https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/conversations?id=eq.550e8400-e29b-41d4-a716-446655440002 "HTTP/2 200 OK"
-Building enhanced context for user: 0086a58d-1081-4496-92a1-e4a73a2c6f35
-User ID type: <class 'str'>, value: '0086a58d-1081-4496-92a1-e4a73a2c6f35'
-LLM summaries response: data=[] count=None
-Found 0 LLM summaries
-Quick scans cutoff date: 2025-07-14T15:08:56.565893+00:00
-Quick scans query response: data=[] count=None
-Found 0 quick scans
-Deep dives query response: data=[] count=None
-Found 0 deep dives
-Context parts collected: 0 sections
-Full context length: 0 characters
-Error saving message: {'message': 'insert or update on table "messages" violates foreign key constraint "messages_conversation_id_fkey"', 'code': '23503', 'hint': None, 'details': 'Key (conversation_id)=(550e8400-e29b-41d4-a716-446655440002) is not present in table "conversations".'}
-INFO:     127.0.0.1:54674 - "POST /api/chat HTTP/1.1" 200 OK
-INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/medical?select=%2A&id=eq.0086a58d-1081-4496-92a1-e4a73a2c6f35 "HTTP/2 200 OK"
-INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/llm_context?select=llm_summary%2Ccreated_at&user_id=eq.0086a58d-1081-4496-92a1-e4a73a2c6f35&order=created_at.desc&limit=5 "HTTP/2 200 OK"
-INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/quick_scans?select=created_at%2Cbody_part%2Canalysis_result%2Cform_data&user_id=eq.0086a58d-1081-4496-92a1-e4a73a2c6f35&created_at=gte.2025-07-14T17%3A02%3A58.747241%2B00%3A00&order=created_at.desc&limit=5 "HTTP/2 200 OK"
-INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/deep_dive_sessions?select=created_at%2Cbody_part%2Cfinal_analysis%2Cfinal_confidence&user_id=eq.0086a58d-1081-4496-92a1-e4a73a2c6f35&status=eq.completed&created_at=gte.2025-07-14T17%3A02%3A58.747241%2B00%3A00&order=created_at.desc&limit=3 "HTTP/2 200 OK"
-INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/llm_context?select=llm_summary&user_id=eq.0086a58d-1081-4496-92a1-e4a73a2c6f35&conversation_id=eq.550e8400-e29b-41d4-a716-446655440003 "HTTP/2 200 OK"
-INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/messages?select=%2A&conversation_id=eq.550e8400-e29b-41d4-a716-446655440003&order=created_at.asc&limit=10 "HTTP/2 200 OK"
-INFO:httpx:HTTP Request: POST https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/messages "HTTP/2 409 Conflict"
-INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/conversations?select=id&id=eq.550e8400-e29b-41d4-a716-446655440003 "HTTP/2 200 OK"
-INFO:httpx:HTTP Request: POST https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/conversations "HTTP/2 201 Created"
-INFO:httpx:HTTP Request: POST https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/messages "HTTP/2 201 Created"
-INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/conversations?select=total_tokens%2Cmessage_count%2Ctitle&id=eq.550e8400-e29b-41d4-a716-446655440003 "HTTP/2 200 OK"
-INFO:httpx:HTTP Request: PATCH https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/conversations?id=eq.550e8400-e29b-41d4-a716-446655440003 "HTTP/2 200 OK"
-Building enhanced context for user: 0086a58d-1081-4496-92a1-e4a73a2c6f35
-User ID type: <class 'str'>, value: '0086a58d-1081-4496-92a1-e4a73a2c6f35'
-LLM summaries response: data=[] count=None
-Found 0 LLM summaries
-Quick scans cutoff date: 2025-07-14T17:02:58.747241+00:00
-Quick scans query response: data=[] count=None
-Found 0 quick scans
-Deep dives query response: data=[] count=None
-Found 0 deep dives
-Context parts collected: 0 sections
-Full context length: 0 characters
-Error saving message: {'message': 'insert or update on table "messages" violates foreign key constraint "messages_conversation_id_fkey"', 'code': '23503', 'hint': None, 'details': 'Key (conversation_id)=(550e8400-e29b-41d4-a716-446655440003) is not present in table "conversations".'}
-INFO:     127.0.0.1:57545 - "POST /api/chat HTTP/1.1" 200 OK
-INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/medical?select=%2A&id=eq.0086a58d-1081-4496-92a1-e4a73a2c6f35 "HTTP/2 200 OK"
-INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/llm_context?select=llm_summary%2Ccreated_at&user_id=eq.0086a58d-1081-4496-92a1-e4a73a2c6f35&order=created_at.desc&limit=5 "HTTP/2 200 OK"
-INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/quick_scans?select=created_at%2Cbody_part%2Canalysis_result%2Cform_data&user_id=eq.0086a58d-1081-4496-92a1-e4a73a2c6f35&created_at=gte.2025-07-14T17%3A08%3A02.310718%2B00%3A00&order=created_at.desc&limit=5 "HTTP/2 200 OK"
-INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/deep_dive_sessions?select=created_at%2Cbody_part%2Cfinal_analysis%2Cfinal_confidence&user_id=eq.0086a58d-1081-4496-92a1-e4a73a2c6f35&status=eq.completed&created_at=gte.2025-07-14T17%3A08%3A02.310718%2B00%3A00&order=created_at.desc&limit=3 "HTTP/2 200 OK"
-INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/llm_context?select=llm_summary&user_id=eq.0086a58d-1081-4496-92a1-e4a73a2c6f35&conversation_id=eq.550e8400-e29b-41d4-a716-446655440004 "HTTP/2 200 OK"
-INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/messages?select=%2A&conversation_id=eq.550e8400-e29b-41d4-a716-446655440004&order=created_at.asc&limit=10 "HTTP/2 200 OK"
-INFO:httpx:HTTP Request: POST https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/messages "HTTP/2 409 Conflict"
-INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/conversations?select=id&id=eq.550e8400-e29b-41d4-a716-446655440004 "HTTP/2 200 OK"
-INFO:httpx:HTTP Request: POST https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/conversations "HTTP/2 201 Created"
-INFO:httpx:HTTP Request: POST https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/messages "HTTP/2 201 Created"
-INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/conversations?select=total_tokens%2Cmessage_count%2Ctitle&id=eq.550e8400-e29b-41d4-a716-446655440004 "HTTP/2 200 OK"
-INFO:httpx:HTTP Request: PATCH https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/conversations?id=eq.550e8400-e29b-41d4-a716-446655440004 "HTTP/2 200 OK"
-Building enhanced context for user: 0086a58d-1081-4496-92a1-e4a73a2c6f35
-User ID type: <class 'str'>, value: '0086a58d-1081-4496-92a1-e4a73a2c6f35'
-LLM summaries response: data=[] count=None
-Found 0 LLM summaries
-Quick scans cutoff date: 2025-07-14T17:08:02.310718+00:00
-Quick scans query response: data=[] count=None
-Found 0 quick scans
-Deep dives query response: data=[] count=None
-Found 0 deep dives
-Context parts collected: 0 sections
-Full context length: 0 characters
-Error saving message: {'message': 'insert or update on table "messages" violates foreign key constraint "messages_conversation_id_fkey"', 'code': '23503', 'hint': None, 'details': 'Key (conversation_id)=(550e8400-e29b-41d4-a716-446655440004) is not present in table "conversations".'}
-INFO:     127.0.0.1:58199 - "POST /api/chat HTTP/1.1" 200 OK
-INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/medical?select=%2A&id=eq.0086a58d-1081-4496-92a1-e4a73a2c6f35 "HTTP/2 200 OK"
-INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/llm_context?select=llm_summary%2Ccreated_at&user_id=eq.0086a58d-1081-4496-92a1-e4a73a2c6f35&order=created_at.desc&limit=5 "HTTP/2 200 OK"
-INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/quick_scans?select=created_at%2Cbody_part%2Canalysis_result%2Cform_data&user_id=eq.0086a58d-1081-4496-92a1-e4a73a2c6f35&created_at=gte.2025-07-14T17%3A10%3A38.920022%2B00%3A00&order=created_at.desc&limit=5 "HTTP/2 200 OK"
-INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/deep_dive_sessions?select=created_at%2Cbody_part%2Cfinal_analysis%2Cfinal_confidence&user_id=eq.0086a58d-1081-4496-92a1-e4a73a2c6f35&status=eq.completed&created_at=gte.2025-07-14T17%3A10%3A38.920022%2B00%3A00&order=created_at.desc&limit=3 "HTTP/2 200 OK"
-INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/llm_context?select=llm_summary&user_id=eq.0086a58d-1081-4496-92a1-e4a73a2c6f35&conversation_id=eq.550e8400-e29b-41d4-a716-446655440005 "HTTP/2 200 OK"
-INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/messages?select=%2A&conversation_id=eq.550e8400-e29b-41d4-a716-446655440005&order=created_at.asc&limit=10 "HTTP/2 200 OK"
-INFO:httpx:HTTP Request: POST https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/messages "HTTP/2 409 Conflict"
-INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/conversations?select=id&id=eq.550e8400-e29b-41d4-a716-446655440005 "HTTP/2 200 OK"
-INFO:httpx:HTTP Request: POST https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/conversations "HTTP/2 201 Created"
-INFO:httpx:HTTP Request: POST https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/messages "HTTP/2 201 Created"
-INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/conversations?select=total_tokens%2Cmessage_count%2Ctitle&id=eq.550e8400-e29b-41d4-a716-446655440005 "HTTP/2 200 OK"
-INFO:httpx:HTTP Request: PATCH https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/conversations?id=eq.550e8400-e29b-41d4-a716-446655440005 "HTTP/2 200 OK"
-Building enhanced context for user: 0086a58d-1081-4496-92a1-e4a73a2c6f35
-User ID type: <class 'str'>, value: '0086a58d-1081-4496-92a1-e4a73a2c6f35'
-LLM summaries response: data=[] count=None
-Found 0 LLM summaries
-Quick scans cutoff date: 2025-07-14T17:10:38.920022+00:00
-Quick scans query response: data=[] count=None
-Found 0 quick scans
-Deep dives query response: data=[] count=None
-Found 0 deep dives
-Context parts collected: 0 sections
-Full context length: 0 characters
-Error saving message: {'message': 'insert or update on table "messages" violates foreign key constraint "messages_conversation_id_fkey"', 'code': '23503', 'hint': None, 'details': 'Key (conversation_id)=(550e8400-e29b-41d4-a716-446655440005) is not present in table "conversations".'}
-INFO:     127.0.0.1:58703 - "POST /api/chat HTTP/1.1" 200 OK
-WARNING:apscheduler.executors.default:Run time of job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-13 14:00:00 EDT)" was missed by 0:11:04.368351
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/apscheduler/executors/base.py", line 181, in run_coroutine_job
+    retval = await job.func(*job.args, **job.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/iceca/Documents/mcp-backend/services/background_jobs_v2.py", line 628, in hourly_ai_predictions_check
+    .execute()
+     ~~~~~~~^^
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/postgrest/_sync/request_builder.py", line 57, in execute
+    r = self.session.request(
+        self.http_method,
+    ...<3 lines>...
+        headers=self.headers,
+    )
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/httpx/_client.py", line 825, in request
+    return self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/httpx/_client.py", line 914, in send
+    response = self._send_handling_auth(
+        request,
+    ...<2 lines>...
+        history=[],
+    )
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/httpx/_client.py", line 942, in _send_handling_auth
+    response = self._send_handling_redirects(
+        request,
+        follow_redirects=follow_redirects,
+        history=history,
+    )
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/httpx/_client.py", line 979, in _send_handling_redirects
+    response = self._send_single_request(request)
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/httpx/_client.py", line 1014, in _send_single_request
+    response = transport.handle_request(request)
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/httpx/_transports/default.py", line 249, in handle_request
+    with map_httpcore_exceptions():
+         ~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "/opt/homebrew/Cellar/python@3.13/3.13.3_1/Frameworks/Python.framework/Versions/3.13/lib/python3.13/contextlib.py", line 162, in __exit__
+    self.gen.throw(value)
+    ~~~~~~~~~~~~~~^^^^^^^
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/httpx/_transports/default.py", line 118, in map_httpcore_exceptions
+    raise mapped_exc(message) from exc
+httpx.ConnectError: [Errno 8] nodename nor servname provided, or not known
+WARNING:apscheduler.executors.default:Run time of job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-22 04:00:00 EDT)" was missed by 0:05:53.718590
+WARNING:apscheduler.executors.default:Run time of job "cleanup_expired_shares (trigger: cron[hour='3', minute='0'], next run at: 2025-08-23 03:00:00 EDT)" was missed by 0:05:53.719181
+INFO:apscheduler.executors.default:Running job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-22 05:00:00 EDT)" (scheduled at 2025-08-22 04:00:00-04:00)
+ERROR:apscheduler.executors.default:Job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-22 05:00:00 EDT)" raised an exception
+Traceback (most recent call last):
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/httpx/_transports/default.py", line 101, in map_httpcore_exceptions
+    yield
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/httpx/_transports/default.py", line 250, in handle_request
+    resp = self._pool.handle_request(req)
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/httpcore/_sync/connection_pool.py", line 256, in handle_request
+    raise exc from None
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/httpcore/_sync/connection_pool.py", line 236, in handle_request
+    response = connection.handle_request(
+        pool_request.request
+    )
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/httpcore/_sync/connection.py", line 101, in handle_request
+    raise exc
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/httpcore/_sync/connection.py", line 78, in handle_request
+    stream = self._connect(request)
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/httpcore/_sync/connection.py", line 124, in _connect
+    stream = self._network_backend.connect_tcp(**kwargs)
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/httpcore/_backends/sync.py", line 207, in connect_tcp
+    with map_exceptions(exc_map):
+         ~~~~~~~~~~~~~~^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.13/3.13.3_1/Frameworks/Python.framework/Versions/3.13/lib/python3.13/contextlib.py", line 162, in __exit__
+    self.gen.throw(value)
+    ~~~~~~~~~~~~~~^^^^^^^
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/httpcore/_exceptions.py", line 14, in map_exceptions
+    raise to_exc(exc) from exc
+httpcore.ConnectError: [Errno 8] nodename nor servname provided, or not known
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/apscheduler/executors/base.py", line 181, in run_coroutine_job
+    retval = await job.func(*job.args, **job.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/iceca/Documents/mcp-backend/services/background_jobs_v2.py", line 628, in hourly_ai_predictions_check
+    .execute()
+     ~~~~~~~^^
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/postgrest/_sync/request_builder.py", line 57, in execute
+    r = self.session.request(
+        self.http_method,
+    ...<3 lines>...
+        headers=self.headers,
+    )
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/httpx/_client.py", line 825, in request
+    return self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/httpx/_client.py", line 914, in send
+    response = self._send_handling_auth(
+        request,
+    ...<2 lines>...
+        history=[],
+    )
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/httpx/_client.py", line 942, in _send_handling_auth
+    response = self._send_handling_redirects(
+        request,
+        follow_redirects=follow_redirects,
+        history=history,
+    )
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/httpx/_client.py", line 979, in _send_handling_redirects
+    response = self._send_single_request(request)
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/httpx/_client.py", line 1014, in _send_single_request
+    response = transport.handle_request(request)
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/httpx/_transports/default.py", line 249, in handle_request
+    with map_httpcore_exceptions():
+         ~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "/opt/homebrew/Cellar/python@3.13/3.13.3_1/Frameworks/Python.framework/Versions/3.13/lib/python3.13/contextlib.py", line 162, in __exit__
+    self.gen.throw(value)
+    ~~~~~~~~~~~~~~^^^^^^^
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/httpx/_transports/default.py", line 118, in map_httpcore_exceptions
+    raise mapped_exc(message) from exc
+httpx.ConnectError: [Errno 8] nodename nor servname provided, or not known
+WARNING:apscheduler.executors.default:Run time of job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-22 06:00:00 EDT)" was missed by 0:48:35.212596
+WARNING:apscheduler.executors.default:Run time of job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-22 07:00:00 EDT)" was missed by 0:50:51.456253
+INFO:apscheduler.executors.default:Running job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-22 08:00:00 EDT)" (scheduled at 2025-08-22 07:00:00-04:00)
+ERROR:apscheduler.executors.default:Job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-22 08:00:00 EDT)" raised an exception
+Traceback (most recent call last):
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/httpx/_transports/default.py", line 101, in map_httpcore_exceptions
+    yield
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/httpx/_transports/default.py", line 250, in handle_request
+    resp = self._pool.handle_request(req)
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/httpcore/_sync/connection_pool.py", line 256, in handle_request
+    raise exc from None
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/httpcore/_sync/connection_pool.py", line 236, in handle_request
+    response = connection.handle_request(
+        pool_request.request
+    )
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/httpcore/_sync/connection.py", line 101, in handle_request
+    raise exc
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/httpcore/_sync/connection.py", line 78, in handle_request
+    stream = self._connect(request)
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/httpcore/_sync/connection.py", line 124, in _connect
+    stream = self._network_backend.connect_tcp(**kwargs)
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/httpcore/_backends/sync.py", line 207, in connect_tcp
+    with map_exceptions(exc_map):
+         ~~~~~~~~~~~~~~^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.13/3.13.3_1/Frameworks/Python.framework/Versions/3.13/lib/python3.13/contextlib.py", line 162, in __exit__
+    self.gen.throw(value)
+    ~~~~~~~~~~~~~~^^^^^^^
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/httpcore/_exceptions.py", line 14, in map_exceptions
+    raise to_exc(exc) from exc
+httpcore.ConnectError: [Errno 8] nodename nor servname provided, or not known
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/apscheduler/executors/base.py", line 181, in run_coroutine_job
+    retval = await job.func(*job.args, **job.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/iceca/Documents/mcp-backend/services/background_jobs_v2.py", line 628, in hourly_ai_predictions_check
+    .execute()
+     ~~~~~~~^^
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/postgrest/_sync/request_builder.py", line 57, in execute
+    r = self.session.request(
+        self.http_method,
+    ...<3 lines>...
+        headers=self.headers,
+    )
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/httpx/_client.py", line 825, in request
+    return self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/httpx/_client.py", line 914, in send
+    response = self._send_handling_auth(
+        request,
+    ...<2 lines>...
+        history=[],
+    )
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/httpx/_client.py", line 942, in _send_handling_auth
+    response = self._send_handling_redirects(
+        request,
+        follow_redirects=follow_redirects,
+        history=history,
+    )
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/httpx/_client.py", line 979, in _send_handling_redirects
+    response = self._send_single_request(request)
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/httpx/_client.py", line 1014, in _send_single_request
+    response = transport.handle_request(request)
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/httpx/_transports/default.py", line 249, in handle_request
+    with map_httpcore_exceptions():
+         ~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "/opt/homebrew/Cellar/python@3.13/3.13.3_1/Frameworks/Python.framework/Versions/3.13/lib/python3.13/contextlib.py", line 162, in __exit__
+    self.gen.throw(value)
+    ~~~~~~~~~~~~~~^^^^^^^
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/httpx/_transports/default.py", line 118, in map_httpcore_exceptions
+    raise mapped_exc(message) from exc
+httpx.ConnectError: [Errno 8] nodename nor servname provided, or not known
+WARNING:apscheduler.executors.default:Run time of job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-22 09:00:00 EDT)" was missed by 0:49:11.874725
+INFO:apscheduler.executors.default:Running job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-22 10:00:00 EDT)" (scheduled at 2025-08-22 09:00:00-04:00)
+ERROR:apscheduler.executors.default:Job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-22 10:00:00 EDT)" raised an exception
+Traceback (most recent call last):
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/httpx/_transports/default.py", line 101, in map_httpcore_exceptions
+    yield
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/httpx/_transports/default.py", line 250, in handle_request
+    resp = self._pool.handle_request(req)
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/httpcore/_sync/connection_pool.py", line 256, in handle_request
+    raise exc from None
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/httpcore/_sync/connection_pool.py", line 236, in handle_request
+    response = connection.handle_request(
+        pool_request.request
+    )
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/httpcore/_sync/connection.py", line 101, in handle_request
+    raise exc
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/httpcore/_sync/connection.py", line 78, in handle_request
+    stream = self._connect(request)
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/httpcore/_sync/connection.py", line 124, in _connect
+    stream = self._network_backend.connect_tcp(**kwargs)
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/httpcore/_backends/sync.py", line 207, in connect_tcp
+    with map_exceptions(exc_map):
+         ~~~~~~~~~~~~~~^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.13/3.13.3_1/Frameworks/Python.framework/Versions/3.13/lib/python3.13/contextlib.py", line 162, in __exit__
+    self.gen.throw(value)
+    ~~~~~~~~~~~~~~^^^^^^^
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/httpcore/_exceptions.py", line 14, in map_exceptions
+    raise to_exc(exc) from exc
+httpcore.ConnectError: [Errno 8] nodename nor servname provided, or not known
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/apscheduler/executors/base.py", line 181, in run_coroutine_job
+    retval = await job.func(*job.args, **job.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/iceca/Documents/mcp-backend/services/background_jobs_v2.py", line 628, in hourly_ai_predictions_check
+    .execute()
+     ~~~~~~~^^
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/postgrest/_sync/request_builder.py", line 57, in execute
+    r = self.session.request(
+        self.http_method,
+    ...<3 lines>...
+        headers=self.headers,
+    )
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/httpx/_client.py", line 825, in request
+    return self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/httpx/_client.py", line 914, in send
+    response = self._send_handling_auth(
+        request,
+    ...<2 lines>...
+        history=[],
+    )
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/httpx/_client.py", line 942, in _send_handling_auth
+    response = self._send_handling_redirects(
+        request,
+        follow_redirects=follow_redirects,
+        history=history,
+    )
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/httpx/_client.py", line 979, in _send_handling_redirects
+    response = self._send_single_request(request)
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/httpx/_client.py", line 1014, in _send_single_request
+    response = transport.handle_request(request)
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/httpx/_transports/default.py", line 249, in handle_request
+    with map_httpcore_exceptions():
+         ~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "/opt/homebrew/Cellar/python@3.13/3.13.3_1/Frameworks/Python.framework/Versions/3.13/lib/python3.13/contextlib.py", line 162, in __exit__
+    self.gen.throw(value)
+    ~~~~~~~~~~~~~~^^^^^^^
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/httpx/_transports/default.py", line 118, in map_httpcore_exceptions
+    raise mapped_exc(message) from exc
+httpx.ConnectError: [Errno 8] nodename nor servname provided, or not known
+WARNING:apscheduler.executors.default:Run time of job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-22 11:00:00 EDT)" was missed by 0:15:17.797285
+WARNING:apscheduler.executors.default:Run time of job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-22 12:00:00 EDT)" was missed by 0:30:28.045236
+WARNING:apscheduler.executors.default:Run time of job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-22 13:00:00 EDT)" was missed by 0:11:36.252879
+INFO:apscheduler.executors.default:Running job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-22 14:00:00 EDT)" (scheduled at 2025-08-22 13:00:00-04:00)
+ERROR:apscheduler.executors.default:Job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-22 14:00:00 EDT)" raised an exception
+Traceback (most recent call last):
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/httpx/_transports/default.py", line 101, in map_httpcore_exceptions
+    yield
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/httpx/_transports/default.py", line 250, in handle_request
+    resp = self._pool.handle_request(req)
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/httpcore/_sync/connection_pool.py", line 256, in handle_request
+    raise exc from None
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/httpcore/_sync/connection_pool.py", line 236, in handle_request
+    response = connection.handle_request(
+        pool_request.request
+    )
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/httpcore/_sync/connection.py", line 101, in handle_request
+    raise exc
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/httpcore/_sync/connection.py", line 78, in handle_request
+    stream = self._connect(request)
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/httpcore/_sync/connection.py", line 124, in _connect
+    stream = self._network_backend.connect_tcp(**kwargs)
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/httpcore/_backends/sync.py", line 207, in connect_tcp
+    with map_exceptions(exc_map):
+         ~~~~~~~~~~~~~~^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.13/3.13.3_1/Frameworks/Python.framework/Versions/3.13/lib/python3.13/contextlib.py", line 162, in __exit__
+    self.gen.throw(value)
+    ~~~~~~~~~~~~~~^^^^^^^
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/httpcore/_exceptions.py", line 14, in map_exceptions
+    raise to_exc(exc) from exc
+httpcore.ConnectError: [Errno 8] nodename nor servname provided, or not known
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/apscheduler/executors/base.py", line 181, in run_coroutine_job
+    retval = await job.func(*job.args, **job.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/iceca/Documents/mcp-backend/services/background_jobs_v2.py", line 628, in hourly_ai_predictions_check
+    .execute()
+     ~~~~~~~^^
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/postgrest/_sync/request_builder.py", line 57, in execute
+    r = self.session.request(
+        self.http_method,
+    ...<3 lines>...
+        headers=self.headers,
+    )
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/httpx/_client.py", line 825, in request
+    return self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/httpx/_client.py", line 914, in send
+    response = self._send_handling_auth(
+        request,
+    ...<2 lines>...
+        history=[],
+    )
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/httpx/_client.py", line 942, in _send_handling_auth
+    response = self._send_handling_redirects(
+        request,
+        follow_redirects=follow_redirects,
+        history=history,
+    )
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/httpx/_client.py", line 979, in _send_handling_redirects
+    response = self._send_single_request(request)
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/httpx/_client.py", line 1014, in _send_single_request
+    response = transport.handle_request(request)
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/httpx/_transports/default.py", line 249, in handle_request
+    with map_httpcore_exceptions():
+         ~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "/opt/homebrew/Cellar/python@3.13/3.13.3_1/Frameworks/Python.framework/Versions/3.13/lib/python3.13/contextlib.py", line 162, in __exit__
+    self.gen.throw(value)
+    ~~~~~~~~~~~~~~^^^^^^^
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/httpx/_transports/default.py", line 118, in map_httpcore_exceptions
+    raise mapped_exc(message) from exc
+httpx.ConnectError: [Errno 8] nodename nor servname provided, or not known
+INFO:apscheduler.executors.default:Running job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-22 15:00:00 EDT)" (scheduled at 2025-08-22 14:00:00-04:00)
+ERROR:apscheduler.executors.default:Job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-22 15:00:00 EDT)" raised an exception
+Traceback (most recent call last):
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/httpx/_transports/default.py", line 101, in map_httpcore_exceptions
+    yield
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/httpx/_transports/default.py", line 250, in handle_request
+    resp = self._pool.handle_request(req)
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/httpcore/_sync/connection_pool.py", line 256, in handle_request
+    raise exc from None
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/httpcore/_sync/connection_pool.py", line 236, in handle_request
+    response = connection.handle_request(
+        pool_request.request
+    )
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/httpcore/_sync/connection.py", line 101, in handle_request
+    raise exc
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/httpcore/_sync/connection.py", line 78, in handle_request
+    stream = self._connect(request)
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/httpcore/_sync/connection.py", line 124, in _connect
+    stream = self._network_backend.connect_tcp(**kwargs)
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/httpcore/_backends/sync.py", line 207, in connect_tcp
+    with map_exceptions(exc_map):
+         ~~~~~~~~~~~~~~^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.13/3.13.3_1/Frameworks/Python.framework/Versions/3.13/lib/python3.13/contextlib.py", line 162, in __exit__
+    self.gen.throw(value)
+    ~~~~~~~~~~~~~~^^^^^^^
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/httpcore/_exceptions.py", line 14, in map_exceptions
+    raise to_exc(exc) from exc
+httpcore.ConnectError: [Errno 8] nodename nor servname provided, or not known
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/apscheduler/executors/base.py", line 181, in run_coroutine_job
+    retval = await job.func(*job.args, **job.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/iceca/Documents/mcp-backend/services/background_jobs_v2.py", line 628, in hourly_ai_predictions_check
+    .execute()
+     ~~~~~~~^^
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/postgrest/_sync/request_builder.py", line 57, in execute
+    r = self.session.request(
+        self.http_method,
+    ...<3 lines>...
+        headers=self.headers,
+    )
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/httpx/_client.py", line 825, in request
+    return self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/httpx/_client.py", line 914, in send
+    response = self._send_handling_auth(
+        request,
+    ...<2 lines>...
+        history=[],
+    )
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/httpx/_client.py", line 942, in _send_handling_auth
+    response = self._send_handling_redirects(
+        request,
+        follow_redirects=follow_redirects,
+        history=history,
+    )
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/httpx/_client.py", line 979, in _send_handling_redirects
+    response = self._send_single_request(request)
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/httpx/_client.py", line 1014, in _send_single_request
+    response = transport.handle_request(request)
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/httpx/_transports/default.py", line 249, in handle_request
+    with map_httpcore_exceptions():
+         ~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "/opt/homebrew/Cellar/python@3.13/3.13.3_1/Frameworks/Python.framework/Versions/3.13/lib/python3.13/contextlib.py", line 162, in __exit__
+    self.gen.throw(value)
+    ~~~~~~~~~~~~~~^^^^^^^
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/httpx/_transports/default.py", line 118, in map_httpcore_exceptions
+    raise mapped_exc(message) from exc
+httpx.ConnectError: [Errno 8] nodename nor servname provided, or not known
+WARNING:apscheduler.executors.default:Run time of job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-22 16:00:00 EDT)" was missed by 0:00:30.018128
+WARNING:apscheduler.executors.default:Run time of job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-22 19:00:00 EDT)" was missed by 0:06:07.897541

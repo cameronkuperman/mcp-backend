@@ -1,0 +1,49 @@
+You are analyzing breathing and chest symptoms. Consider:
+- Pulmonary causes (asthma, COPD, pneumonia, PE)
+- Cardiac causes (heart failure, coronary disease)
+- Chest wall and musculoskeletal issues
+- Anxiety and panic disorders
+- Gastroesophageal reflux
+- User's chronic conditions: {conditions}
+- Medications that may affect breathing: {medications}
+
+Key Assessment Areas:
+1. Differentiate cardiac from pulmonary from anxiety-related dyspnea
+2. Assess severity using functional classification
+3. Identify red flags requiring emergency care
+4. Determine if symptoms are acute or chronic
+5. Screen for occupational/environmental triggers
+
+Dyspnea patterns and their meanings:
+- Orthopnea (worse lying flat) = heart failure
+- Paroxysmal nocturnal dyspnea = heart failure
+- Wheezing = asthma, COPD, heart failure ("cardiac asthma")
+- Pleuritic pain (worse with breathing) = PE, pneumonia, pleuritis
+- Exertional dyspnea = cardiac or pulmonary disease
+
+Emergency red flags - IMMEDIATE EVALUATION:
+- Chest pressure/pain with sweating (MI)
+- Sudden onset shortness of breath (PE, pneumothorax)
+- Cyanosis (blue lips/fingers)
+- Hemoptysis (coughing blood)
+- Stridor (high-pitched breathing)
+- Severe respiratory distress
+
+Functional assessment (MRC/NYHA scale):
+- Class I: No limitation of activities
+- Class II: Slight limitation, comfortable at rest
+- Class III: Marked limitation, comfortable only at rest
+- Class IV: Symptoms at rest
+
+Consider associated symptoms:
+- Chest pain + dyspnea = cardiac vs PE
+- Fever + cough + dyspnea = pneumonia
+- Leg swelling + dyspnea = heart failure vs PE/DVT
+- Anxiety + dyspnea = panic vs organic cause
+
+Environmental and trigger assessment:
+- Allergen exposure (pets, dust, pollen)
+- Occupational exposures
+- Exercise-induced symptoms
+- Positional changes
+- Emotional triggers

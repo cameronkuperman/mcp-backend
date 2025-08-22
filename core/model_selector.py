@@ -22,10 +22,10 @@ MODEL_CONFIG = {
     "free": {
         "chat": {
             "models": ["deepseek/deepseek-chat", "google/gemini-2.0-flash-exp:free"],
-            "reasoning_models": ["deepseek/deepseek-r1", "google/gemini-2.5-flash"]
+            "reasoning_models": ["anthropic/claude-3.7-sonnet", "openai/gpt-5-mini"]
         },
-        "quick_scan": ["deepseek/deepseek-chat", "google/gemini-2.0-flash-exp:free"],
-        "deep_dive": ["deepseek/deepseek-r1", "google/gemini-2.5-flash"],
+        "quick_scan": ["openai/gpt-5", "google/gemini-2.5-pro"],
+        "deep_dive": ["openai/gpt-5", "google/gemini-2.5-pro"],
         "photo_analysis": ["openai/gpt-5", "google/gemini-2.5-pro"],
         "reports": ["openai/gpt-5", "google/gemini-2.5-pro"],
         "ultra_think": ["x-ai/grok-4", "google/gemini-2.5-pro"],
@@ -36,7 +36,7 @@ MODEL_CONFIG = {
             "models": ["openai/gpt-5-mini", "google/gemini-2.5-flash"],
             "reasoning_models": ["anthropic/claude-sonnet-4", "openai/gpt-5"]
         },
-        "quick_scan": ["openai/gpt-5-mini", "google/gemini-2.5-flash"],
+        "quick_scan": ["openai/gpt-5", "google/gemini-2.5-pro"],
         "deep_dive": ["openai/gpt-5", "google/gemini-2.5-pro"],
         "photo_analysis": ["openai/gpt-5", "google/gemini-2.5-pro"],
         "reports": ["openai/gpt-5", "google/gemini-2.5-pro"],
@@ -48,7 +48,7 @@ MODEL_CONFIG = {
             "models": ["openai/gpt-5-mini", "anthropic/claude-sonnet-4"],
             "reasoning_models": ["anthropic/claude-sonnet-4", "openai/gpt-5"]
         },
-        "quick_scan": ["openai/gpt-5-mini", "google/gemini-2.5-flash"],
+        "quick_scan": ["openai/gpt-5", "google/gemini-2.5-pro"],
         "deep_dive": ["openai/gpt-5", "google/gemini-2.5-pro"],
         "photo_analysis": ["openai/gpt-5", "google/gemini-2.5-pro"],
         "reports": ["openai/gpt-5", "google/gemini-2.5-pro"],
@@ -60,7 +60,7 @@ MODEL_CONFIG = {
             "models": ["openai/gpt-5-mini", "anthropic/claude-sonnet-4"],
             "reasoning_models": ["anthropic/claude-sonnet-4", "openai/gpt-5"]
         },
-        "quick_scan": ["openai/gpt-5-mini", "google/gemini-2.5-flash"],
+        "quick_scan": ["openai/gpt-5", "google/gemini-2.5-pro"],
         "deep_dive": ["openai/gpt-5", "google/gemini-2.5-pro"],
         "photo_analysis": ["openai/gpt-5", "google/gemini-2.5-pro"],
         "reports": ["openai/gpt-5", "google/gemini-2.5-pro"],

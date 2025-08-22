@@ -280,6 +280,11 @@ class GeneralAssessmentRequest(BaseModel):
     form_data: Dict[str, Any]
     user_id: Optional[str] = None
 
+class GeneralAssessmentRefineRequest(BaseModel):
+    assessment_id: str
+    answers: List[Dict[str, str]]  # List of {question: "...", answer: "..."}
+    user_id: Optional[str] = None
+
 class GeneralDeepDiveStartRequest(BaseModel):
     category: str
     form_data: Dict[str, Any]
@@ -311,3 +316,40 @@ class PhotoReminderConfigureRequest(BaseModel):
 class PhotoMonitoringSuggestRequest(BaseModel):
     analysis_id: str
     condition_context: Optional[Dict[str, Any]] = None
+
+# Assessment Follow-Up Models
+class FollowUpQuestionsRequest(BaseModel):
+    assessment_id: str
+    assessment_type: str  # quick_scan, deep_dive, general_assessment, general_deepdive
+    user_id: Optional[str] = None
+
+class FollowUpSubmitRequest(BaseModel):
+    assessment_id: str
+    assessment_type: str
+    chain_id: Optional[str] = None  # Will be generated if not provided
+    responses: Dict[str, Any]  # Base questions + AI questions responses
+    medical_visit: Optional[Dict[str, Any]] = None  # Medical visit modal data
+    user_id: Optional[str] = None
+
+class FollowUpChainRequest(BaseModel):
+    assessment_id: str
+    user_id: Optional[str] = None
+    include_events: bool = False  # Include event sourcing data
+    
+class MedicalVisitExplainRequest(BaseModel):
+    medical_terms: str  # Doctor's assessment or medical terminology
+    context: Optional[str] = None  # Additional context about the condition
+    user_id: Optional[str] = None
+
+class FollowUpScheduleRequest(BaseModel):
+    assessment_id: str
+    chain_id: str
+    scheduled_date: str  # ISO date string
+    user_id: Optional[str] = None
+
+class FollowUpAnalyticsRequest(BaseModel):
+    chain_id: str
+    user_id: Optional[str] = None
+    include_patterns: bool = True
+    include_treatment_efficacy: bool = True
+    include_progression_graph: bool = True
