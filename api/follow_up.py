@@ -401,7 +401,7 @@ async def check_active_symptom_tracking(user_id: str, assessment: Dict[str, Any]
     symptoms = assessment.get("symptoms", [])
     
     # Check tracking configurations
-    result = supabase.table("tracking_configurations").select("*").eq("user_id", user_id).eq("is_active", True).execute()
+    result = supabase.table("tracking_configurations").select("*").eq("user_id", user_id).eq("status", "approved").execute()
     
     if result.data:
         for config in result.data:

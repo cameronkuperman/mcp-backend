@@ -859,3 +859,4 @@ INFO:apscheduler.executors.default:Job "hourly_ai_predictions_check (trigger: cr
 WARNING:apscheduler.executors.default:Run time of job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-24 11:00:00 EDT)" was missed by 0:40:06.086595
 WARNING:apscheduler.executors.default:Run time of job "reset_weekly_refresh_limits (trigger: cron[day_of_week='sun', hour='0', minute='0'], next run at: 2025-08-31 00:00:00 EDT)" was missed by 10:40:06.087931
 WARNING:apscheduler.executors.default:Run time of job "cleanup_expired_shares (trigger: cron[hour='3', minute='0'], next run at: 2025-08-25 03:00:00 EDT)" was missed by 7:40:06.088157
+WARNING:apscheduler.executors.default:Run time of job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-24 12:00:00 EDT)" was missed by 0:00:02.924309
