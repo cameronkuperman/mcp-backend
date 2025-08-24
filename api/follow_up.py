@@ -158,17 +158,55 @@ async def submit_follow_up(request: Request):
         medical_visit = data.get("medical_visit")
         user_id = data.get("user_id")
         
+        # Validate and fix UUIDs
+        try:
+            if chain_id:
+                # Validate chain_id is a valid UUID
+                uuid.UUID(chain_id)
+            else:
+                # Generate new chain_id if missing
+                chain_id = str(uuid.uuid4())
+                logger.info(f"Generated new chain_id: {chain_id}")
+        except ValueError:
+            # If chain_id is invalid, generate a new one
+            logger.warning(f"Invalid chain_id '{chain_id}', generating new one")
+            chain_id = str(uuid.uuid4())
+        
+        # Validate assessment_id
+        try:
+            uuid.UUID(assessment_id)
+        except (ValueError, TypeError):
+            logger.error(f"Invalid assessment_id: {assessment_id}")
+            raise HTTPException(status_code=400, detail="Invalid assessment_id format")
+        
+        # Validate user_id if provided
+        if user_id:
+            try:
+                uuid.UUID(user_id)
+            except (ValueError, TypeError):
+                logger.warning(f"Invalid user_id '{user_id}', setting to None")
+                user_id = None
+        
+        # Validate assessment_type
+        valid_types = ['quick_scan', 'deep_dive', 'general_assessment', 'general_deepdive']
+        if assessment_type not in valid_types:
+            logger.error(f"Invalid assessment_type: {assessment_type}")
+            raise HTTPException(status_code=400, detail=f"Invalid assessment_type. Must be one of: {valid_types}")
+        
         # Validate at least one question was answered
         if not responses or len(responses) == 0:
             raise HTTPException(status_code=400, detail="At least one question must be answered")
         
-        # Track event
-        await track_event(
-            chain_id=chain_id,
-            user_id=user_id,
-            event_type="follow_up_started",
-            event_data={"assessment_id": assessment_id}
-        )
+        # Track event (don't let this fail the request)
+        try:
+            await track_event(
+                chain_id=chain_id,
+                user_id=user_id,
+                event_type="follow_up_started",
+                event_data={"assessment_id": assessment_id}
+            )
+        except Exception as e:
+            logger.warning(f"Failed to track event: {str(e)}")
         
         # Fetch original assessment and chain
         original_assessment = await fetch_original_assessment(assessment_id, assessment_type)
@@ -240,29 +278,36 @@ async def submit_follow_up(request: Request):
                 }
             )
         
-        # Store follow-up in database
-        follow_up_id = await store_follow_up(
-            chain_id=chain_id,
-            source_type=assessment_type,
-            source_id=assessment_id,
-            responses=responses,
-            medical_visit=medical_visit,
-            analysis=analysis,
-            days_since_original=days_since_original,
-            follow_up_number=len(previous_follow_ups) + 1,
-            user_id=user_id
-        )
+        # Store follow-up in database with error handling
+        try:
+            follow_up_id = await store_follow_up(
+                chain_id=chain_id,
+                source_type=assessment_type,
+                source_id=assessment_id,
+                responses=responses,
+                medical_visit=medical_visit,
+                analysis=analysis,
+                days_since_original=days_since_original,
+                follow_up_number=len(previous_follow_ups) + 1,
+                user_id=user_id
+            )
+        except Exception as e:
+            logger.error(f"Failed to store follow-up: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Failed to store follow-up: {str(e)}")
         
-        # Track completion event
-        await track_event(
-            chain_id=chain_id,
-            user_id=user_id,
-            event_type="follow_up_completed",
-            event_data={
-                "follow_up_id": follow_up_id,
-                "confidence": new_confidence
-            }
-        )
+        # Track completion event (don't let this fail the request)
+        try:
+            await track_event(
+                chain_id=chain_id,
+                user_id=user_id,
+                event_type="follow_up_completed",
+                event_data={
+                    "follow_up_id": follow_up_id,
+                    "confidence": new_confidence
+                }
+            )
+        except Exception as e:
+            logger.warning(f"Failed to track completion event: {str(e)}")
         
         # Build response with all the enhanced fields
         return {
@@ -284,9 +329,11 @@ async def submit_follow_up(request: Request):
             "symptom_tracking_integration": await get_tracking_summary(user_id, original_assessment) if user_id else None
         }
         
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Error submitting follow-up: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Error submitting follow-up: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Internal error: {str(e)}")
 
 @router.get("/chain/{assessment_id}")
 async def get_follow_up_chain(
@@ -842,6 +889,17 @@ async def store_follow_up(
             original_date = created_at if created_at else datetime.now(timezone.utc)
         original_confidence = float(original.get("confidence_score", 50))
     
+    # Ensure assessment_evolution has a value (it's NOT NULL in database)
+    assessment_evolution = analysis.get("assessment_evolution", {})
+    if not assessment_evolution:
+        assessment_evolution = {
+            "original_assessment": original.get("primary_assessment", "Unknown") if original else "Unknown",
+            "current_assessment": analysis.get("primary_assessment", "Unknown"),
+            "confidence_change": f"{original_confidence}% -> {float(analysis.get('confidence', 50))}%",
+            "diagnosis_refined": False,
+            "key_discoveries": []
+        }
+    
     # Insert follow-up
     follow_up_data = {
         "chain_id": chain_id,
@@ -853,15 +911,15 @@ async def store_follow_up(
         "days_since_original": days_since_original,
         "days_since_last_followup": days_since_last,
         "follow_up_number": follow_up_number,
-        "base_responses": base_responses,
-        "ai_questions": ai_questions,
+        "base_responses": base_responses if base_responses else {},
+        "ai_questions": ai_questions if ai_questions else [],
         "medical_visit": medical_visit,
-        "analysis_result": analysis,
+        "analysis_result": analysis if analysis else {},
         "primary_assessment": analysis.get("primary_assessment", "Unknown"),
         "confidence_score": float(analysis.get("confidence", 50)),
         "confidence_change": float(analysis.get("confidence", 50)) - original_confidence,
-        "diagnostic_certainty": analysis.get("assessment_evolution", {}).get("diagnostic_certainty", "provisional"),
-        "assessment_evolution": analysis.get("assessment_evolution", {}),
+        "diagnostic_certainty": assessment_evolution.get("diagnostic_certainty", "provisional"),
+        "assessment_evolution": assessment_evolution,  # Now guaranteed to have a value
         "pattern_insights": analysis.get("pattern_insights", {}),
         "discovered_patterns": analysis.get("pattern_insights", {}).get("discovered_patterns", []),
         "concerning_patterns": analysis.get("pattern_insights", {}).get("concerning_patterns", []),
@@ -875,7 +933,12 @@ async def store_follow_up(
         "completed_at": datetime.now(timezone.utc).isoformat()
     }
     
-    result = supabase.table("assessment_follow_ups").insert(follow_up_data).execute()
+    try:
+        result = supabase.table("assessment_follow_ups").insert(follow_up_data).execute()
+    except Exception as e:
+        logger.error(f"Database insert failed: {str(e)}")
+        logger.error(f"Follow-up data: {json.dumps(follow_up_data, default=str)}")
+        raise Exception(f"Database insert failed: {str(e)}")
     
     # Store medical visit separately if present
     if medical_visit and result.data:
@@ -901,6 +964,21 @@ async def track_event(
 ) -> None:
     """Track events for audit trail"""
     try:
+        # Validate chain_id
+        try:
+            uuid.UUID(chain_id)
+        except (ValueError, TypeError):
+            logger.warning(f"Invalid chain_id for event tracking: {chain_id}")
+            return
+        
+        # Validate user_id if provided
+        if user_id:
+            try:
+                uuid.UUID(user_id)
+            except (ValueError, TypeError):
+                logger.warning(f"Invalid user_id for event tracking: {user_id}")
+                user_id = None
+        
         event = {
             "chain_id": chain_id,
             "user_id": user_id,

@@ -7,7 +7,7 @@ INFO:apscheduler.scheduler:Adding job tentatively -- it will be properly schedul
 INFO:apscheduler.scheduler:Adding job tentatively -- it will be properly scheduled when the scheduler starts
 INFO:apscheduler.scheduler:Adding job tentatively -- it will be properly scheduled when the scheduler starts
 INFO:apscheduler.scheduler:Adding job tentatively -- it will be properly scheduled when the scheduler starts
-INFO:     Started server process [52717]
+INFO:     Started server process [94510]
 INFO:     Waiting for application startup.
 INFO:run_oracle:Starting Oracle Health API with background scheduler...
 WARNING:services.background_jobs_v2:Redis connection failed: Error Multiple exceptions: [Errno 61] Connect call failed ('::1', 6379, 0, 0), [Errno 61] Connect call failed ('127.0.0.1', 6379) connecting to localhost:6379.. Running without cache.
@@ -34,19 +34,26 @@ INFO:services.background_jobs_v2:  - Daily 3 AM: Cleanup expired shares
 INFO:services.background_jobs_v2:  - Sunday Midnight: Reset weekly limits
 INFO:     Application startup complete.
 INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
-INFO:api.follow_up:Fetching assessment from table 'general_assessments' with id '8b22d18a-aeca-473c-a210-a4976ba7f08d'
-INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/general_assessments?select=%2A&id=eq.8b22d18a-aeca-473c-a210-a4976ba7f08d "HTTP/2 200 OK"
+INFO:api.follow_up:Generated new chain_id: afd4089d-271d-4da7-a89d-0c10e14ad6a0
+INFO:httpx:HTTP Request: POST https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/follow_up_events "HTTP/2 201 Created"
+INFO:api.follow_up:Fetching assessment from table 'general_assessments' with id '8B735163-5786-4126-992D-BCA2BF2EDFA8'
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/general_assessments?select=%2A&id=eq.8B735163-5786-4126-992D-BCA2BF2EDFA8 "HTTP/2 200 OK"
+INFO:api.follow_up:Query result: 0 rows found
+CORS: Allowing origins: ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:3002', 'https://localhost:3000', 'https://localhost:3001', 'https://localhost:3002', 'https://main--flourishing-taiyaki-fd4e09.netlify.app', 'https://flourishing-taiyaki-fd4e09.netlify.app', 'https://proxima-eight-pi.vercel.app', 'https://*.vercel.app', 'https://healthoracle.ai', 'https://www.healthoracle.ai', 'https://app.healthoracle.ai', 'https://seimeo.com', 'https://www.seimeo.com', 'http://seimeo.com', 'http://www.seimeo.com']
+CORS: Allowing origins: ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:3002', 'https://localhost:3000', 'https://localhost:3001', 'https://localhost:3002', 'https://main--flourishing-taiyaki-fd4e09.netlify.app', 'https://flourishing-taiyaki-fd4e09.netlify.app', 'https://proxima-eight-pi.vercel.app', 'https://*.vercel.app', 'https://healthoracle.ai', 'https://www.healthoracle.ai', 'https://app.healthoracle.ai', 'https://seimeo.com', 'https://www.seimeo.com', 'http://seimeo.com', 'http://www.seimeo.com']
+INFO:     127.0.0.1:51548 - "POST /api/follow-up/submit HTTP/1.1" 404 Not Found
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/medical?select=%2A&id=eq.a7db61ba-e9ee-4631-bb38-ee28ab4c7de9 "HTTP/2 200 OK"
+INFO:api.general_assessment:Loaded energy prompt from file
+INFO:api.general_assessment:General assessment LLM Response: {'choices': [{'message': {'content': '```json\n{\n    "primary_assessment": "Insufficient data for precise diagnosis",\n    "confidence": 30,\n    "key_findings": ["Lack of specific symptom details", "No aggravating factors identified", "No interventions tried"],\n    "possible_causes": [\n        {"condition": "General fatigue", "likelihood": 70, "explanation": "Common in many individuals due to lifestyle factors, stress, or mild sleep disturbances"},\n        {"condition": "Nutritional deficie...
+INFO:utils.assessment_formatter:Added general assessment fields. Severity: low, Confidence: low
+INFO:api.general_assessment:Enhanced analysis with new fields: severity=low, confidence=low
+INFO:httpx:HTTP Request: POST https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/general_assessments "HTTP/2 409 Conflict"
+ERROR:api.general_assessment:Database insert error: {'message': 'insert or update on table "general_assessments" violates foreign key constraint "general_assessments_user_id_fkey"', 'code': '23503', 'hint': None, 'details': 'Key (user_id)=(a7db61ba-e9ee-4631-bb38-ee28ab4c7de9) is not present in table "users".'}
+INFO:httpx:HTTP Request: PATCH https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/general_assessments?id=eq.7b0f4d2c-a82c-4c8c-9b53-bc5b9a192a15 "HTTP/2 200 OK"
+INFO:utils.db_storage:Stored enhanced fields for general assessment 7b0f4d2c-a82c-4c8c-9b53-bc5b9a192a15
+INFO:     127.0.0.1:51621 - "POST /api/general-assessment HTTP/1.1" 200 OK
+INFO:api.follow_up:Fetching assessment from table 'general_assessments' with id '7b0f4d2c-a82c-4c8c-9b53-bc5b9a192a15'
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/general_assessments?select=%2A&id=eq.7b0f4d2c-a82c-4c8c-9b53-bc5b9a192a15 "HTTP/2 200 OK"
 INFO:api.follow_up:Query result: 0 rows found
 ERROR:api.follow_up:Error getting follow-up questions: 404: Assessment not found
-CORS: Allowing origins: ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:3002', 'https://localhost:3000', 'https://localhost:3001', 'https://localhost:3002', 'https://main--flourishing-taiyaki-fd4e09.netlify.app', 'https://flourishing-taiyaki-fd4e09.netlify.app', 'https://proxima-eight-pi.vercel.app', 'https://*.vercel.app', 'https://healthoracle.ai', 'https://www.healthoracle.ai', 'https://app.healthoracle.ai', 'https://seimeo.com', 'https://www.seimeo.com', 'http://seimeo.com', 'http://www.seimeo.com']
-CORS: Allowing origins: ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:3002', 'https://localhost:3000', 'https://localhost:3001', 'https://localhost:3002', 'https://main--flourishing-taiyaki-fd4e09.netlify.app', 'https://flourishing-taiyaki-fd4e09.netlify.app', 'https://proxima-eight-pi.vercel.app', 'https://*.vercel.app', 'https://healthoracle.ai', 'https://www.healthoracle.ai', 'https://app.healthoracle.ai', 'https://seimeo.com', 'https://www.seimeo.com', 'http://seimeo.com', 'http://www.seimeo.com']
-INFO:     127.0.0.1:52330 - "GET /api/follow-up/questions/8b22d18a-aeca-473c-a210-a4976ba7f08d?assessment_type=general_assessment&user_id=test-user-123 HTTP/1.1" 500 Internal Server Error
-INFO:apscheduler.executors.default:Running job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-24 15:00:00 EDT)" (scheduled at 2025-08-24 14:00:00-04:00)
-INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/user_ai_preferences?select=%2A&weekly_generation_enabled=eq.True&preferred_hour=eq.18&preferred_day_of_week=eq.6 "HTTP/2 200 OK"
-INFO:apscheduler.executors.default:Job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-24 15:00:00 EDT)" executed successfully
-INFO:httpx:HTTP Request: POST https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/follow_up_events "HTTP/2 400 Bad Request"
-WARNING:api.follow_up:Failed to track event: {'message': 'invalid input syntax for type uuid: "test-chain-123"', 'code': '22P02', 'hint': None, 'details': None}
-INFO:api.follow_up:Fetching assessment from table 'general_assessments' with id 'test-assessment-123'
-INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/general_assessments?select=%2A&id=eq.test-assessment-123 "HTTP/2 400 Bad Request"
-ERROR:api.follow_up:Error submitting follow-up: {'message': 'invalid input syntax for type uuid: "test-assessment-123"', 'code': '22P02', 'hint': None, 'details': None}
-INFO:     127.0.0.1:54277 - "POST /api/follow-up/submit HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:51621 - "GET /api/follow-up/questions/7b0f4d2c-a82c-4c8c-9b53-bc5b9a192a15?assessment_type=general_assessment&user_id=a7db61ba-e9ee-4631-bb38-ee28ab4c7de9 HTTP/1.1" 500 Internal Server Error
