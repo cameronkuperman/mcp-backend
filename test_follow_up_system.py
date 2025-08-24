@@ -12,9 +12,9 @@ from typing import Dict, Any, Optional
 BASE_URL = "http://localhost:8000"
 TEST_USER_ID = str(uuid.uuid4())
 
-# Test data
+# Test data - will be populated after creating assessment
 TEST_ASSESSMENT = {
-    "assessment_id": str(uuid.uuid4()),
+    "assessment_id": None,  # Will be set after creating assessment
     "assessment_type": "general_assessment",
     "user_id": TEST_USER_ID
 }
@@ -37,6 +37,34 @@ def print_error(message: str):
 
 def print_info(message: str):
     print(f"{BLUE}ℹ {message}{RESET}")
+
+async def create_test_assessment(session: aiohttp.ClientSession) -> Optional[str]:
+    """Create a test general assessment to use for follow-ups"""
+    print_info("Creating test general assessment")
+    
+    payload = {
+        "category": "energy",
+        "symptoms": "Feeling tired and fatigued",
+        "duration": "1 week",
+        "severity": 6,
+        "user_id": TEST_USER_ID,
+        "additional_context": "Test assessment for follow-up system"
+    }
+    
+    try:
+        async with session.post(f"{BASE_URL}/api/general-assessment", json=payload) as response:
+            if response.status == 200:
+                data = await response.json()
+                assessment_id = data.get("assessment_id")
+                print_success(f"Created test assessment: {assessment_id}")
+                return assessment_id
+            else:
+                error_text = await response.text()
+                print_error(f"Failed to create assessment: {response.status} - {error_text}")
+                return None
+    except Exception as e:
+        print_error(f"Error creating assessment: {str(e)}")
+        return None
 
 async def test_get_follow_up_questions(session: aiohttp.ClientSession) -> Optional[Dict[str, Any]]:
     """Test getting follow-up questions"""
@@ -305,6 +333,15 @@ async def run_all_tests():
     print(f"{BLUE}{'='*60}{RESET}\n")
     
     async with aiohttp.ClientSession() as session:
+        # First, create a test assessment
+        assessment_id = await create_test_assessment(session)
+        if not assessment_id:
+            print_error("Cannot continue without creating test assessment")
+            return
+        
+        # Update global test data with the created assessment ID
+        TEST_ASSESSMENT["assessment_id"] = assessment_id
+        
         # Test 1: Get follow-up questions
         questions_data = await test_get_follow_up_questions(session)
         if not questions_data:

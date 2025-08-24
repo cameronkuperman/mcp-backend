@@ -172,10 +172,19 @@ async def submit_follow_up(request: Request):
         
         # Fetch original assessment and chain
         original_assessment = await fetch_original_assessment(assessment_id, assessment_type)
+        if not original_assessment:
+            raise HTTPException(status_code=404, detail="Assessment not found")
+        
         previous_follow_ups = await fetch_follow_up_chain(chain_id)
         
         # Calculate temporal data
-        original_date = datetime.fromisoformat(original_assessment["created_at"])
+        created_at = original_assessment.get("created_at")
+        if isinstance(created_at, str):
+            if created_at.endswith('Z'):
+                created_at = created_at[:-1] + '+00:00'
+            original_date = datetime.fromisoformat(created_at)
+        else:
+            original_date = created_at if created_at else datetime.now(timezone.utc)
         days_since_original = (datetime.now(timezone.utc) - original_date).days
         
         # If medical visit, translate jargon
@@ -373,8 +382,12 @@ async def fetch_original_assessment(assessment_id: str, assessment_type: str) ->
     if not table:
         raise ValueError(f"Invalid assessment type: {assessment_type}")
     
-    result = supabase.table(table).select("*").eq("id", assessment_id).single().execute()
-    return result.data if result.data else None
+    logger.info(f"Fetching assessment from table '{table}' with id '{assessment_id}'")
+    result = supabase.table(table).select("*").eq("id", assessment_id).execute()
+    logger.info(f"Query result: {len(result.data) if result.data else 0} rows found")
+    if result.data:
+        logger.info(f"Assessment found: {result.data[0].get('id', 'no id')}")
+    return result.data[0] if result.data else None
 
 async def get_or_create_chain_id(assessment_id: str, assessment_type: str) -> str:
     """Get existing chain_id or create a new one"""
@@ -808,14 +821,26 @@ async def store_follow_up(
     # Calculate days since last follow-up
     days_since_last = None
     if previous_result.data:
-        prev_follow_up = supabase.table("assessment_follow_ups").select("created_at").eq("id", parent_id).single().execute()
+        prev_follow_up = supabase.table("assessment_follow_ups").select("created_at").eq("id", parent_id).execute()
         if prev_follow_up.data:
-            prev_date = datetime.fromisoformat(prev_follow_up.data["created_at"])
+            prev_date = datetime.fromisoformat(prev_follow_up.data[0]["created_at"])
             days_since_last = (datetime.now(timezone.utc) - prev_date).days
     
     # Get original assessment date
     original = await fetch_original_assessment(source_id, source_type)
-    original_date = datetime.fromisoformat(original["created_at"])
+    if not original:
+        # If no original found, use current time as fallback
+        original_date = datetime.now(timezone.utc)
+        original_confidence = 50.0
+    else:
+        created_at = original.get("created_at")
+        if isinstance(created_at, str):
+            if created_at.endswith('Z'):
+                created_at = created_at[:-1] + '+00:00'
+            original_date = datetime.fromisoformat(created_at)
+        else:
+            original_date = created_at if created_at else datetime.now(timezone.utc)
+        original_confidence = float(original.get("confidence_score", 50))
     
     # Insert follow-up
     follow_up_data = {
@@ -834,7 +859,7 @@ async def store_follow_up(
         "analysis_result": analysis,
         "primary_assessment": analysis.get("primary_assessment", "Unknown"),
         "confidence_score": float(analysis.get("confidence", 50)),
-        "confidence_change": float(analysis.get("confidence", 50)) - float(original.get("confidence_score", 50)),
+        "confidence_change": float(analysis.get("confidence", 50)) - original_confidence,
         "diagnostic_certainty": analysis.get("assessment_evolution", {}).get("diagnostic_certainty", "provisional"),
         "assessment_evolution": analysis.get("assessment_evolution", {}),
         "pattern_insights": analysis.get("pattern_insights", {}),
