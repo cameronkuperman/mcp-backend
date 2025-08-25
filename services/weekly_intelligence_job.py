@@ -133,14 +133,14 @@ async def get_active_users(days_active: int = 30) -> List[str]:
     
     # Users with recent symptoms
     symptoms = supabase.table('symptom_tracking').select('user_id').gte(
-        'recorded_at', cutoff_date
+        'created_at', cutoff_date
     ).execute()
     for record in (symptoms.data or []):
         if record.get('user_id'):
             active_users.add(record['user_id'])
     
-    # Users with recent consultations
-    chats = supabase.table('oracle_chats').select('user_id').gte(
+    # Users with recent consultations (using conversations table)
+    chats = supabase.table('conversations').select('user_id').gte(
         'created_at', cutoff_date
     ).execute()
     for record in (chats.data or []):

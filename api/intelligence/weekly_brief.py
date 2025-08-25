@@ -235,10 +235,11 @@ Make this brief feel like it was written specifically for this user, with genuin
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt}
             ],
-            model="x-ai/grok-4",  # Use Grok for maximum narrative quality
+            model="openai/gpt-5",  # Use GPT-5 with reasoning for maximum narrative quality
             user_id=request.user_id,
             temperature=0.7,  # Higher for creative storytelling
-            max_tokens=4096
+            max_tokens=6000,  # Increased to accommodate reasoning tokens
+            reasoning_mode=True  # Enable reasoning tokens for deeper analysis
         )
         
         # Parse the response
