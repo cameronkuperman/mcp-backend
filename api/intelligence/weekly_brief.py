@@ -54,6 +54,14 @@ async def generate_weekly_brief(request: GenerateBriefRequest):
     Uses LLM to create all components from first principles
     """
     try:
+        # Validate user has medical profile (required for intelligence features)
+        medical_check = supabase.table('medical').select('id').eq('id', request.user_id).execute()
+        if not medical_check.data:
+            raise HTTPException(
+                status_code=403,
+                detail="Medical profile required for intelligence features. Please complete your health profile first."
+            )
+        
         logger.info(f"Generating weekly brief for user {request.user_id}")
         week_monday = get_monday_of_week(request.week_of)
         week_sunday = week_monday + timedelta(days=6)

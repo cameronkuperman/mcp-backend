@@ -63,3 +63,560 @@ INFO:apscheduler.executors.default:Job "hourly_ai_predictions_check (trigger: cr
 INFO:apscheduler.executors.default:Running job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-24 22:00:00 EDT)" (scheduled at 2025-08-24 21:00:00-04:00)
 INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/user_ai_preferences?select=%2A&weekly_generation_enabled=eq.True&preferred_hour=eq.1&preferred_day_of_week=eq.0 "HTTP/2 200 OK"
 INFO:apscheduler.executors.default:Job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-24 22:00:00 EDT)" executed successfully
+INFO:apscheduler.executors.default:Running job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-24 23:00:00 EDT)" (scheduled at 2025-08-24 22:00:00-04:00)
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/user_ai_preferences?select=%2A&weekly_generation_enabled=eq.True&preferred_hour=eq.2&preferred_day_of_week=eq.0 "HTTP/2 200 OK"
+INFO:apscheduler.executors.default:Job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-24 23:00:00 EDT)" executed successfully
+INFO:apscheduler.executors.default:Running job "weekly_health_stories_job (trigger: cron[day_of_week='mon', hour='2', minute='0'], next run at: 2025-09-01 02:00:00 UTC)" (scheduled at 2025-08-25 02:00:00+00:00)
+INFO:services.background_jobs_v2:========== WEEKLY HEALTH STORIES STARTED at 2025-08-25 02:00:00.194490 UTC ==========
+INFO:services.background_jobs_v2:Getting all users for weekly generation...
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/medical?select=id "HTTP/2 200 OK"
+INFO:services.background_jobs_v2:Found 52 total users
+INFO:services.background_jobs_v2:[health_stories] Starting batch processing for 52 users
+INFO:services.background_jobs_v2:[health_stories] Processing batch 1/6
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/health_stories?select=id&user_id=eq.5c9012d0-082d-4e37-8769-f4358162b57a&created_at=gte.2025-08-18&limit=1 "HTTP/2 200 OK"
+INFO:services.background_jobs_v2:Story already exists for user 5c9012d0-082d-4e37-8769-f4358162b57a this week
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/health_stories?select=id&user_id=eq.45b61b67-175d-48a0-aca6-d0be57609383&created_at=gte.2025-08-18&limit=1 "HTTP/2 200 OK"
+INFO:services.background_jobs_v2:Story already exists for user 45b61b67-175d-48a0-aca6-d0be57609383 this week
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/health_stories?select=id&user_id=eq.7acfadc1-2c4f-422b-8ab0-16d12727703a&created_at=gte.2025-08-18&limit=1 "HTTP/2 200 OK"
+INFO:services.background_jobs_v2:Story already exists for user 7acfadc1-2c4f-422b-8ab0-16d12727703a this week
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/health_stories?select=id&user_id=eq.74322999-5a52-40ea-a8cf-850e5666ed6c&created_at=gte.2025-08-18&limit=1 "HTTP/2 200 OK"
+INFO:services.background_jobs_v2:Story already exists for user 74322999-5a52-40ea-a8cf-850e5666ed6c this week
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/health_stories?select=id&user_id=eq.792cf606-7591-459e-bdc4-000de78ae6b8&created_at=gte.2025-08-18&limit=1 "HTTP/2 200 OK"
+INFO:services.background_jobs_v2:Story already exists for user 792cf606-7591-459e-bdc4-000de78ae6b8 this week
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/health_stories?select=id&user_id=eq.7fbd24c7-3853-4bd1-9c04-1f41387ee472&created_at=gte.2025-08-18&limit=1 "HTTP/2 200 OK"
+INFO:services.background_jobs_v2:Story already exists for user 7fbd24c7-3853-4bd1-9c04-1f41387ee472 this week
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/health_stories?select=id&user_id=eq.577d491b-f914-4cb7-9366-f704b779bf8c&created_at=gte.2025-08-18&limit=1 "HTTP/2 200 OK"
+INFO:services.background_jobs_v2:Story already exists for user 577d491b-f914-4cb7-9366-f704b779bf8c this week
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/health_stories?select=id&user_id=eq.debd1474-fb23-41ff-ae56-2ac725013392&created_at=gte.2025-08-18&limit=1 "HTTP/2 200 OK"
+INFO:services.background_jobs_v2:Story already exists for user debd1474-fb23-41ff-ae56-2ac725013392 this week
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/health_stories?select=id&user_id=eq.55ecdf82-0641-47e4-b63c-6363488bc717&created_at=gte.2025-08-18&limit=1 "HTTP/2 200 OK"
+INFO:services.background_jobs_v2:Story already exists for user 55ecdf82-0641-47e4-b63c-6363488bc717 this week
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/health_stories?select=id&user_id=eq.cd4d3764-1c77-4ce1-8d51-c31d48618063&created_at=gte.2025-08-18&limit=1 "HTTP/2 200 OK"
+INFO:services.background_jobs_v2:Story already exists for user cd4d3764-1c77-4ce1-8d51-c31d48618063 this week
+INFO:services.background_jobs_v2:[health_stories] Processing batch 2/6
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/health_stories?select=id&user_id=eq.57a4d28a-b25a-4bb4-9f10-8891b543fc22&created_at=gte.2025-08-18&limit=1 "HTTP/2 200 OK"
+INFO:services.background_jobs_v2:Story already exists for user 57a4d28a-b25a-4bb4-9f10-8891b543fc22 this week
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/health_stories?select=id&user_id=eq.4e078db3-3517-4f87-b071-bbcd1041c6e0&created_at=gte.2025-08-18&limit=1 "HTTP/2 200 OK"
+INFO:services.background_jobs_v2:Story already exists for user 4e078db3-3517-4f87-b071-bbcd1041c6e0 this week
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/health_stories?select=id&user_id=eq.e095c65b-fab1-423a-91e2-0e423ec7f6fa&created_at=gte.2025-08-18&limit=1 "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/health_stories?select=id&user_id=eq.802ba1fe-7dad-4a54-8681-32239f11fb37&created_at=gte.2025-08-18&limit=1 "HTTP/2 200 OK"
+INFO:services.background_jobs_v2:Story already exists for user 802ba1fe-7dad-4a54-8681-32239f11fb37 this week
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/health_stories?select=id&user_id=eq.92b50fc0-25a6-4493-a8f8-39ce130f7449&created_at=gte.2025-08-18&limit=1 "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/health_stories?select=id&user_id=eq.9151642f-55d8-4547-9c13-2da3ba1d9a70&created_at=gte.2025-08-18&limit=1 "HTTP/2 200 OK"
+INFO:services.background_jobs_v2:Story already exists for user 9151642f-55d8-4547-9c13-2da3ba1d9a70 this week
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/health_stories?select=id&user_id=eq.5e60df62-cb11-4e5c-91b4-4c9ce074941b&created_at=gte.2025-08-18&limit=1 "HTTP/2 200 OK"
+INFO:services.background_jobs_v2:Story already exists for user 5e60df62-cb11-4e5c-91b4-4c9ce074941b this week
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/health_stories?select=id&user_id=eq.1fde20cf-98a7-4391-97a3-f05c3c2808d3&created_at=gte.2025-08-18&limit=1 "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/health_stories?select=id&user_id=eq.2517e978-e027-404d-bf67-ae5ff27b463f&created_at=gte.2025-08-18&limit=1 "HTTP/2 200 OK"
+INFO:services.background_jobs_v2:Story already exists for user 2517e978-e027-404d-bf67-ae5ff27b463f this week
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/health_stories?select=id&user_id=eq.5acc8410-5437-4adb-ba05-1a849a9c4d64&created_at=gte.2025-08-18&limit=1 "HTTP/2 200 OK"
+INFO:services.background_jobs_v2:Story already exists for user 5acc8410-5437-4adb-ba05-1a849a9c4d64 this week
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/medical?select=%2A&id=eq.92b50fc0-25a6-4493-a8f8-39ce130f7449 "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/conversations?select=id&user_id=eq.92b50fc0-25a6-4493-a8f8-39ce130f7449 "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/quick_scans?select=%2A&user_id=eq.92b50fc0-25a6-4493-a8f8-39ce130f7449 "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/deep_dive_sessions?select=%2A&user_id=eq.92b50fc0-25a6-4493-a8f8-39ce130f7449&created_at=gte.2025-08-11&created_at=lte.2025-08-18&order=created_at.asc "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/symptom_tracking?select=%2A&user_id=eq.92b50fc0-25a6-4493-a8f8-39ce130f7449&occurrence_date=gte.2025-08-11&occurrence_date=lte.2025-08-18&order=occurrence_date.asc "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/medical?select=%2A&id=eq.e095c65b-fab1-423a-91e2-0e423ec7f6fa "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/conversations?select=id&user_id=eq.e095c65b-fab1-423a-91e2-0e423ec7f6fa "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/messages?select=%2A&conversation_id=in.%28eebe2cfa-145e-4438-9b9c-bddf6b0b7283%29&created_at=gte.2025-08-11&created_at=lte.2025-08-18&order=created_at.asc "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/quick_scans?select=%2A&user_id=eq.e095c65b-fab1-423a-91e2-0e423ec7f6fa "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/deep_dive_sessions?select=%2A&user_id=eq.e095c65b-fab1-423a-91e2-0e423ec7f6fa&created_at=gte.2025-08-11&created_at=lte.2025-08-18&order=created_at.asc "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/symptom_tracking?select=%2A&user_id=eq.e095c65b-fab1-423a-91e2-0e423ec7f6fa&occurrence_date=gte.2025-08-11&occurrence_date=lte.2025-08-18&order=occurrence_date.asc "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/medical?select=%2A&id=eq.1fde20cf-98a7-4391-97a3-f05c3c2808d3 "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/conversations?select=id&user_id=eq.1fde20cf-98a7-4391-97a3-f05c3c2808d3 "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/quick_scans?select=%2A&user_id=eq.1fde20cf-98a7-4391-97a3-f05c3c2808d3 "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/deep_dive_sessions?select=%2A&user_id=eq.1fde20cf-98a7-4391-97a3-f05c3c2808d3&created_at=gte.2025-08-11&created_at=lte.2025-08-18&order=created_at.asc "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/symptom_tracking?select=%2A&user_id=eq.1fde20cf-98a7-4391-97a3-f05c3c2808d3&occurrence_date=gte.2025-08-11&occurrence_date=lte.2025-08-18&order=occurrence_date.asc "HTTP/2 200 OK"
+Health story request received for user_id: '92b50fc0-25a6-4493-a8f8-39ce130f7449'
+User ID type: <class 'str'>, length: 36
+Health story date range: 2025-08-11 to 2025-08-18
+No quick scans found for health story
+Calling Kimi K2 for health story generation...
+System prompt length: 3183 chars
+Context length: 1116 chars
+Health story request received for user_id: 'e095c65b-fab1-423a-91e2-0e423ec7f6fa'
+User ID type: <class 'str'>, length: 36
+Health story date range: 2025-08-11 to 2025-08-18
+No quick scans found for health story
+Calling Kimi K2 for health story generation...
+System prompt length: 3183 chars
+Context length: 997 chars
+Health story request received for user_id: '1fde20cf-98a7-4391-97a3-f05c3c2808d3'
+User ID type: <class 'str'>, length: 36
+Health story date range: 2025-08-11 to 2025-08-18
+Adding 1 quick scans to health story context
+Calling Kimi K2 for health story generation...
+System prompt length: 3183 chars
+Context length: 1690 chars
+Error generating health story: argument of type 'NoneType' is not iterable
+INFO:     127.0.0.1:52114 - "POST /api/health-story HTTP/1.1" 200 OK
+INFO:httpx:HTTP Request: POST http://localhost:8000/api/health-story "HTTP/1.1 200 OK"
+INFO:services.background_jobs_v2:Successfully generated story for user e095c65b-fab1-423a-91e2-0e423ec7f6fa
+INFO:httpx:HTTP Request: POST https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/health_stories "HTTP/2 201 Created"
+LLM Response received. Model used: moonshotai/kimi-k2
+Token usage: {'prompt_tokens': 1020, 'completion_tokens': 229, 'total_tokens': 1249, 'prompt_tokens_details': {'cached_tokens': 0}, 'completion_tokens_details': {'reasoning_tokens': 0}}
+Raw LLM response type: <class 'dict'>
+Raw response (dict): {'title': 'The Silent Week After the Storm', 'subtitle': 'When health data goes quiet, your body speaks volumes', 'content': "This week unfolded like a blank page in your health story—no quick scans captured, no dramatic symptoms recorded. Yet this absence itself tells a compelling tale: your body maintained its equilibrium without the need for urgent attention. Your 7-8 hours of nightly sleep appears to be serving its purpose well, allowing your systems to function without disruption.\n\nThe lack of recorded symptoms suggests your moderate stress levels haven't translated into physical manifestations. Your vegetarian diet, combined with former smoking status and rare exercise, has created a baseline of stability that held steady through seven days. Sometimes the most significant health insight is what doesn't happen—no pain spikes, no sleep disruptions, no urgent red flags demanding intervention.\n\nYour health profile reveals a young adult body finding its rhythm in the absence of crisis. While the data may be sparse, the underlying message is clear: your current lifestyle choices, from dietary patterns to sleep habits, are maintaining a delicate balance that requires no immediate course correction."}
+Successfully extracted JSON. Keys: ['title', 'subtitle', 'content']
+Extracted title: The Silent Week After the Storm...
+Extracted subtitle: When health data goes quiet, your body speaks volu...
+Content length: 1090 chars
+INFO:     127.0.0.1:52113 - "POST /api/health-story HTTP/1.1" 200 OK
+INFO:httpx:HTTP Request: POST http://localhost:8000/api/health-story "HTTP/1.1 200 OK"
+INFO:services.background_jobs_v2:Successfully generated story for user 92b50fc0-25a6-4493-a8f8-39ce130f7449
+INFO:httpx:HTTP Request: POST https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/health_stories "HTTP/2 201 Created"
+LLM Response received. Model used: moonshotai/kimi-k2
+Token usage: {'prompt_tokens': 1148, 'completion_tokens': 300, 'total_tokens': 1448, 'prompt_tokens_details': None}
+Raw LLM response type: <class 'dict'>
+Raw response (dict): {'title': "The Shoulder's Silent Protest", 'subtitle': 'When your left deltoid becomes the messenger your body has been waiting for', 'content': "Your left deltoid has spent the past week speaking in the language of persistent ache, a 4 out of 10 whisper that began as background noise and refused to fade. This rotator cuff tendinitis—78% confidence in the assessment—arrived as more than just shoulder pain; it's become your body's articulate way of asking for attention to patterns you might have overlooked.\n\nThe timing carries its own significance. At seventeen, with a history of iron-deficiency anemia casting long shadows over your energy levels, this shoulder strain emerges as a secondary sentinel. The inflammation in your rotator cuff tendons correlates with the same low-grade exhaustion that often accompanies anemia episodes, suggesting your muscular system might be compensating for systemic fatigue. The medium-urgency classification isn't just clinical terminology—it's a gentle boundary, a reminder that pushing through discomfort in youth doesn't always serve the body's longer story.\n\nWhat's striking is how your nervous system has orchestrated this alert. The aching during exercise, the specific location at the shoulder's apex—these aren't random complaints but rather calculated signals from a body that's learned to communicate efficiently despite nutritional challenges. Your recovery will likely mirror your anemia management: steady, attentive, and ultimately revealing of deeper connections between micronutrient status and musculoskeletal resilience."}
+Successfully extracted JSON. Keys: ['title', 'subtitle', 'content']
+Extracted title: The Shoulder's Silent Protest...
+Extracted subtitle: When your left deltoid becomes the messenger your ...
+Content length: 1435 chars
+INFO:     127.0.0.1:52115 - "POST /api/health-story HTTP/1.1" 200 OK
+INFO:httpx:HTTP Request: POST http://localhost:8000/api/health-story "HTTP/1.1 200 OK"
+INFO:services.background_jobs_v2:Successfully generated story for user 1fde20cf-98a7-4391-97a3-f05c3c2808d3
+INFO:services.background_jobs_v2:[health_stories] Processing batch 3/6
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/health_stories?select=id&user_id=eq.262b44d7-8efc-4937-9a3d-97b265d38003&created_at=gte.2025-08-18&limit=1 "HTTP/2 200 OK"
+INFO:services.background_jobs_v2:Story already exists for user 262b44d7-8efc-4937-9a3d-97b265d38003 this week
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/health_stories?select=id&user_id=eq.c97e3f82-0fd0-4e64-a514-dde1a06d5ecc&created_at=gte.2025-08-18&limit=1 "HTTP/2 200 OK"
+INFO:services.background_jobs_v2:Story already exists for user c97e3f82-0fd0-4e64-a514-dde1a06d5ecc this week
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/health_stories?select=id&user_id=eq.492a32cb-f611-4eab-a56d-0555f1c2c7de&created_at=gte.2025-08-18&limit=1 "HTTP/2 200 OK"
+INFO:services.background_jobs_v2:Story already exists for user 492a32cb-f611-4eab-a56d-0555f1c2c7de this week
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/health_stories?select=id&user_id=eq.8c44509e-3d4e-4ec6-8aab-f1b55a8f019c&created_at=gte.2025-08-18&limit=1 "HTTP/2 200 OK"
+INFO:services.background_jobs_v2:Story already exists for user 8c44509e-3d4e-4ec6-8aab-f1b55a8f019c this week
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/health_stories?select=id&user_id=eq.17579a40-538a-48a3-8f0e-db7cd23b6265&created_at=gte.2025-08-18&limit=1 "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/health_stories?select=id&user_id=eq.86fb56da-6233-4da6-a8e1-ca376776bf1d&created_at=gte.2025-08-18&limit=1 "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/health_stories?select=id&user_id=eq.0086a58d-1081-4496-92a1-e4a73a2c6f35&created_at=gte.2025-08-18&limit=1 "HTTP/2 200 OK"
+INFO:services.background_jobs_v2:Story already exists for user 0086a58d-1081-4496-92a1-e4a73a2c6f35 this week
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/health_stories?select=id&user_id=eq.a3fdd737-d269-4337-a4f7-ebd6ef33c3c1&created_at=gte.2025-08-18&limit=1 "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/health_stories?select=id&user_id=eq.0ad855f3-8540-4a16-8d2d-47d8edf6b499&created_at=gte.2025-08-18&limit=1 "HTTP/2 200 OK"
+INFO:services.background_jobs_v2:Story already exists for user 0ad855f3-8540-4a16-8d2d-47d8edf6b499 this week
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/health_stories?select=id&user_id=eq.59194e38-1a90-4da2-80c4-86906508dbdb&created_at=gte.2025-08-18&limit=1 "HTTP/2 200 OK"
+INFO:services.background_jobs_v2:Story already exists for user 59194e38-1a90-4da2-80c4-86906508dbdb this week
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/medical?select=%2A&id=eq.a3fdd737-d269-4337-a4f7-ebd6ef33c3c1 "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/conversations?select=id&user_id=eq.a3fdd737-d269-4337-a4f7-ebd6ef33c3c1 "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/quick_scans?select=%2A&user_id=eq.a3fdd737-d269-4337-a4f7-ebd6ef33c3c1 "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/deep_dive_sessions?select=%2A&user_id=eq.a3fdd737-d269-4337-a4f7-ebd6ef33c3c1&created_at=gte.2025-08-11&created_at=lte.2025-08-18&order=created_at.asc "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/symptom_tracking?select=%2A&user_id=eq.a3fdd737-d269-4337-a4f7-ebd6ef33c3c1&occurrence_date=gte.2025-08-11&occurrence_date=lte.2025-08-18&order=occurrence_date.asc "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/medical?select=%2A&id=eq.17579a40-538a-48a3-8f0e-db7cd23b6265 "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/conversations?select=id&user_id=eq.17579a40-538a-48a3-8f0e-db7cd23b6265 "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/quick_scans?select=%2A&user_id=eq.17579a40-538a-48a3-8f0e-db7cd23b6265 "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/deep_dive_sessions?select=%2A&user_id=eq.17579a40-538a-48a3-8f0e-db7cd23b6265&created_at=gte.2025-08-11&created_at=lte.2025-08-18&order=created_at.asc "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/symptom_tracking?select=%2A&user_id=eq.17579a40-538a-48a3-8f0e-db7cd23b6265&occurrence_date=gte.2025-08-11&occurrence_date=lte.2025-08-18&order=occurrence_date.asc "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/medical?select=%2A&id=eq.86fb56da-6233-4da6-a8e1-ca376776bf1d "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/conversations?select=id&user_id=eq.86fb56da-6233-4da6-a8e1-ca376776bf1d "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/quick_scans?select=%2A&user_id=eq.86fb56da-6233-4da6-a8e1-ca376776bf1d "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/deep_dive_sessions?select=%2A&user_id=eq.86fb56da-6233-4da6-a8e1-ca376776bf1d&created_at=gte.2025-08-11&created_at=lte.2025-08-18&order=created_at.asc "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/symptom_tracking?select=%2A&user_id=eq.86fb56da-6233-4da6-a8e1-ca376776bf1d&occurrence_date=gte.2025-08-11&occurrence_date=lte.2025-08-18&order=occurrence_date.asc "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: POST https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/health_stories "HTTP/2 201 Created"
+Health story request received for user_id: 'a3fdd737-d269-4337-a4f7-ebd6ef33c3c1'
+User ID type: <class 'str'>, length: 36
+Health story date range: 2025-08-11 to 2025-08-18
+No quick scans found for health story
+Calling Kimi K2 for health story generation...
+System prompt length: 3183 chars
+Context length: 997 chars
+Health story request received for user_id: '17579a40-538a-48a3-8f0e-db7cd23b6265'
+User ID type: <class 'str'>, length: 36
+Health story date range: 2025-08-11 to 2025-08-18
+No quick scans found for health story
+Calling Kimi K2 for health story generation...
+System prompt length: 3183 chars
+Context length: 956 chars
+Health story request received for user_id: '86fb56da-6233-4da6-a8e1-ca376776bf1d'
+User ID type: <class 'str'>, length: 36
+Health story date range: 2025-08-11 to 2025-08-18
+No quick scans found for health story
+Calling Kimi K2 for health story generation...
+System prompt length: 3183 chars
+Context length: 957 chars
+LLM Response received. Model used: moonshotai/kimi-k2
+Token usage: {'prompt_tokens': 965, 'completion_tokens': 179, 'total_tokens': 1144, 'prompt_tokens_details': None}
+Raw LLM response type: <class 'dict'>
+Raw response (dict): {'title': 'The Quiet Beginning', 'subtitle': 'Your health story starts with fresh pages waiting for data', 'content': "This week marked the opening chapter of your health journey, where the absence of scans speaks louder than any reading could. With no recent data points to analyze, your baseline remains beautifully undefined—a rare moment where potential outweighs pattern. Your profile stands at the threshold, ready to capture the subtle rhythms of your body once monitoring begins.\n\nThe empty spaces in your health timeline aren't gaps to fill with worry, but rather invitations to begin. As Kwame Botse, you're positioned at day zero of what will become a rich narrative of physiological changes, daily variations, and long-term trends. Think of this as the calm before the story unfolds—where your future health data will paint the portrait your body has been quietly creating all along."}
+Successfully extracted JSON. Keys: ['title', 'subtitle', 'content']
+Extracted title: The Quiet Beginning...
+Extracted subtitle: Your health story starts with fresh pages waiting ...
+Content length: 776 chars
+INFO:     127.0.0.1:52222 - "POST /api/health-story HTTP/1.1" 200 OK
+INFO:httpx:HTTP Request: POST http://localhost:8000/api/health-story "HTTP/1.1 200 OK"
+INFO:services.background_jobs_v2:Successfully generated story for user 86fb56da-6233-4da6-a8e1-ca376776bf1d
+INFO:httpx:HTTP Request: POST https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/health_stories "HTTP/2 201 Created"
+LLM Response received. Model used: moonshotai/kimi-k2
+Token usage: {'prompt_tokens': 983, 'completion_tokens': 209, 'total_tokens': 1192}
+Raw LLM response type: <class 'dict'>
+Raw response (dict): {'title': 'A Quiet Week Speaks Volumes', 'subtitle': 'When silence reveals the gentle rhythm of wellness', 'content': "This week carried no urgent signals, no sudden spikes or concerning dips—just the steady cadence of a body quietly keeping its balance. Without any quick scans to parse or pain markers to track, your health story unfolded as a whisper rather than a shout. The absence of symptoms itself becomes a powerful metric: no headaches, no muscle tension, no irregular heart rhythms disrupting your days.\n\nIn this peaceful interlude, your cardiovascular system likely maintained its baseline rhythm around 70-75 bpm during waking hours, while your nervous system enjoyed a rare respite from stress-response activation. Though we lack numerical data from formal assessments, the void of complaints suggests your body's inflammatory markers remained low, your sleep rhythms stayed intact, and your muscle-skeletal system moved without protest. Sometimes the most telling health insight comes not from what we measure, but from what we don't need to."}
+Successfully extracted JSON. Keys: ['title', 'subtitle', 'content']
+Extracted title: A Quiet Week Speaks Volumes...
+Extracted subtitle: When silence reveals the gentle rhythm of wellness...
+Content length: 938 chars
+INFO:     127.0.0.1:52221 - "POST /api/health-story HTTP/1.1" 200 OK
+INFO:httpx:HTTP Request: POST http://localhost:8000/api/health-story "HTTP/1.1 200 OK"
+INFO:services.background_jobs_v2:Successfully generated story for user 17579a40-538a-48a3-8f0e-db7cd23b6265
+INFO:httpx:HTTP Request: POST https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/health_stories "HTTP/2 201 Created"
+LLM Response received. Model used: moonshotai/kimi-k2
+Token usage: {'prompt_tokens': 998, 'completion_tokens': 248, 'total_tokens': 1246, 'prompt_tokens_details': None}
+Raw LLM response type: <class 'dict'>
+Raw response (dict): {'title': 'The Quiet Week Before Your Health Story Begins', 'subtitle': 'A blank canvas waiting for your first data point to paint the picture of you', 'content': "This week passed without any recorded symptoms or scans, a pristine silence in your health timeline. At twenty years old and 82 kilograms across your 170-centimeter frame, your body has been living its story without leaving digital footprints—breathing, digesting, sleeping, and moving through each day with anonymous grace.\n\nThink of this as your baseline moment, the calm before insight arrives. Your cardiovascular system has been maintaining its quiet rhythm, your muscles working through daily motions without complaint, and your nervous system processing the world without raising alarms. In Asian men your age, this kind of symptom-free week often represents either excellent health or simply the beginning of awareness—a threshold moment before patterns start to emerge.\n\nThe coming weeks hold potential for discovery. Each scan, each symptom logged, each pattern recognized will add brushstrokes to the portrait of your health. Right now, you're at day zero of understanding how your body speaks to you—ready to translate its whispers into the language of data and insight."}
+Successfully extracted JSON. Keys: ['title', 'subtitle', 'content']
+Extracted title: The Quiet Week Before Your Health Story Begins...
+Extracted subtitle: A blank canvas waiting for your first data point t...
+Content length: 1082 chars
+INFO:     127.0.0.1:52220 - "POST /api/health-story HTTP/1.1" 200 OK
+INFO:httpx:HTTP Request: POST http://localhost:8000/api/health-story "HTTP/1.1 200 OK"
+INFO:services.background_jobs_v2:Successfully generated story for user a3fdd737-d269-4337-a4f7-ebd6ef33c3c1
+INFO:services.background_jobs_v2:[health_stories] Processing batch 4/6
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/health_stories?select=id&user_id=eq.07e6e364-2a68-4dcb-9fe9-77c532c28c68&created_at=gte.2025-08-18&limit=1 "HTTP/2 200 OK"
+INFO:services.background_jobs_v2:Story already exists for user 07e6e364-2a68-4dcb-9fe9-77c532c28c68 this week
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/health_stories?select=id&user_id=eq.9249affd-b2d2-441c-921e-a0f74a6a643d&created_at=gte.2025-08-18&limit=1 "HTTP/2 200 OK"
+INFO:services.background_jobs_v2:Story already exists for user 9249affd-b2d2-441c-921e-a0f74a6a643d this week
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/health_stories?select=id&user_id=eq.323ce656-8d89-46ac-bea1-a6382cc86ce9&created_at=gte.2025-08-18&limit=1 "HTTP/2 200 OK"
+INFO:services.background_jobs_v2:Story already exists for user 323ce656-8d89-46ac-bea1-a6382cc86ce9 this week
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/health_stories?select=id&user_id=eq.ba60ec95-54b0-4858-9166-3ccddaeecb61&created_at=gte.2025-08-18&limit=1 "HTTP/2 200 OK"
+INFO:services.background_jobs_v2:Story already exists for user ba60ec95-54b0-4858-9166-3ccddaeecb61 this week
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/health_stories?select=id&user_id=eq.26ce9ea7-ef44-43d6-86ce-20d711ee5a0b&created_at=gte.2025-08-18&limit=1 "HTTP/2 200 OK"
+INFO:services.background_jobs_v2:Story already exists for user 26ce9ea7-ef44-43d6-86ce-20d711ee5a0b this week
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/health_stories?select=id&user_id=eq.aa5cb4cd-a1d0-4c5e-9ff1-e2687a60af12&created_at=gte.2025-08-18&limit=1 "HTTP/2 200 OK"
+INFO:services.background_jobs_v2:Story already exists for user aa5cb4cd-a1d0-4c5e-9ff1-e2687a60af12 this week
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/health_stories?select=id&user_id=eq.29fe0642-8288-4012-ba0d-aee905116fe4&created_at=gte.2025-08-18&limit=1 "HTTP/2 200 OK"
+INFO:services.background_jobs_v2:Story already exists for user 29fe0642-8288-4012-ba0d-aee905116fe4 this week
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/health_stories?select=id&user_id=eq.1d10155b-5c76-4fa5-a792-eac3903f564b&created_at=gte.2025-08-18&limit=1 "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/health_stories?select=id&user_id=eq.969f889e-ed86-483f-acdc-0eca70c364f8&created_at=gte.2025-08-18&limit=1 "HTTP/2 200 OK"
+INFO:services.background_jobs_v2:Story already exists for user 969f889e-ed86-483f-acdc-0eca70c364f8 this week
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/health_stories?select=id&user_id=eq.6b85f0c3-c983-4859-8004-4ba66d047b4d&created_at=gte.2025-08-18&limit=1 "HTTP/2 200 OK"
+INFO:services.background_jobs_v2:Story already exists for user 6b85f0c3-c983-4859-8004-4ba66d047b4d this week
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/medical?select=%2A&id=eq.1d10155b-5c76-4fa5-a792-eac3903f564b "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/conversations?select=id&user_id=eq.1d10155b-5c76-4fa5-a792-eac3903f564b "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/quick_scans?select=%2A&user_id=eq.1d10155b-5c76-4fa5-a792-eac3903f564b "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/deep_dive_sessions?select=%2A&user_id=eq.1d10155b-5c76-4fa5-a792-eac3903f564b&created_at=gte.2025-08-11&created_at=lte.2025-08-18&order=created_at.asc "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/symptom_tracking?select=%2A&user_id=eq.1d10155b-5c76-4fa5-a792-eac3903f564b&occurrence_date=gte.2025-08-11&occurrence_date=lte.2025-08-18&order=occurrence_date.asc "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: POST https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/health_stories "HTTP/2 201 Created"
+Health story request received for user_id: '1d10155b-5c76-4fa5-a792-eac3903f564b'
+User ID type: <class 'str'>, length: 36
+Health story date range: 2025-08-11 to 2025-08-18
+Adding 1 quick scans to health story context
+Calling Kimi K2 for health story generation...
+System prompt length: 3183 chars
+Context length: 1586 chars
+LLM Response received. Model used: moonshotai/kimi-k2
+Token usage: {'prompt_tokens': 1118, 'completion_tokens': 197, 'total_tokens': 1315, 'prompt_tokens_details': None}
+Raw LLM response type: <class 'dict'>
+Raw response (dict): {'title': "Your Skin's Silent Story", 'subtitle': 'Those subtle lines across your chest spoke volumes about change', 'content': "This week revealed your skin's quiet narrative through the striae cutis marking your left pectoralis major. These silvery lines, present for months with only minimal discomfort, carry a 75% confidence rating as stretch marks—the visual echo of your body's adaptation to change. Their low pain level of 1/10 suggests they're settled companions rather than active concerns.\n\nThe location tells its own story. Stretch marks across the chest often emerge during periods of rapid growth, weight change, or muscle development. Your skin has been documenting these transitions in its own language. Consider this an invitation to care for these areas with moisturizing routines and consistent hydration. While they pose no medical urgency, they serve as gentle reminders that your body is constantly evolving, adapting, and recording its journey in ways both visible and unseen."}
+Successfully extracted JSON. Keys: ['title', 'subtitle', 'content']
+Extracted title: Your Skin's Silent Story...
+Extracted subtitle: Those subtle lines across your chest spoke volumes...
+Content length: 870 chars
+INFO:     127.0.0.1:52295 - "POST /api/health-story HTTP/1.1" 200 OK
+INFO:httpx:HTTP Request: POST http://localhost:8000/api/health-story "HTTP/1.1 200 OK"
+INFO:services.background_jobs_v2:Successfully generated story for user 1d10155b-5c76-4fa5-a792-eac3903f564b
+INFO:services.background_jobs_v2:[health_stories] Processing batch 5/6
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/health_stories?select=id&user_id=eq.f8bf5093-30c7-461a-8bf7-f7d91df86e1d&created_at=gte.2025-08-18&limit=1 "HTTP/2 200 OK"
+INFO:services.background_jobs_v2:Story already exists for user f8bf5093-30c7-461a-8bf7-f7d91df86e1d this week
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/health_stories?select=id&user_id=eq.9d61ca7f-e7a4-4a12-98a3-fe1408d75d40&created_at=gte.2025-08-18&limit=1 "HTTP/2 200 OK"
+INFO:services.background_jobs_v2:Story already exists for user 9d61ca7f-e7a4-4a12-98a3-fe1408d75d40 this week
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/health_stories?select=id&user_id=eq.22fa712c-4cf9-45b8-b02d-096e08d3f360&created_at=gte.2025-08-18&limit=1 "HTTP/2 200 OK"
+INFO:services.background_jobs_v2:Story already exists for user 22fa712c-4cf9-45b8-b02d-096e08d3f360 this week
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/health_stories?select=id&user_id=eq.79d5eee3-0602-4225-92a5-d951738176fb&created_at=gte.2025-08-18&limit=1 "HTTP/2 200 OK"
+INFO:services.background_jobs_v2:Story already exists for user 79d5eee3-0602-4225-92a5-d951738176fb this week
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/health_stories?select=id&user_id=eq.855bffe2-ba23-4cab-9cd1-9c0ac967fb48&created_at=gte.2025-08-18&limit=1 "HTTP/2 200 OK"
+INFO:services.background_jobs_v2:Story already exists for user 855bffe2-ba23-4cab-9cd1-9c0ac967fb48 this week
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/health_stories?select=id&user_id=eq.325c647f-c887-46b4-ab7a-80d3fc144179&created_at=gte.2025-08-18&limit=1 "HTTP/2 200 OK"
+INFO:services.background_jobs_v2:Story already exists for user 325c647f-c887-46b4-ab7a-80d3fc144179 this week
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/health_stories?select=id&user_id=eq.2118b982-ded9-44b4-a23b-fb64d8deac46&created_at=gte.2025-08-18&limit=1 "HTTP/2 200 OK"
+INFO:services.background_jobs_v2:Story already exists for user 2118b982-ded9-44b4-a23b-fb64d8deac46 this week
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/health_stories?select=id&user_id=eq.6d708179-5fb5-4605-9812-11987e816b7a&created_at=gte.2025-08-18&limit=1 "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/health_stories?select=id&user_id=eq.72656578-3543-4d22-89b2-68fe86567252&created_at=gte.2025-08-18&limit=1 "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/health_stories?select=id&user_id=eq.5be5572f-84da-4e6d-bd25-0401825bcd2c&created_at=gte.2025-08-18&limit=1 "HTTP/2 200 OK"
+INFO:services.background_jobs_v2:Story already exists for user 5be5572f-84da-4e6d-bd25-0401825bcd2c this week
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/medical?select=%2A&id=eq.6d708179-5fb5-4605-9812-11987e816b7a "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/conversations?select=id&user_id=eq.6d708179-5fb5-4605-9812-11987e816b7a "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/quick_scans?select=%2A&user_id=eq.6d708179-5fb5-4605-9812-11987e816b7a "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/deep_dive_sessions?select=%2A&user_id=eq.6d708179-5fb5-4605-9812-11987e816b7a&created_at=gte.2025-08-11&created_at=lte.2025-08-18&order=created_at.asc "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/symptom_tracking?select=%2A&user_id=eq.6d708179-5fb5-4605-9812-11987e816b7a&occurrence_date=gte.2025-08-11&occurrence_date=lte.2025-08-18&order=occurrence_date.asc "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/medical?select=%2A&id=eq.72656578-3543-4d22-89b2-68fe86567252 "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/conversations?select=id&user_id=eq.72656578-3543-4d22-89b2-68fe86567252 "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/quick_scans?select=%2A&user_id=eq.72656578-3543-4d22-89b2-68fe86567252 "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/deep_dive_sessions?select=%2A&user_id=eq.72656578-3543-4d22-89b2-68fe86567252&created_at=gte.2025-08-11&created_at=lte.2025-08-18&order=created_at.asc "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/symptom_tracking?select=%2A&user_id=eq.72656578-3543-4d22-89b2-68fe86567252&occurrence_date=gte.2025-08-11&occurrence_date=lte.2025-08-18&order=occurrence_date.asc "HTTP/2 200 OK"
+Health story request received for user_id: '6d708179-5fb5-4605-9812-11987e816b7a'
+User ID type: <class 'str'>, length: 36
+Health story date range: 2025-08-11 to 2025-08-18
+No quick scans found for health story
+Calling Kimi K2 for health story generation...
+System prompt length: 3183 chars
+Context length: 938 chars
+Health story request received for user_id: '72656578-3543-4d22-89b2-68fe86567252'
+User ID type: <class 'str'>, length: 36
+Health story date range: 2025-08-11 to 2025-08-18
+No quick scans found for health story
+Calling Kimi K2 for health story generation...
+System prompt length: 3183 chars
+Context length: 948 chars
+Error generating health story: argument of type 'NoneType' is not iterable
+INFO:     127.0.0.1:52368 - "POST /api/health-story HTTP/1.1" 200 OK
+INFO:httpx:HTTP Request: POST http://localhost:8000/api/health-story "HTTP/1.1 200 OK"
+INFO:services.background_jobs_v2:Successfully generated story for user 6d708179-5fb5-4605-9812-11987e816b7a
+INFO:httpx:HTTP Request: POST https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/health_stories "HTTP/2 201 Created"
+LLM Response received. Model used: moonshotai/kimi-k2
+Token usage: {'prompt_tokens': 957, 'completion_tokens': 162, 'total_tokens': 1119, 'prompt_tokens_details': None}
+Raw LLM response type: <class 'dict'>
+Raw response (dict): {'title': 'The Quiet Week of Missing Clues', 'subtitle': 'When absence itself becomes the health story worth telling', 'content': "Your body has chosen silence this week, leaving us with an empty canvas where health insights might have been. Without the familiar markers of temperature readings, symptom patterns, or vital sign fluctuations, we're left to contemplate what this absence means in your larger health narrative.\n\nThis week of missing data points highlights something important: health monitoring isn't just about the patterns we catch, but also about the gaps that remind us to check in with ourselves. While we can't see the usual indicators—no fever spikes, no inflammation markers, no sleep disruptions—this quiet space invites reflection on what consistent health surveillance might reveal when you're ready to resume tracking."}
+Successfully extracted JSON. Keys: ['title', 'subtitle', 'content']
+Extracted title: The Quiet Week of Missing Clues...
+Extracted subtitle: When absence itself becomes the health story worth...
+Content length: 713 chars
+INFO:     127.0.0.1:52369 - "POST /api/health-story HTTP/1.1" 200 OK
+INFO:httpx:HTTP Request: POST http://localhost:8000/api/health-story "HTTP/1.1 200 OK"
+INFO:services.background_jobs_v2:Successfully generated story for user 72656578-3543-4d22-89b2-68fe86567252
+INFO:services.background_jobs_v2:[health_stories] Processing batch 6/6
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/health_stories?select=id&user_id=eq.6830d6c1-45c9-464e-b5c8-1f69de524b47&created_at=gte.2025-08-18&limit=1 "HTTP/2 200 OK"
+INFO:services.background_jobs_v2:Story already exists for user 6830d6c1-45c9-464e-b5c8-1f69de524b47 this week
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/health_stories?select=id&user_id=eq.82d11b46-7169-4af8-a663-5caf55a5c390&created_at=gte.2025-08-18&limit=1 "HTTP/2 200 OK"
+INFO:services.background_jobs_v2:Story already exists for user 82d11b46-7169-4af8-a663-5caf55a5c390 this week
+INFO:services.background_jobs_v2:Job Execution: {'job_name': 'weekly_health_stories', 'status': 'completed', 'executed_at': '2025-08-25T02:01:00.218996+00:00', 'details': '{"total": 52, "successful": 52, "failed": 0, "job_name": "health_stories"}'}
+INFO:services.background_jobs_v2:========== HEALTH STORIES COMPLETED: 52/52 successful ==========
+INFO:apscheduler.executors.default:Job "weekly_health_stories_job (trigger: cron[day_of_week='mon', hour='2', minute='0'], next run at: 2025-09-01 02:00:00 UTC)" executed successfully
+WARNING:apscheduler.executors.default:Run time of job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-25 00:00:00 EDT)" was missed by 0:23:19.531854
+WARNING:apscheduler.executors.default:Run time of job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-25 01:00:00 EDT)" was missed by 0:14:58.273277
+WARNING:apscheduler.executors.default:Run time of job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-25 05:00:00 EDT)" was missed by 0:28:06.448949
+WARNING:apscheduler.executors.default:Run time of job "cleanup_expired_shares (trigger: cron[hour='3', minute='0'], next run at: 2025-08-26 03:00:00 EDT)" was missed by 1:28:06.449946
+WARNING:apscheduler.executors.default:Run time of job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-25 08:00:00 EDT)" was missed by 0:33:01.187775
+INFO:apscheduler.executors.default:Running job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-25 09:00:00 EDT)" (scheduled at 2025-08-25 08:00:00-04:00)
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/user_ai_preferences?select=%2A&weekly_generation_enabled=eq.True&preferred_hour=eq.12&preferred_day_of_week=eq.0 "HTTP/2 200 OK"
+INFO:apscheduler.executors.default:Job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-25 09:00:00 EDT)" executed successfully
+WARNING:apscheduler.executors.default:Run time of job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-25 15:00:00 EDT)" was missed by 0:45:24.164392
+WARNING:apscheduler.executors.default:Run time of job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-25 16:00:00 EDT)" was missed by 0:13:00.038436
+INFO:apscheduler.executors.default:Running job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-25 17:00:00 EDT)" (scheduled at 2025-08-25 16:00:00-04:00)
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/user_ai_preferences?select=%2A&weekly_generation_enabled=eq.True&preferred_hour=eq.20&preferred_day_of_week=eq.0 "HTTP/2 200 OK"
+INFO:apscheduler.executors.default:Job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-25 17:00:00 EDT)" executed successfully
+WARNING:apscheduler.executors.default:Run time of job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-25 18:00:00 EDT)" was missed by 0:33:50.431517
+WARNING:apscheduler.executors.default:Run time of job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-25 20:00:00 EDT)" was missed by 0:21:40.085586
+WARNING:apscheduler.executors.default:Run time of job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-25 21:00:00 EDT)" was missed by 0:11:42.632117
+WARNING:apscheduler.executors.default:Run time of job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-25 22:00:00 EDT)" was missed by 0:26:15.656534
+WARNING:apscheduler.executors.default:Run time of job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-25 23:00:00 EDT)" was missed by 0:04:48.276694
+WARNING:apscheduler.executors.default:Run time of job "weekly_ai_predictions_job (trigger: cron[day_of_week='tue', hour='2', minute='0'], next run at: 2025-09-02 02:00:00 UTC)" was missed by 0:04:48.278172
+INFO:apscheduler.executors.default:Running job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-26 00:00:00 EDT)" (scheduled at 2025-08-25 23:00:00-04:00)
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/user_ai_preferences?select=%2A&weekly_generation_enabled=eq.True&preferred_hour=eq.3&preferred_day_of_week=eq.1 "HTTP/2 200 OK"
+INFO:apscheduler.executors.default:Job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-26 00:00:00 EDT)" executed successfully
+WARNING:apscheduler.executors.default:Run time of job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-26 01:00:00 EDT)" was missed by 0:17:10.826201
+WARNING:apscheduler.executors.default:Run time of job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-26 03:00:00 EDT)" was missed by 0:14:30.580075
+WARNING:apscheduler.executors.default:Run time of job "cleanup_expired_shares (trigger: cron[hour='3', minute='0'], next run at: 2025-08-27 03:00:00 EDT)" was missed by 0:27:43.739626
+WARNING:apscheduler.executors.default:Run time of job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-26 04:00:00 EDT)" was missed by 0:27:43.740749
+INFO:apscheduler.executors.default:Running job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-26 05:00:00 EDT)" (scheduled at 2025-08-26 04:00:00-04:00)
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/user_ai_preferences?select=%2A&weekly_generation_enabled=eq.True&preferred_hour=eq.8&preferred_day_of_week=eq.1 "HTTP/2 200 OK"
+INFO:apscheduler.executors.default:Job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-26 05:00:00 EDT)" executed successfully
+WARNING:apscheduler.executors.default:Run time of job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-26 07:00:00 EDT)" was missed by 0:55:56.713261
+INFO:apscheduler.executors.default:Running job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-26 08:00:00 EDT)" (scheduled at 2025-08-26 07:00:00-04:00)
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/user_ai_preferences?select=%2A&weekly_generation_enabled=eq.True&preferred_hour=eq.11&preferred_day_of_week=eq.1 "HTTP/2 200 OK"
+INFO:apscheduler.executors.default:Job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-26 08:00:00 EDT)" executed successfully
+WARNING:apscheduler.executors.default:Run time of job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-26 09:00:00 EDT)" was missed by 0:03:48.204758
+WARNING:apscheduler.executors.default:Run time of job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-26 10:00:00 EDT)" was missed by 0:59:25.601943
+INFO:apscheduler.executors.default:Running job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-26 11:00:00 EDT)" (scheduled at 2025-08-26 10:00:00-04:00)
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/user_ai_preferences?select=%2A&weekly_generation_enabled=eq.True&preferred_hour=eq.14&preferred_day_of_week=eq.1 "HTTP/2 200 OK"
+INFO:apscheduler.executors.default:Job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-26 11:00:00 EDT)" executed successfully
+WARNING:apscheduler.executors.default:Run time of job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-26 12:00:00 EDT)" was missed by 0:29:38.738254
+INFO:apscheduler.executors.default:Running job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-26 13:00:00 EDT)" (scheduled at 2025-08-26 12:00:00-04:00)
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/user_ai_preferences?select=%2A&weekly_generation_enabled=eq.True&preferred_hour=eq.16&preferred_day_of_week=eq.1 "HTTP/2 200 OK"
+INFO:apscheduler.executors.default:Job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-26 13:00:00 EDT)" executed successfully
+WARNING:apscheduler.executors.default:Run time of job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-26 14:00:00 EDT)" was missed by 0:06:44.611758
+WARNING:apscheduler.executors.default:Run time of job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-26 17:00:00 EDT)" was missed by 0:15:51.802847
+WARNING:apscheduler.executors.default:Run time of job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-26 18:00:00 EDT)" was missed by 0:34:56.667229
+INFO:apscheduler.executors.default:Running job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-26 19:00:00 EDT)" (scheduled at 2025-08-26 18:00:00-04:00)
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/user_ai_preferences?select=%2A&weekly_generation_enabled=eq.True&preferred_hour=eq.22&preferred_day_of_week=eq.1 "HTTP/2 200 OK"
+INFO:apscheduler.executors.default:Job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-26 19:00:00 EDT)" executed successfully
+WARNING:apscheduler.executors.default:Run time of job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-26 22:00:00 EDT)" was missed by 0:12:00.402176
+WARNING:apscheduler.executors.default:Run time of job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-26 23:00:00 EDT)" was missed by 0:22:16.695844
+WARNING:apscheduler.executors.default:Run time of job "weekly_health_insights_job (trigger: cron[day_of_week='wed', hour='2', minute='0'], next run at: 2025-09-03 02:00:00 UTC)" was missed by 0:22:16.697644
+INFO:apscheduler.executors.default:Running job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-27 00:00:00 EDT)" (scheduled at 2025-08-26 23:00:00-04:00)
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/user_ai_preferences?select=%2A&weekly_generation_enabled=eq.True&preferred_hour=eq.3&preferred_day_of_week=eq.2 "HTTP/2 200 OK"
+INFO:apscheduler.executors.default:Job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-27 00:00:00 EDT)" executed successfully
+WARNING:apscheduler.executors.default:Run time of job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-27 01:00:00 EDT)" was missed by 0:20:14.070554
+WARNING:apscheduler.executors.default:Run time of job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-27 02:00:00 EDT)" was missed by 0:00:53.481062
+WARNING:apscheduler.executors.default:Run time of job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-27 03:00:00 EDT)" was missed by 0:00:54.184316
+WARNING:apscheduler.executors.default:Run time of job "cleanup_expired_shares (trigger: cron[hour='3', minute='0'], next run at: 2025-08-28 03:00:00 EDT)" was missed by 0:00:44.234228
+WARNING:apscheduler.executors.default:Run time of job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-27 04:00:00 EDT)" was missed by 0:00:44.235991
+WARNING:apscheduler.executors.default:Run time of job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-27 05:00:00 EDT)" was missed by 0:00:44.614954
+WARNING:apscheduler.executors.default:Run time of job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-27 06:00:00 EDT)" was missed by 0:00:45.714427
+INFO:apscheduler.executors.default:Running job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-27 07:00:00 EDT)" (scheduled at 2025-08-27 06:00:00-04:00)
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/user_ai_preferences?select=%2A&weekly_generation_enabled=eq.True&preferred_hour=eq.10&preferred_day_of_week=eq.2 "HTTP/2 200 OK"
+INFO:apscheduler.executors.default:Job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-27 07:00:00 EDT)" executed successfully
+WARNING:apscheduler.executors.default:Run time of job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-27 08:00:00 EDT)" was missed by 0:00:51.333851
+WARNING:apscheduler.executors.default:Run time of job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-27 09:00:00 EDT)" was missed by 0:00:55.720405
+WARNING:apscheduler.executors.default:Run time of job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-27 12:00:00 EDT)" was missed by 0:59:53.486180
+INFO:apscheduler.executors.default:Running job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-27 13:00:00 EDT)" (scheduled at 2025-08-27 12:00:00-04:00)
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/user_ai_preferences?select=%2A&weekly_generation_enabled=eq.True&preferred_hour=eq.16&preferred_day_of_week=eq.2 "HTTP/2 200 OK"
+INFO:apscheduler.executors.default:Job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-27 13:00:00 EDT)" executed successfully
+WARNING:apscheduler.executors.default:Run time of job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-27 16:00:00 EDT)" was missed by 0:23:32.570797
+INFO:apscheduler.executors.default:Running job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-27 17:00:00 EDT)" (scheduled at 2025-08-27 16:00:00-04:00)
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/user_ai_preferences?select=%2A&weekly_generation_enabled=eq.True&preferred_hour=eq.20&preferred_day_of_week=eq.2 "HTTP/2 200 OK"
+INFO:apscheduler.executors.default:Job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-27 17:00:00 EDT)" executed successfully
+WARNING:apscheduler.executors.default:Run time of job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-27 19:00:00 EDT)" was missed by 0:11:53.115412
+INFO:apscheduler.executors.default:Running job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-27 20:00:00 EDT)" (scheduled at 2025-08-27 19:00:00-04:00)
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/user_ai_preferences?select=%2A&weekly_generation_enabled=eq.True&preferred_hour=eq.23&preferred_day_of_week=eq.2 "HTTP/2 200 OK"
+INFO:apscheduler.executors.default:Job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-27 20:00:00 EDT)" executed successfully
+WARNING:apscheduler.executors.default:Run time of job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-27 21:00:00 EDT)" was missed by 0:40:44.617669
+INFO:apscheduler.executors.default:Running job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-27 22:00:00 EDT)" (scheduled at 2025-08-27 21:00:00-04:00)
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/user_ai_preferences?select=%2A&weekly_generation_enabled=eq.True&preferred_hour=eq.1&preferred_day_of_week=eq.3 "HTTP/2 200 OK"
+INFO:apscheduler.executors.default:Job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-27 22:00:00 EDT)" executed successfully
+WARNING:apscheduler.executors.default:Run time of job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-28 00:00:00 EDT)" was missed by 0:04:28.133167
+WARNING:apscheduler.executors.default:Run time of job "weekly_shadow_patterns_job (trigger: cron[day_of_week='thu', hour='2', minute='0'], next run at: 2025-09-04 02:00:00 UTC)" was missed by 1:04:28.134614
+WARNING:apscheduler.executors.default:Run time of job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-28 10:00:00 EDT)" was missed by 0:34:52.901757
+WARNING:apscheduler.executors.default:Run time of job "cleanup_expired_shares (trigger: cron[hour='3', minute='0'], next run at: 2025-08-29 03:00:00 EDT)" was missed by 6:34:52.903998
+INFO:apscheduler.executors.default:Running job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-28 11:00:00 EDT)" (scheduled at 2025-08-28 10:00:00-04:00)
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/user_ai_preferences?select=%2A&weekly_generation_enabled=eq.True&preferred_hour=eq.14&preferred_day_of_week=eq.3 "HTTP/2 200 OK"
+INFO:apscheduler.executors.default:Job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-28 11:00:00 EDT)" executed successfully
+WARNING:apscheduler.executors.default:Run time of job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-28 13:00:00 EDT)" was missed by 0:40:56.501949
+WARNING:apscheduler.executors.default:Run time of job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-28 14:00:00 EDT)" was missed by 0:12:13.018992
+WARNING:apscheduler.executors.default:Run time of job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-28 15:00:00 EDT)" was missed by 0:27:22.122809
+WARNING:apscheduler.executors.default:Run time of job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-28 16:00:00 EDT)" was missed by 0:03:18.272585
+WARNING:apscheduler.executors.default:Run time of job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-28 17:00:00 EDT)" was missed by 0:03:54.427512
+INFO:     127.0.0.1:50653 - "GET /api/health HTTP/1.1" 200 OK
+INFO:api.intelligence.weekly_brief:Generating weekly brief for user 45b61b67-175d-48a0-aca6-d0be57609383
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/weekly_health_briefs?select=%2A&user_id=eq.45b61b67-175d-48a0-aca6-d0be57609383&week_of=eq.2025-08-25 "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/llm_context?select=llm_summary%2Ccreated_at&user_id=eq.45b61b67-175d-48a0-aca6-d0be57609383&created_at=gte.2025-08-25&created_at=lte.2025-08-31&order=created_at.desc "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/quick_scans?select=created_at%2Cbody_part%2Canalysis_result%2Cform_data&user_id=eq.45b61b67-175d-48a0-aca6-d0be57609383&created_at=gte.2025-08-25&created_at=lte.2025-08-31&order=created_at.desc "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/deep_dive_sessions?select=created_at%2Cbody_part%2Cfinal_analysis%2Cfinal_confidence%2Cllm_summary&user_id=eq.45b61b67-175d-48a0-aca6-d0be57609383&created_at=gte.2025-08-25&created_at=lte.2025-08-31&order=created_at.desc "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/symptom_tracking?select=created_at%2Csymptom_name%2Cbody_part%2Cseverity&user_id=eq.45b61b67-175d-48a0-aca6-d0be57609383&created_at=gte.2025-08-25&created_at=lte.2025-08-31&order=created_at.desc "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/health_stories?select=created_at%2Cstory_text&user_id=eq.45b61b67-175d-48a0-aca6-d0be57609383&created_at=gte.2025-08-25&created_at=lte.2025-08-31&order=created_at.desc&limit=1 "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/llm_context?select=llm_summary%2Ccreated_at&user_id=eq.45b61b67-175d-48a0-aca6-d0be57609383&created_at=gte.2025-08-18&created_at=lte.2025-08-24&order=created_at.desc "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/quick_scans?select=created_at%2Cbody_part%2Canalysis_result%2Cform_data&user_id=eq.45b61b67-175d-48a0-aca6-d0be57609383&created_at=gte.2025-08-18&created_at=lte.2025-08-24&order=created_at.desc "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/deep_dive_sessions?select=created_at%2Cbody_part%2Cfinal_analysis%2Cfinal_confidence%2Cllm_summary&user_id=eq.45b61b67-175d-48a0-aca6-d0be57609383&created_at=gte.2025-08-18&created_at=lte.2025-08-24&order=created_at.desc "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/health_insights?select=%2A&user_id=eq.45b61b67-175d-48a0-aca6-d0be57609383&week_of=eq.2025-08-25 "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/health_predictions?select=%2A&user_id=eq.45b61b67-175d-48a0-aca6-d0be57609383&week_of=eq.2025-08-25 "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/shadow_patterns?select=%2A&user_id=eq.45b61b67-175d-48a0-aca6-d0be57609383&week_of=eq.2025-08-25 "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: POST https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/weekly_health_briefs "HTTP/2 201 Created"
+INFO:api.intelligence.weekly_brief:Successfully generated and stored weekly brief for user 45b61b67-175d-48a0-aca6-d0be57609383
+Building time-range context for user: 45b61b67-175d-48a0-aca6-d0be57609383
+Time range: 2025-08-25 to 2025-08-31
+Time-range context built: 611 characters
+Building time-range context for user: 45b61b67-175d-48a0-aca6-d0be57609383
+Time range: 2025-08-18 to 2025-08-24
+Error building time-range context: 'NoneType' object has no attribute 'get'
+Full traceback: Traceback (most recent call last):
+  File "/Users/iceca/Documents/mcp-backend/utils/context_builder.py", line 228, in get_enhanced_llm_context_time_range
+    condition = dive.get('final_analysis', {}).get('primaryCondition', 'Unknown')
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'NoneType' object has no attribute 'get'
+
+OpenRouter reported 454 reasoning tokens
+INFO:     127.0.0.1:55046 - "POST /api/health-brief/generate HTTP/1.1" 200 OK
+INFO:api.intelligence.health_velocity:Generating health velocity for user 45b61b67-175d-48a0-aca6-d0be57609383, range: 7D
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/llm_context?select=llm_summary%2Ccreated_at&user_id=eq.45b61b67-175d-48a0-aca6-d0be57609383&created_at=gte.2025-08-21T16%3A44%3A50.458280&created_at=lte.2025-08-28T16%3A44%3A50.458280&order=created_at.desc "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/quick_scans?select=created_at%2Cbody_part%2Canalysis_result%2Cform_data&user_id=eq.45b61b67-175d-48a0-aca6-d0be57609383&created_at=gte.2025-08-21T16%3A44%3A50.458280&created_at=lte.2025-08-28T16%3A44%3A50.458280&order=created_at.desc "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/deep_dive_sessions?select=created_at%2Cbody_part%2Cfinal_analysis%2Cfinal_confidence%2Cllm_summary&user_id=eq.45b61b67-175d-48a0-aca6-d0be57609383&created_at=gte.2025-08-21T16%3A44%3A50.458280&created_at=lte.2025-08-28T16%3A44%3A50.458280&order=created_at.desc "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/llm_context?select=llm_summary%2Ccreated_at&user_id=eq.45b61b67-175d-48a0-aca6-d0be57609383&created_at=gte.2025-08-14T16%3A44%3A50.458280&created_at=lte.2025-08-21T16%3A44%3A50.458280&order=created_at.desc "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/quick_scans?select=created_at%2Cbody_part%2Canalysis_result%2Cform_data&user_id=eq.45b61b67-175d-48a0-aca6-d0be57609383&created_at=gte.2025-08-14T16%3A44%3A50.458280&created_at=lte.2025-08-21T16%3A44%3A50.458280&order=created_at.desc "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/deep_dive_sessions?select=created_at%2Cbody_part%2Cfinal_analysis%2Cfinal_confidence%2Cllm_summary&user_id=eq.45b61b67-175d-48a0-aca6-d0be57609383&created_at=gte.2025-08-14T16%3A44%3A50.458280&created_at=lte.2025-08-21T16%3A44%3A50.458280&order=created_at.desc "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/llm_context?select=llm_summary%2Ccreated_at&user_id=eq.45b61b67-175d-48a0-aca6-d0be57609383&created_at=gte.2025-08-22T16%3A44%3A50.458280&created_at=lte.2025-08-23T16%3A44%3A50.458280&order=created_at.desc "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/quick_scans?select=created_at%2Cbody_part%2Canalysis_result%2Cform_data&user_id=eq.45b61b67-175d-48a0-aca6-d0be57609383&created_at=gte.2025-08-22T16%3A44%3A50.458280&created_at=lte.2025-08-23T16%3A44%3A50.458280&order=created_at.desc "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/deep_dive_sessions?select=created_at%2Cbody_part%2Cfinal_analysis%2Cfinal_confidence%2Cllm_summary&user_id=eq.45b61b67-175d-48a0-aca6-d0be57609383&created_at=gte.2025-08-22T16%3A44%3A50.458280&created_at=lte.2025-08-23T16%3A44%3A50.458280&order=created_at.desc "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/llm_context?select=llm_summary%2Ccreated_at&user_id=eq.45b61b67-175d-48a0-aca6-d0be57609383&created_at=gte.2025-08-23T16%3A44%3A50.458280&created_at=lte.2025-08-24T16%3A44%3A50.458280&order=created_at.desc "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/quick_scans?select=created_at%2Cbody_part%2Canalysis_result%2Cform_data&user_id=eq.45b61b67-175d-48a0-aca6-d0be57609383&created_at=gte.2025-08-23T16%3A44%3A50.458280&created_at=lte.2025-08-24T16%3A44%3A50.458280&order=created_at.desc "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/deep_dive_sessions?select=created_at%2Cbody_part%2Cfinal_analysis%2Cfinal_confidence%2Cllm_summary&user_id=eq.45b61b67-175d-48a0-aca6-d0be57609383&created_at=gte.2025-08-23T16%3A44%3A50.458280&created_at=lte.2025-08-24T16%3A44%3A50.458280&order=created_at.desc "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/symptom_tracking?select=created_at%2Csymptom_name%2Cbody_part%2Cseverity&user_id=eq.45b61b67-175d-48a0-aca6-d0be57609383&created_at=gte.2025-08-23T16%3A44%3A50.458280&created_at=lte.2025-08-24T16%3A44%3A50.458280&order=created_at.desc "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/health_stories?select=created_at%2Cstory_text&user_id=eq.45b61b67-175d-48a0-aca6-d0be57609383&created_at=gte.2025-08-23T16%3A44%3A50.458280&created_at=lte.2025-08-24T16%3A44%3A50.458280&order=created_at.desc&limit=1 "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/llm_context?select=llm_summary%2Ccreated_at&user_id=eq.45b61b67-175d-48a0-aca6-d0be57609383&created_at=gte.2025-08-24T16%3A44%3A50.458280&created_at=lte.2025-08-25T16%3A44%3A50.458280&order=created_at.desc "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/quick_scans?select=created_at%2Cbody_part%2Canalysis_result%2Cform_data&user_id=eq.45b61b67-175d-48a0-aca6-d0be57609383&created_at=gte.2025-08-24T16%3A44%3A50.458280&created_at=lte.2025-08-25T16%3A44%3A50.458280&order=created_at.desc "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/deep_dive_sessions?select=created_at%2Cbody_part%2Cfinal_analysis%2Cfinal_confidence%2Cllm_summary&user_id=eq.45b61b67-175d-48a0-aca6-d0be57609383&created_at=gte.2025-08-24T16%3A44%3A50.458280&created_at=lte.2025-08-25T16%3A44%3A50.458280&order=created_at.desc "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/symptom_tracking?select=created_at%2Csymptom_name%2Cbody_part%2Cseverity&user_id=eq.45b61b67-175d-48a0-aca6-d0be57609383&created_at=gte.2025-08-24T16%3A44%3A50.458280&created_at=lte.2025-08-25T16%3A44%3A50.458280&order=created_at.desc "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/health_stories?select=created_at%2Cstory_text&user_id=eq.45b61b67-175d-48a0-aca6-d0be57609383&created_at=gte.2025-08-24T16%3A44%3A50.458280&created_at=lte.2025-08-25T16%3A44%3A50.458280&order=created_at.desc&limit=1 "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/llm_context?select=llm_summary%2Ccreated_at&user_id=eq.45b61b67-175d-48a0-aca6-d0be57609383&created_at=gte.2025-08-25T16%3A44%3A50.458280&created_at=lte.2025-08-26T16%3A44%3A50.458280&order=created_at.desc "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/quick_scans?select=created_at%2Cbody_part%2Canalysis_result%2Cform_data&user_id=eq.45b61b67-175d-48a0-aca6-d0be57609383&created_at=gte.2025-08-25T16%3A44%3A50.458280&created_at=lte.2025-08-26T16%3A44%3A50.458280&order=created_at.desc "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/deep_dive_sessions?select=created_at%2Cbody_part%2Cfinal_analysis%2Cfinal_confidence%2Cllm_summary&user_id=eq.45b61b67-175d-48a0-aca6-d0be57609383&created_at=gte.2025-08-25T16%3A44%3A50.458280&created_at=lte.2025-08-26T16%3A44%3A50.458280&order=created_at.desc "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/symptom_tracking?select=created_at%2Csymptom_name%2Cbody_part%2Cseverity&user_id=eq.45b61b67-175d-48a0-aca6-d0be57609383&created_at=gte.2025-08-25T16%3A44%3A50.458280&created_at=lte.2025-08-26T16%3A44%3A50.458280&order=created_at.desc "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/health_stories?select=created_at%2Cstory_text&user_id=eq.45b61b67-175d-48a0-aca6-d0be57609383&created_at=gte.2025-08-25T16%3A44%3A50.458280&created_at=lte.2025-08-26T16%3A44%3A50.458280&order=created_at.desc&limit=1 "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/llm_context?select=llm_summary%2Ccreated_at&user_id=eq.45b61b67-175d-48a0-aca6-d0be57609383&created_at=gte.2025-08-26T16%3A44%3A50.458280&created_at=lte.2025-08-27T16%3A44%3A50.458280&order=created_at.desc "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/quick_scans?select=created_at%2Cbody_part%2Canalysis_result%2Cform_data&user_id=eq.45b61b67-175d-48a0-aca6-d0be57609383&created_at=gte.2025-08-26T16%3A44%3A50.458280&created_at=lte.2025-08-27T16%3A44%3A50.458280&order=created_at.desc "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/deep_dive_sessions?select=created_at%2Cbody_part%2Cfinal_analysis%2Cfinal_confidence%2Cllm_summary&user_id=eq.45b61b67-175d-48a0-aca6-d0be57609383&created_at=gte.2025-08-26T16%3A44%3A50.458280&created_at=lte.2025-08-27T16%3A44%3A50.458280&order=created_at.desc "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/symptom_tracking?select=created_at%2Csymptom_name%2Cbody_part%2Cseverity&user_id=eq.45b61b67-175d-48a0-aca6-d0be57609383&created_at=gte.2025-08-26T16%3A44%3A50.458280&created_at=lte.2025-08-27T16%3A44%3A50.458280&order=created_at.desc "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/health_stories?select=created_at%2Cstory_text&user_id=eq.45b61b67-175d-48a0-aca6-d0be57609383&created_at=gte.2025-08-26T16%3A44%3A50.458280&created_at=lte.2025-08-27T16%3A44%3A50.458280&order=created_at.desc&limit=1 "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/llm_context?select=llm_summary%2Ccreated_at&user_id=eq.45b61b67-175d-48a0-aca6-d0be57609383&created_at=gte.2025-08-27T16%3A44%3A50.458280&created_at=lte.2025-08-28T16%3A44%3A50.458280&order=created_at.desc "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/quick_scans?select=created_at%2Cbody_part%2Canalysis_result%2Cform_data&user_id=eq.45b61b67-175d-48a0-aca6-d0be57609383&created_at=gte.2025-08-27T16%3A44%3A50.458280&created_at=lte.2025-08-28T16%3A44%3A50.458280&order=created_at.desc "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/deep_dive_sessions?select=created_at%2Cbody_part%2Cfinal_analysis%2Cfinal_confidence%2Cllm_summary&user_id=eq.45b61b67-175d-48a0-aca6-d0be57609383&created_at=gte.2025-08-27T16%3A44%3A50.458280&created_at=lte.2025-08-28T16%3A44%3A50.458280&order=created_at.desc "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/symptom_tracking?select=created_at%2Csymptom_name%2Cbody_part%2Cseverity&user_id=eq.45b61b67-175d-48a0-aca6-d0be57609383&created_at=gte.2025-08-27T16%3A44%3A50.458280&created_at=lte.2025-08-28T16%3A44%3A50.458280&order=created_at.desc "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/health_stories?select=created_at%2Cstory_text&user_id=eq.45b61b67-175d-48a0-aca6-d0be57609383&created_at=gte.2025-08-27T16%3A44%3A50.458280&created_at=lte.2025-08-28T16%3A44%3A50.458280&order=created_at.desc&limit=1 "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/llm_context?select=llm_summary%2Ccreated_at&user_id=eq.45b61b67-175d-48a0-aca6-d0be57609383&created_at=gte.2025-08-28T16%3A44%3A50.458280&created_at=lte.2025-08-29T16%3A44%3A50.458280&order=created_at.desc "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/quick_scans?select=created_at%2Cbody_part%2Canalysis_result%2Cform_data&user_id=eq.45b61b67-175d-48a0-aca6-d0be57609383&created_at=gte.2025-08-28T16%3A44%3A50.458280&created_at=lte.2025-08-29T16%3A44%3A50.458280&order=created_at.desc "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/deep_dive_sessions?select=created_at%2Cbody_part%2Cfinal_analysis%2Cfinal_confidence%2Cllm_summary&user_id=eq.45b61b67-175d-48a0-aca6-d0be57609383&created_at=gte.2025-08-28T16%3A44%3A50.458280&created_at=lte.2025-08-29T16%3A44%3A50.458280&order=created_at.desc "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/symptom_tracking?select=created_at%2Csymptom_name%2Cbody_part%2Cseverity&user_id=eq.45b61b67-175d-48a0-aca6-d0be57609383&created_at=gte.2025-08-28T16%3A44%3A50.458280&created_at=lte.2025-08-29T16%3A44%3A50.458280&order=created_at.desc "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/health_stories?select=created_at%2Cstory_text&user_id=eq.45b61b67-175d-48a0-aca6-d0be57609383&created_at=gte.2025-08-28T16%3A44%3A50.458280&created_at=lte.2025-08-29T16%3A44%3A50.458280&order=created_at.desc&limit=1 "HTTP/2 200 OK"
+ERROR:api.intelligence.health_velocity:Failed to generate health velocity: Expecting ',' delimiter: line 11 column 6 (char 364)
+Traceback (most recent call last):
+  File "/Users/iceca/Documents/mcp-backend/api/intelligence/health_velocity.py", line 167, in get_health_velocity
+    # Parse response
+  File "/opt/homebrew/Cellar/python@3.13/3.13.3_1/Frameworks/Python.framework/Versions/3.13/lib/python3.13/json/__init__.py", line 346, in loads
+    return _default_decoder.decode(s)
+           ~~~~~~~~~~~~~~~~~~~~~~~^^^
+  File "/opt/homebrew/Cellar/python@3.13/3.13.3_1/Frameworks/Python.framework/Versions/3.13/lib/python3.13/json/decoder.py", line 345, in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+               ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.13/3.13.3_1/Frameworks/Python.framework/Versions/3.13/lib/python3.13/json/decoder.py", line 361, in raw_decode
+    obj, end = self.scan_once(s, idx)
+               ~~~~~~~~~~~~~~^^^^^^^^
+json.decoder.JSONDecodeError: Expecting ',' delimiter: line 11 column 6 (char 364)
+Building time-range context for user: 45b61b67-175d-48a0-aca6-d0be57609383
+Time range: 2025-08-21T16:44:50.458280 to 2025-08-28T16:44:50.458280
+Error building time-range context: 'NoneType' object has no attribute 'get'
+Full traceback: Traceback (most recent call last):
+  File "/Users/iceca/Documents/mcp-backend/utils/context_builder.py", line 228, in get_enhanced_llm_context_time_range
+    condition = dive.get('final_analysis', {}).get('primaryCondition', 'Unknown')
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'NoneType' object has no attribute 'get'
+
+Building time-range context for user: 45b61b67-175d-48a0-aca6-d0be57609383
+Time range: 2025-08-14T16:44:50.458280 to 2025-08-21T16:44:50.458280
+Error building time-range context: 'NoneType' object is not subscriptable
+Full traceback: Traceback (most recent call last):
+  File "/Users/iceca/Documents/mcp-backend/utils/context_builder.py", line 230, in get_enhanced_llm_context_time_range
+    summary = dive.get('llm_summary', '')[:200]
+              ~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+TypeError: 'NoneType' object is not subscriptable
+
+Building time-range context for user: 45b61b67-175d-48a0-aca6-d0be57609383
+Time range: 2025-08-22T16:44:50.458280 to 2025-08-23T16:44:50.458280
+Error building time-range context: 'NoneType' object has no attribute 'get'
+Full traceback: Traceback (most recent call last):
+  File "/Users/iceca/Documents/mcp-backend/utils/context_builder.py", line 228, in get_enhanced_llm_context_time_range
+    condition = dive.get('final_analysis', {}).get('primaryCondition', 'Unknown')
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'NoneType' object has no attribute 'get'
+
+Building time-range context for user: 45b61b67-175d-48a0-aca6-d0be57609383
+Time range: 2025-08-23T16:44:50.458280 to 2025-08-24T16:44:50.458280
+Time-range context built: 53 characters
+Building time-range context for user: 45b61b67-175d-48a0-aca6-d0be57609383
+Time range: 2025-08-24T16:44:50.458280 to 2025-08-25T16:44:50.458280
+Time-range context built: 611 characters
+Building time-range context for user: 45b61b67-175d-48a0-aca6-d0be57609383
+Time range: 2025-08-25T16:44:50.458280 to 2025-08-26T16:44:50.458280
+Time-range context built: 53 characters
+Building time-range context for user: 45b61b67-175d-48a0-aca6-d0be57609383
+Time range: 2025-08-26T16:44:50.458280 to 2025-08-27T16:44:50.458280
+Time-range context built: 53 characters
+Building time-range context for user: 45b61b67-175d-48a0-aca6-d0be57609383
+Time range: 2025-08-27T16:44:50.458280 to 2025-08-28T16:44:50.458280
+Time-range context built: 53 characters
+Building time-range context for user: 45b61b67-175d-48a0-aca6-d0be57609383
+Time range: 2025-08-28T16:44:50.458280 to 2025-08-29T16:44:50.458280
+Time-range context built: 53 characters
+Using OpenAI API key for openai/gpt-5-mini
+✅ Extracted reasoning: 1513 chars, ~369 tokens
+INFO:     127.0.0.1:56864 - "GET /api/intelligence/health-velocity/45b61b67-175d-48a0-aca6-d0be57609383?time_range=7D HTTP/1.1" 500 Internal Server Error
+INFO:api.intelligence.body_systems:Generating body systems health for user 45b61b67-175d-48a0-aca6-d0be57609383
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/conversations?select=id&user_id=eq.45b61b67-175d-48a0-aca6-d0be57609383&updated_at=gte.2025-07-29T20%3A46%3A57.757265%2B00%3A00 "HTTP/2 200 OK"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/messages?select=content%2Ccreated_at&conversation_id=in.%28d4f58fe3-dc90-4a82-bb82-4721e4382245%2Ce95062bc-370d-4bb2-b1a9-fcd4d77ef9a5%2C0dbe55ef-7755-4047-9744-5ad44ca85888%2C0052d976-72ab-446c-9dbe-c784f4f93c52%2Cf184533f-aa94-47b0-a412-79e6bcc75e91%2Cf946c3b9-87b0-480b-827a-03d95cafb545%2Cfa1f90ae-d41b-42e8-8085-35f41b8a47e4%2C74e1616b-78fc-45b2-842b-fa33031ae175%2Ccf26c5a5-c2fd-4593-b0d2-127f629e03e7%2Ce63c7d96-063f-4177-acd5-8109ce28502b%2Cd1f6f1d0-9c37-46dc-b104-c34f083634fa%2Cf4806825-4696-4cef-9ae9-191739290d28%2Ce6a04927-8753-4933-af9b-4a098ffafce7%2Cb2ad36e0-506c-43db-8cd6-2e0565e35ca9%2C36280ac9-6534-438f-b8ea-ff4a7863fdc2%2C4168955d-19ae-49ad-b325-1cd4e1f0e023%2C7a521f64-1125-45ec-8119-3fd0a9547661%2Cd3a2c263-8f31-41d5-ad1e-14c931dbaa77%2Cb51f0a7d-86e8-448a-ab87-3431bc95ddbd%2C032baa9a-5930-4322-86ac-2e8d62f95936%2C5c5b0ec7-bcea-456a-94a6-38f9180b891b%2Caa84b0fd-f401-4d67-9d45-f588bd9ca639%2C4341be86-4a38-4032-a610-71ee538b035f%2C263d6efc-7a02-41ac-9bbf-dadf92a13682%2C3be31316-4b7b-4c0c-acbc-40d784bfb15b%2C823e2b6d-2cbb-459a-ab40-34beea079a99%2C98af948d-3731-4673-a009-fe5623cd5fd0%2Cdfa6bd94-818b-4fe0-b04a-067c7a67c4c9%2C3582f583-af06-41d5-a8d5-108c02494bb1%2C976bf4b6-e216-47e9-b245-d4b59585c418%2Ce70f0f6f-b335-47a3-bb9b-259ed0886db2%2C12323665-1ac3-4837-afff-0b7491e5c6e4%2C99c77f3b-3efd-481a-be35-898aa1e393ed%2Cbdd23cfb-b02a-4d45-8752-26a6fb5ca814%29&order=created_at.desc.asc&limit=50 "HTTP/2 400 Bad Request"
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/symptom_tracking?select=%2A&user_id=eq.45b61b67-175d-48a0-aca6-d0be57609383&recorded_at=gte.2025-07-29T16%3A46%3A58.149504 "HTTP/2 400 Bad Request"
+ERROR:api.intelligence.body_systems:Failed to generate body systems health: {'message': 'column symptom_tracking.recorded_at does not exist', 'code': '42703', 'hint': None, 'details': None}
+Traceback (most recent call last):
+  File "/Users/iceca/Documents/mcp-backend/api/intelligence/body_systems.py", line 54, in get_body_systems_health
+    ).gte("recorded_at", start_date.isoformat()).execute()
+                                                 ~~~~~~~^^
+  File "/Users/iceca/Documents/mcp-backend/.venv/lib/python3.13/site-packages/postgrest/_sync/request_builder.py", line 78, in execute
+    raise APIError(dict(json_obj))
+postgrest.exceptions.APIError: {'message': 'column symptom_tracking.recorded_at does not exist', 'code': '42703', 'hint': None, 'details': None}
+Error gathering health data: {'message': '"failed to parse order (created_at.desc.asc)" (line 1, column 17)', 'code': 'PGRST100', 'hint': None, 'details': 'unexpected "a" expecting "nullsfirst" or "nullslast"'}
+INFO:     127.0.0.1:57673 - "GET /api/intelligence/body-systems/45b61b67-175d-48a0-aca6-d0be57609383 HTTP/1.1" 500 Internal Server Error
+INFO:apscheduler.executors.default:Running job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-28 18:00:00 EDT)" (scheduled at 2025-08-28 17:00:00-04:00)
+INFO:httpx:HTTP Request: GET https://ekaxwbatykostnmopnhn.supabase.co/rest/v1/user_ai_preferences?select=%2A&weekly_generation_enabled=eq.True&preferred_hour=eq.21&preferred_day_of_week=eq.3 "HTTP/2 200 OK"
+INFO:apscheduler.executors.default:Job "hourly_ai_predictions_check (trigger: cron[minute='0'], next run at: 2025-08-28 18:00:00 EDT)" executed successfully

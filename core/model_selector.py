@@ -22,7 +22,7 @@ MODEL_CONFIG = {
     "free": {
         "chat": {
             "models": ["deepseek/deepseek-chat", "google/gemini-2.0-flash-exp:free"],
-            "reasoning_models": ["anthropic/claude-3.7-sonnet", "openai/gpt-5-mini"]
+            "reasoning_models": ["deepseek/deepseek-r1", "deepseek/deepseek-chat"]
         },
         "quick_scan": ["openai/gpt-5", "google/gemini-2.5-pro"],
         "deep_dive": ["openai/gpt-5", "google/gemini-2.5-pro"],

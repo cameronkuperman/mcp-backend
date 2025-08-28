@@ -31,6 +31,16 @@ async def get_health_velocity(user_id: str, time_range: str = "7D"):
     Evaluates health trajectory and momentum from first principles
     """
     try:
+        # Validate user has medical profile (required for intelligence features)
+        from supabase_client import supabase
+        medical_check = supabase.table('medical').select('id').eq('id', user_id).execute()
+        if not medical_check.data:
+            from fastapi import HTTPException
+            raise HTTPException(
+                status_code=403,
+                detail="Medical profile required for intelligence features. Please complete your health profile first."
+            )
+        
         logger.info(f"Generating health velocity for user {user_id}, range: {time_range}")
         
         # Parse time range
