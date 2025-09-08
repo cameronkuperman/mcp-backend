@@ -126,36 +126,64 @@ async def get_dashboard_alert(user_id: str, force_refresh: bool = False):
         }
         
         prompt = f"""
-        Analyze this user's health data and generate ONE most important predictive alert.
+        Analyze health data. Generate ONE alert using STRICT formatting rules.
         
         Context:
         {json.dumps(context, indent=2)}
         
-        Generate ONE alert if there's a meaningful pattern. Be vague enough to not be easily disproven.
-        Focus on increased risks or concerning patterns, not specific predictions.
+        CRITICAL FORMATTING REQUIREMENTS:
+        1. **Title**: EXACTLY 5 words max (7 for critical only)
+        2. **Description**: EXACTLY 15-20 words. ONE sentence. No explanations.
+        3. **Prevention Tip**: EXACTLY 10 words max. Single action verb start.
         
-        IMPORTANT: Return ONLY valid JSON, no other text or formatting.
-        Return ONLY a JSON object:
+        WRITING STYLE RULES:
+        - Active voice only (not passive)
+        - Numbers not words (use "3" not "three")
+        - Specific body parts (say "foot, shoulder" not "multiple areas")
+        - Present tense for current issues
+        - NO disclaimers, NO "consider", NO "may", NO hedging
+        
+        LANGUAGE BY SEVERITY:
+        - info/warning: Plain everyday language (headache not cephalgia)
+        - critical: Can use medical terms but still concise
+        
+        CONFIDENCE: Integer 70-95, no rounding
+        
+        Return ONLY this JSON structure:
         {{
-            "severity": "info" or "warning" or "critical",
-            "title": "Clear but general title (max 10 words)",
-            "description": "2-3 sentences about the pattern and what to watch for",
-            "timeframe": "General timeframe like 'next few days' or 'this week'",
-            "confidence": 60-90,
-            "preventionTip": "One immediate action they can take"
+            "severity": "info" OR "warning" OR "critical",
+            "title": "[5 words max, 7 for critical]",
+            "description": "[15-20 words, one sentence, specific and direct]",
+            "timeframe": "This week" OR "Next 3 days" OR "Today",
+            "confidence": [70-95 integer],
+            "preventionTip": "[10 words max, starts with action verb]"
         }}
         
-        If no significant patterns, return null.
-        
-        Example:
+        GOOD Examples:
         {{
             "severity": "warning",
-            "title": "Stress-Related Symptom Risk Increasing",
-            "description": "Your stress levels combined with recent sleep patterns suggest increased vulnerability to symptoms. Watch for early warning signs.",
-            "timeframe": "Over the next few days",
-            "confidence": 75,
-            "preventionTip": "Start stress reduction techniques now and prioritize sleep hygiene"
+            "title": "3 Pain Areas Active",
+            "description": "Foot, shoulder, nipple pain persisting 7+ days suggests inflammation pattern.",
+            "timeframe": "This week",
+            "confidence": 82,
+            "preventionTip": "Ice affected areas 15 minutes twice daily"
         }}
+        
+        {{
+            "severity": "info",
+            "title": "Sleep Pattern Affecting Energy",
+            "description": "5 hours average sleep causing afternoon fatigue and concentration issues.",
+            "timeframe": "Next 3 days",
+            "confidence": 76,
+            "preventionTip": "Set 10pm bedtime alarm tonight"
+        }}
+        
+        BAD Examples (DO NOT DO):
+        - Title: "Multiple Persistent Pain Points Detected" (too long, vague)
+        - Description: "You are experiencing symptoms that may indicate underlying issues requiring attention" (hedging, vague)
+        - Prevention: "Consider scheduling consultation with healthcare provider" (passive, not specific)
+        
+        If no significant patterns, return null.
         """
         
         try:
@@ -232,7 +260,7 @@ async def get_dashboard_alert(user_id: str, force_refresh: bool = False):
                     "title": "Health Tracking Active",
                     "description": "Continue monitoring your symptoms for pattern detection. More data will enable personalized insights.",
                     "timeframe": "Ongoing",
-                    "confidence": 60,
+                    "confidence": 70,
                     "preventionTip": "Keep tracking daily for best results",
                     "generated_at": datetime.now().isoformat(),
                     "is_fallback": True
@@ -317,7 +345,7 @@ async def get_immediate_predictions(user_id: str, force_refresh: bool = False):
             "pattern": "The pattern you detected",
             "trigger_combo": "What combination of factors",
             "historical_accuracy": "Percentage as string like '75%'",
-            "confidence": 60-90,
+            "confidence": 70-95,
             "prevention_protocol": ["4 specific numbered action steps"]
         }}
         
@@ -525,7 +553,7 @@ async def get_seasonal_predictions(user_id: str, force_refresh: bool = False):
             "subtitle": "Brief description",
             "pattern": "What seasonal pattern affects them",
             "timeframe": "General timeframe like 'February-March'",
-            "confidence": 60-85,
+            "confidence": 70-90,
             "prevention_protocol": ["4-5 specific prevention steps"],
             "historical_context": "General statement about this pattern"
         }}
