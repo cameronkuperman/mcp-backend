@@ -2,8 +2,8 @@
 import re
 from typing import List, Dict, Any, Optional
 from utils.token_counter import count_tokens
-import requests
 import os
+from utils.async_http import make_async_post_with_retry
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -102,26 +102,25 @@ Medical Summary:"""
     
     try:
         api_key = os.getenv("OPENROUTER_API_KEY")
-        response = requests.post(
-            "https://openrouter.ai/api/v1/chat/completions",
-            headers={
-                "Authorization": f"Bearer {api_key}",
-                "Content-Type": "application/json"
-            },
-            json={
-                "model": "deepseek/deepseek-chat",
-                "messages": [{"role": "system", "content": prompt}],
-                "max_tokens": max_tokens,
-                "temperature": 0.3
-            },
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json"
+        }
+        json_data = {
+            "model": "deepseek/deepseek-chat",
+            "messages": [{"role": "system", "content": prompt}],
+            "max_tokens": max_tokens,
+            "temperature": 0.3
+        }
+        
+        # Use async HTTP client
+        result = await make_async_post_with_retry(
+            url="https://openrouter.ai/api/v1/chat/completions",
+            headers=headers,
+            json_data=json_data,
             timeout=30
         )
-        
-        if response.status_code == 200:
-            result = response.json()
-            return result["choices"][0]["message"]["content"]
-        else:
-            return f"Summary generation failed. Last message: {messages[-1]['content'][:200]}"
+        return result["choices"][0]["message"]["content"]
     except Exception as e:
         print(f"Error generating summary: {e}")
         return f"Unable to generate summary. Conversation has {len(messages)} messages."
@@ -216,29 +215,28 @@ Title:"""
     
     try:
         api_key = os.getenv("OPENROUTER_API_KEY")
-        response = requests.post(
-            "https://openrouter.ai/api/v1/chat/completions",
-            headers={
-                "Authorization": f"Bearer {api_key}",
-                "Content-Type": "application/json"
-            },
-            json={
-                "model": "deepseek/deepseek-chat",
-                "messages": [{"role": "system", "content": prompt}],
-                "max_tokens": 20,
-                "temperature": 0.5
-            },
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json"
+        }
+        json_data = {
+            "model": "deepseek/deepseek-chat",
+            "messages": [{"role": "system", "content": prompt}],
+            "max_tokens": 20,
+            "temperature": 0.5
+        }
+        
+        # Use async HTTP client
+        result = await make_async_post_with_retry(
+            url="https://openrouter.ai/api/v1/chat/completions",
+            headers=headers,
+            json_data=json_data,
             timeout=10
         )
-        
-        if response.status_code == 200:
-            result = response.json()
-            title = result["choices"][0]["message"]["content"].strip()
-            # Clean up the title
-            title = title.replace('"', '').replace("'", '').strip()
-            return title[:100]  # Limit length
-        else:
-            return "Health Consultation"
+        title = result["choices"][0]["message"]["content"].strip()
+        # Clean up the title
+        title = title.replace('"', '').replace("'", '').strip()
+        return title[:100]  # Limit length
     except Exception as e:
         print(f"Error generating title: {e}")
         return "Health Discussion"

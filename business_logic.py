@@ -3,12 +3,12 @@ from typing import Optional, List
 import os
 from dotenv import load_dotenv
 import json
-import requests
 import asyncio
 import sys
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from core.model_selector import get_models_for_endpoint, select_model_with_fallback
 from utils.token_counter import count_tokens
+from utils.async_http import make_async_post_with_retry
 
 # Load .env file
 load_dotenv()
@@ -307,71 +307,57 @@ async def call_llm(
         print(f"Model: {model}")
         print(f"Request params: {json.dumps(request_params, indent=2)}")
     
-    # Make the request using requests library (proven to work)
-    def make_request():
-        try:
-            # Build headers
-            headers = {
-                "Authorization": f"Bearer {api_key}",
-                "Content-Type": "application/json"
-            }
-            
-            # Add provider API keys for BYOK (Bring Your Own Key)
-            if model:
-                # OpenAI models (GPT-5, GPT-4, etc.)
-                if "gpt-" in model.lower() or "o1-" in model.lower():
-                    openai_key = os.getenv("OPENAI_API_KEY")
-                    if openai_key:
-                        headers["X-API-Key"] = openai_key
-                        print(f"Using OpenAI API key for {model}")
-                
-                # Anthropic models (Claude)
-                elif "claude" in model.lower():
-                    anthropic_key = os.getenv("ANTHROPIC_API_KEY")
-                    if anthropic_key:
-                        headers["X-API-Key"] = anthropic_key
-                        print(f"Using Anthropic API key for {model}")
-                    else:
-                        print(f"No Anthropic API key found for {model}, using OpenRouter credits")
-            
-            # Final debug before sending
-            if reasoning_mode:
-                print(f"=== FINAL REQUEST TO OPENROUTER ===")
-                print(f"Headers: {headers}")
-                print(f"Request JSON: {json.dumps(request_params, indent=2)}")
-            
-            response = requests.post(
-                "https://openrouter.ai/api/v1/chat/completions",
-                headers=headers,
-                json=request_params,
-                timeout=240  # 4 minutes for reasoning models
-            )
-            
-            if response.status_code == 200:
-                return response.json()
-            else:
-                # Log error with details
-                print(f"OpenRouter API error: {response.status_code}")
-                print(f"Error response: {response.text[:500]}")  # First 500 chars of error
-                # Raise exception to trigger fallback
-                raise Exception(f"OpenRouter API error {response.status_code}: {response.text[:200]}")
-                
-        except Exception as e:
-            print(f"Request exception: {str(e)}")
-            # Return mock response as fallback
-            return {
-                "choices": [{
-                    "message": {
-                        "content": "I understand your query. (Note: Using fallback response due to connection issue)"
-                    },
-                    "finish_reason": "stop"
-                }],
-                "usage": {"prompt_tokens": 10, "completion_tokens": 20, "total_tokens": 30}
-            }
+    # Build headers
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json"
+    }
     
-    # Run in thread pool to not block async
-    loop = asyncio.get_event_loop()
-    data = await loop.run_in_executor(None, make_request)
+    # Add provider API keys for BYOK (Bring Your Own Key)
+    if model:
+        # OpenAI models (GPT-5, GPT-4, etc.)
+        if "gpt-" in model.lower() or "o1-" in model.lower():
+            openai_key = os.getenv("OPENAI_API_KEY")
+            if openai_key:
+                headers["X-API-Key"] = openai_key
+                print(f"Using OpenAI API key for {model}")
+        
+        # Anthropic models (Claude)
+        elif "claude" in model.lower():
+            anthropic_key = os.getenv("ANTHROPIC_API_KEY")
+            if anthropic_key:
+                headers["X-API-Key"] = anthropic_key
+                print(f"Using Anthropic API key for {model}")
+            else:
+                print(f"No Anthropic API key found for {model}, using OpenRouter credits")
+    
+    # Final debug before sending
+    if reasoning_mode:
+        print(f"=== FINAL REQUEST TO OPENROUTER ===")
+        print(f"Headers: {headers}")
+        print(f"Request JSON: {json.dumps(request_params, indent=2)}")
+    
+    # Use async HTTP client with connection pooling and retry
+    try:
+        data = await make_async_post_with_retry(
+            url="https://openrouter.ai/api/v1/chat/completions",
+            headers=headers,
+            json_data=request_params,
+            max_retries=3,
+            timeout=240  # 4 minutes for reasoning models
+        )
+    except Exception as e:
+        print(f"Request exception: {str(e)}")
+        # Return mock response as fallback
+        data = {
+            "choices": [{
+                "message": {
+                    "content": "I understand your query. (Note: Using fallback response due to connection issue)"
+                },
+                "finish_reason": "stop"
+            }],
+            "usage": {"prompt_tokens": 10, "completion_tokens": 20, "total_tokens": 30}
+        }
     
     # Debug logging to see exact response structure
     if reasoning_mode:

@@ -62,36 +62,59 @@ async def get_master_timeline(user_id: str, time_range: str = "30D"):
         end_date = datetime.now()
         start_date = end_date - timedelta(days=days) if time_range != "ALL" else datetime(2020, 1, 1)
         
-        # Fetch symptom tracking data
-        symptoms = supabase.table("symptom_tracking").select("*").eq(
-            "user_id", user_id
-        ).gte("recorded_at", start_date.isoformat()).order("recorded_at", desc=False).execute()
+        # Batch fetch all data in parallel using asyncio.gather for better performance
+        import asyncio
         
-        # Fetch AI consultations (oracle chats)
-        chats = supabase.table("oracle_chats").select("*").eq(
-            "user_id", user_id
-        ).gte("created_at", start_date.isoformat()).order("created_at", desc=False).execute()
+        # Define async functions for each query
+        async def fetch_symptoms():
+            return supabase.table("symptom_tracking").select(
+                "id, created_at, severity, symptom_name, notes"
+            ).eq(
+                "user_id", user_id
+            ).gte("created_at", start_date.isoformat()).order("created_at", desc=False).limit(1000).execute()
         
-        # Fetch quick scans
-        scans = supabase.table("quick_scans").select("*").eq(
-            "user_id", user_id
-        ).gte("created_at", start_date.isoformat()).order("created_at", desc=False).execute()
+        async def fetch_chats():
+            return supabase.table("conversations").select(
+                "id, created_at, title, context"
+            ).eq(
+                "user_id", user_id
+            ).gte("created_at", start_date.isoformat()).order("created_at", desc=False).limit(500).execute()
         
-        # Fetch deep dive sessions
-        deep_dives = supabase.table("deep_dive_sessions").select("*").eq(
-            "user_id", user_id
-        ).gte("created_at", start_date.isoformat()).order("created_at", desc=False).execute()
+        async def fetch_scans():
+            return supabase.table("quick_scans").select(
+                "id, created_at, body_part, urgency_level, confidence_score, analysis_result, llm_summary"
+            ).eq(
+                "user_id", user_id
+            ).gte("created_at", start_date.isoformat()).order("created_at", desc=False).limit(500).execute()
         
-        # Fetch photo analysis sessions
-        photos = supabase.table("photo_analysis_sessions").select("*").eq(
-            "user_id", user_id
-        ).gte("created_at", start_date.isoformat()).order("created_at", desc=False).execute()
+        async def fetch_deep_dives():
+            return supabase.table("deep_dive_sessions").select(
+                "id, created_at, body_part, final_analysis, final_confidence, status"
+            ).eq(
+                "user_id", user_id
+            ).gte("created_at", start_date.isoformat()).order("created_at", desc=False).limit(200).execute()
+        
+        async def fetch_photos():
+            return supabase.table("photo_analysis_sessions").select(
+                "id, created_at, body_part, photo_urls, improvement_score"
+            ).eq(
+                "user_id", user_id
+            ).gte("created_at", start_date.isoformat()).order("created_at", desc=False).limit(200).execute()
+        
+        # Execute all queries in parallel
+        symptoms, chats, scans, deep_dives, photos = await asyncio.gather(
+            fetch_symptoms(),
+            fetch_chats(),
+            fetch_scans(),
+            fetch_deep_dives(),
+            fetch_photos()
+        )
         
         # Process symptom data points with LLM enhancement
         data_points = []
         for symptom in (symptoms.data or []):
             data_points.append(TimelineDataPoint(
-                date=symptom.get('recorded_at', ''),
+                date=symptom.get('created_at', ''),
                 severity=symptom.get('severity', 5),
                 symptom=symptom.get('symptom_name', 'Unknown symptom'),
                 notes=symptom.get('notes')

@@ -38,11 +38,11 @@ async def get_doctor_readiness_score(user_id: str):
         # Check symptoms
         symptoms = supabase.table("symptom_tracking").select("id").eq(
             "user_id", user_id
-        ).gte("recorded_at", start_date.isoformat()).limit(1).execute()
+        ).gte("created_at", start_date.isoformat()).limit(1).execute()
         has_symptoms = bool(symptoms.data)
         
         # Check timeline (oracle chats)
-        chats = supabase.table("oracle_chats").select("id").eq(
+        chats = supabase.table("conversations").select("id").eq(
             "user_id", user_id
         ).gte("created_at", start_date.isoformat()).limit(1).execute()
         has_timeline = bool(chats.data)

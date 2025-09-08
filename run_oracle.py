@@ -41,6 +41,8 @@ from core.middleware import setup_cors
 
 # Import background jobs - using enhanced v2 with FAANG-level optimizations
 from services.background_jobs_v2 import init_scheduler, shutdown_scheduler
+# Import async HTTP client cleanup
+from utils.async_http import close_http_client
 
 load_dotenv()
 
@@ -58,6 +60,9 @@ async def lifespan(app: FastAPI):
     # Shutdown
     logger.info("Shutting down Oracle Health API...")
     await shutdown_scheduler()
+    # Clean up HTTP client connections
+    await close_http_client()
+    logger.info("Closed HTTP client connections")
 
 # Create FastAPI app
 app = FastAPI(

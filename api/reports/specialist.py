@@ -68,19 +68,22 @@ async def triage_specialty(request: SpecialtyTriageRequest):
     try:
         context_parts = []
         
-        # Gather Quick Scan data if provided
+        # Gather Quick Scan data if provided - batch fetch
         if request.quick_scan_ids:
             context_parts.append("QUICK SCAN DATA:")
-            for scan_id in request.quick_scan_ids:
-                scan_response = supabase.table("quick_scans")\
-                    .select("*")\
-                    .eq("id", scan_id)\
-                    .execute()
-                
-                if scan_response.data:
-                    scan = scan_response.data[0]
-                    context_parts.append(f"""
-Quick Scan ID: {scan_id}
+            # Batch fetch all quick scans at once
+            scan_response = supabase.table("quick_scans")\
+                .select(
+                    "id, created_at, body_part, form_data, analysis_result, "
+                    "confidence_score, urgency_level, llm_summary"
+                )\
+                .in_("id", request.quick_scan_ids)\
+                .execute()
+            
+            # Process all fetched scans
+            for scan in (scan_response.data or []):
+                context_parts.append(f"""
+Quick Scan ID: {scan['id']}
 Date: {scan['created_at'][:10]}
 Body Part: {scan['body_part']}
 Initial Symptoms: {json.dumps(scan.get('form_data', {}), indent=2)}
@@ -90,19 +93,22 @@ Urgency Level: {scan.get('urgency_level')}
 LLM Summary: {scan.get('llm_summary', 'N/A')}
 """)
         
-        # Gather Deep Dive data if provided
+        # Gather Deep Dive data if provided - batch fetch
         if request.deep_dive_ids:
             context_parts.append("\nDEEP DIVE DATA:")
-            for dive_id in request.deep_dive_ids:
-                dive_response = supabase.table("deep_dive_sessions")\
-                    .select("*")\
-                    .eq("id", dive_id)\
-                    .execute()
-                
-                if dive_response.data:
-                    dive = dive_response.data[0]
-                    context_parts.append(f"""
-Deep Dive ID: {dive_id}
+            # Batch fetch all deep dives at once
+            dive_response = supabase.table("deep_dive_sessions")\
+                .select(
+                    "id, created_at, body_part, form_data, questions, "
+                    "final_analysis, final_confidence, status"
+                )\
+                .in_("id", request.deep_dive_ids)\
+                .execute()
+            
+            # Process all fetched deep dives
+            for dive in (dive_response.data or []):
+                context_parts.append(f"""
+Deep Dive ID: {dive['id']}
 Date: {dive['created_at'][:10]}
 Body Part: {dive['body_part']}
 Initial Form Data: {json.dumps(dive.get('form_data', {}), indent=2)}

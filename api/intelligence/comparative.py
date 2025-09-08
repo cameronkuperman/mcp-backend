@@ -44,7 +44,7 @@ async def get_comparative_intelligence(user_id: str, pattern_limit: int = 5):
         # Get user's symptoms and patterns
         user_symptoms = supabase.table("symptom_tracking").select("symptom_name").eq(
             "user_id", user_id
-        ).gte("recorded_at", (datetime.now() - timedelta(days=30)).isoformat()).execute()
+        ).gte("created_at", (datetime.now() - timedelta(days=30)).isoformat()).execute()
         
         user_patterns = supabase.table("health_insights").select("title, description").eq(
             "user_id", user_id

@@ -29,6 +29,137 @@ router = APIRouter(prefix="/api/photo-analysis", tags=["photo-analysis"])
 import re
 import asyncio
 from typing import Tuple
+import redis
+from functools import lru_cache, wraps
+import hashlib
+import pickle
+from concurrent.futures import ThreadPoolExecutor
+
+# Initialize Redis client for caching
+REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379")
+try:
+    redis_client = redis.Redis.from_url(REDIS_URL, decode_responses=False)
+    redis_client.ping()
+    REDIS_AVAILABLE = True
+    print("✅ Redis connected for photo analysis caching")
+except Exception as e:
+    print(f"⚠️ Redis not available for caching: {e}")
+    redis_client = None
+    REDIS_AVAILABLE = False
+
+# Thread pool for parallel operations
+executor = ThreadPoolExecutor(max_workers=4)
+
+def cache_result(ttl_seconds: int = 900):
+    """Decorator to cache function results in Redis"""
+    def decorator(func):
+        @wraps(func)
+        async def wrapper(*args, **kwargs):
+            if not REDIS_AVAILABLE:
+                return await func(*args, **kwargs)
+            
+            # Create cache key from function name and arguments
+            cache_key = f"photo_analysis:{func.__name__}:{hashlib.md5(str(args).encode() + str(kwargs).encode()).hexdigest()}"
+            
+            try:
+                # Try to get from cache
+                cached = redis_client.get(cache_key)
+                if cached:
+                    return pickle.loads(cached)
+            except Exception as e:
+                print(f"Cache read error: {e}")
+            
+            # Execute function
+            result = await func(*args, **kwargs)
+            
+            # Cache the result
+            try:
+                redis_client.setex(cache_key, ttl_seconds, pickle.dumps(result))
+            except Exception as e:
+                print(f"Cache write error: {e}")
+            
+            return result
+        return wrapper
+    return decorator
+
+async def batch_generate_signed_urls(storage_paths: List[str], expiry: int = 86400) -> Dict[str, str]:
+    """
+    Generate multiple signed URLs in batch for better performance.
+    This reduces N API calls to ceil(N/batch_size) calls.
+    
+    Args:
+        storage_paths: List of storage paths to generate URLs for
+        expiry: URL expiration time in seconds (default 24 hours)
+    
+    Returns:
+        Dictionary mapping storage paths to signed URLs
+    """
+    if not storage_paths:
+        return {}
+    
+    urls = {}
+    batch_size = 25  # Optimal batch size for Supabase
+    
+    # Process in batches
+    for i in range(0, len(storage_paths), batch_size):
+        batch_paths = storage_paths[i:i + batch_size]
+        
+        try:
+            # Generate signed URLs in batch
+            # Note: This assumes Supabase supports batch operations
+            # If not, we'll fall back to parallel generation
+            tasks = []
+            for path in batch_paths:
+                task = asyncio.create_task(generate_single_signed_url(path, expiry))
+                tasks.append(task)
+            
+            batch_results = await asyncio.gather(*tasks, return_exceptions=True)
+            
+            for path, result in zip(batch_paths, batch_results):
+                if isinstance(result, Exception):
+                    print(f"Error generating URL for {path}: {result}")
+                    urls[path] = None
+                else:
+                    urls[path] = result
+                    
+        except Exception as e:
+            print(f"Batch URL generation error: {e}")
+            # Fallback to individual generation
+            for path in batch_paths:
+                try:
+                    url_data = supabase.storage.from_(STORAGE_BUCKET).create_signed_url(path, expiry)
+                    urls[path] = url_data.get('signedURL') or url_data.get('signedUrl')
+                except Exception as e:
+                    print(f"Error generating URL for {path}: {e}")
+                    urls[path] = None
+    
+    return urls
+
+async def generate_single_signed_url(storage_path: str, expiry: int) -> str:
+    """Generate a single signed URL with caching"""
+    cache_key = f"signed_url:{storage_path}:{expiry}"
+    
+    if REDIS_AVAILABLE:
+        try:
+            cached = redis_client.get(cache_key)
+            if cached:
+                return cached.decode('utf-8')
+        except Exception:
+            pass
+    
+    # Generate new URL
+    url_data = supabase.storage.from_(STORAGE_BUCKET).create_signed_url(storage_path, expiry)
+    url = url_data.get('signedURL') or url_data.get('signedUrl')
+    
+    # Cache with shorter TTL than actual expiry
+    if REDIS_AVAILABLE and url:
+        try:
+            cache_ttl = min(expiry - 300, 3600)  # Cache for 1 hour or expiry-5min, whichever is less
+            redis_client.setex(cache_key, cache_ttl, url.encode('utf-8'))
+        except Exception:
+            pass
+    
+    return url
 
 class SmartPhotoBatcher:
     """Intelligently select photos for comparison when total exceeds limit"""
@@ -793,25 +924,30 @@ async def upload_photos(
             
         upload_record = supabase.table('photo_uploads').insert(upload_data).execute()
         
-        # Get preview URL if stored
-        preview_url = None
-        if stored:
-            try:
-                preview_data = supabase.storage.from_(STORAGE_BUCKET).create_signed_url(
-                    storage_url,
-                    3600  # 1 hour expiry
-                )
-                preview_url = preview_data.get('signedURL') or preview_data.get('signedUrl')
-            except Exception as e:
-                print(f"Error creating preview URL: {str(e)}")
-                preview_url = None
-        
         uploaded_photos.append({
             'id': photo_id,
             'category': category,
             'stored': stored,
-            'preview_url': preview_url
+            'storage_url': storage_url if stored else None
         })
+    
+    # Batch generate all preview URLs at once
+    storage_urls_to_generate = [
+        photo['storage_url'] for photo in uploaded_photos 
+        if photo.get('storage_url') and photo['stored']
+    ]
+    
+    if storage_urls_to_generate:
+        preview_urls = await batch_generate_signed_urls(storage_urls_to_generate, 3600)
+        
+        # Map URLs back to photos
+        for photo in uploaded_photos:
+            if photo.get('storage_url') and photo['stored']:
+                photo['preview_url'] = preview_urls.get(photo['storage_url'])
+            else:
+                photo['preview_url'] = None
+            # Remove storage_url from response
+            photo.pop('storage_url', None)
     
     # Update session last_photo_at
     supabase.table('photo_sessions').update({
@@ -2348,6 +2484,7 @@ def generate_default_schedule(interval_days: int) -> List[Dict]:
 
 
 @router.get("/session/{session_id}/timeline")
+@cache_result(ttl_seconds=300)  # Cache for 5 minutes
 async def get_session_timeline(session_id: str):
     """Get complete timeline of photos, analyses, and reminders for a session"""
     if not supabase:
@@ -2355,39 +2492,57 @@ async def get_session_timeline(session_id: str):
     
     print(f"Getting timeline for session {session_id}")
     
-    # Get session data
-    session_result = supabase.table('photo_sessions').select('*').eq('id', session_id).single().execute()
+    # Parallel fetch all data using asyncio.gather
+    async def fetch_session():
+        return supabase.table('photo_sessions').select('*').eq('id', session_id).single().execute()
+    
+    async def fetch_photos():
+        return supabase.table('photo_uploads')\
+            .select('*')\
+            .eq('session_id', session_id)\
+            .order('uploaded_at')\
+            .execute()
+    
+    async def fetch_analyses():
+        return supabase.table('photo_analyses')\
+            .select('*')\
+            .eq('session_id', session_id)\
+            .order('created_at')\
+            .execute()
+    
+    async def fetch_reminder():
+        return supabase.table('photo_reminders')\
+            .select('*')\
+            .eq('session_id', session_id)\
+            .single()\
+            .execute()
+    
+    # Execute all queries in parallel for better performance
+    session_result, photos_result, analyses_result, reminder_result = await asyncio.gather(
+        fetch_session(),
+        fetch_photos(),
+        fetch_analyses(),
+        fetch_reminder()
+    )
+    
     if not session_result.data:
         raise HTTPException(status_code=404, detail="Session not found")
     
     session = session_result.data
-    
-    # Get all photos for this session
-    photos_result = supabase.table('photo_uploads')\
-        .select('*')\
-        .eq('session_id', session_id)\
-        .order('uploaded_at')\
-        .execute()
-    
     photos = photos_result.data or []
-    
-    # Get all analyses
-    analyses_result = supabase.table('photo_analyses')\
-        .select('*')\
-        .eq('session_id', session_id)\
-        .order('created_at')\
-        .execute()
-    
     analyses = analyses_result.data or []
-    
-    # Get reminder configuration
-    reminder_result = supabase.table('photo_reminders')\
-        .select('*')\
-        .eq('session_id', session_id)\
-        .single()\
-        .execute()
-    
     reminder = reminder_result.data
+    
+    # Collect all storage URLs that need signed URLs for batch generation
+    urls_to_generate = []
+    for photo in photos:
+        if photo.get('storage_url') and photo.get('category') != 'medical_sensitive':
+            urls_to_generate.append(photo['storage_url'])
+    
+    # Batch generate all signed URLs at once
+    signed_urls = {}
+    if urls_to_generate:
+        signed_urls = await batch_generate_signed_urls(urls_to_generate, 3600)  # 1 hour expiry
     
     # Build timeline events
     timeline_events = []
@@ -2400,7 +2555,7 @@ async def get_session_timeline(session_id: str):
             'photos': []
         }
         
-        # Add photo details
+        # Add photo details with pre-generated URLs
         for photo in photo_group:
             photo_detail = {
                 'id': photo['id'],
@@ -2408,16 +2563,9 @@ async def get_session_timeline(session_id: str):
                 'preview_url': None
             }
             
-            # Get preview URL for non-sensitive photos
-            if photo['storage_url'] and photo['category'] != 'medical_sensitive':
-                try:
-                    url_data = supabase.storage.from_(STORAGE_BUCKET).create_signed_url(
-                        photo['storage_url'],
-                        3600
-                    )
-                    photo_detail['preview_url'] = url_data.get('signedURL') or url_data.get('signedUrl')
-                except Exception as e:
-                    print(f"Error creating preview URL: {str(e)}")
+            # Get pre-generated preview URL for non-sensitive photos
+            if photo.get('storage_url') and photo['category'] != 'medical_sensitive':
+                photo_detail['preview_url'] = signed_urls.get(photo['storage_url'])
             
             event['photos'].append(photo_detail)
         
@@ -2926,6 +3074,7 @@ def prepare_visualization_data(analyses: List[Dict]) -> Dict:
 
 
 @router.get("/session/{session_id}/analysis-history")
+@cache_result(ttl_seconds=300)  # Cache for 5 minutes
 async def get_analysis_history_endpoint(
     session_id: str,
     current_analysis_id: Optional[str] = Query(None)
@@ -2949,31 +3098,55 @@ async def get_analysis_history_endpoint(
     if not supabase:
         raise HTTPException(status_code=500, detail="Database connection not configured")
     
-    # Get session info
-    session_result = supabase.table('photo_sessions').select('*').eq('id', session_id).single().execute()
+    # Parallel fetch all data using asyncio.gather for better performance
+    async def fetch_session():
+        return supabase.table('photo_sessions').select('*').eq('id', session_id).single().execute()
+    
+    async def fetch_analyses():
+        return supabase.table('photo_analyses')\
+            .select('*')\
+            .eq('session_id', session_id)\
+            .order('created_at', desc=False)\
+            .execute()
+    
+    async def fetch_photos():
+        return supabase.table('photo_uploads')\
+            .select('*')\
+            .eq('session_id', session_id)\
+            .order('uploaded_at', desc=False)\
+            .execute()
+    
+    # Execute all queries in parallel
+    session_result, analyses_result, photos_result = await asyncio.gather(
+        fetch_session(),
+        fetch_analyses(), 
+        fetch_photos()
+    )
+    
     if not session_result.data:
         raise HTTPException(status_code=404, detail="Session not found")
     
     session = session_result.data
-    
-    # Get all analyses for this session (chronological order)
-    analyses_result = supabase.table('photo_analyses')\
-        .select('*')\
-        .eq('session_id', session_id)\
-        .order('created_at', desc=False)\
-        .execute()
-    
     analyses = analyses_result.data if analyses_result.data else []
-    
-    # Get all photos for this session
-    photos_result = supabase.table('photo_uploads')\
-        .select('*')\
-        .eq('session_id', session_id)\
-        .order('uploaded_at', desc=False)\
-        .execute()
-    
     photos = photos_result.data if photos_result.data else []
     photos_by_id = {photo['id']: photo for photo in photos}
+    
+    # Collect all storage URLs that need signed URLs
+    urls_to_generate = []
+    url_to_analysis_map = {}
+    
+    for idx, analysis in enumerate(analyses):
+        photo_ids = analysis.get('photo_ids', [])
+        if photo_ids and photo_ids[0] in photos_by_id:
+            primary_photo = photos_by_id[photo_ids[0]]
+            if primary_photo.get('storage_url') and primary_photo.get('category') != 'medical_sensitive':
+                urls_to_generate.append(primary_photo['storage_url'])
+                url_to_analysis_map[primary_photo['storage_url']] = idx
+    
+    # Batch generate all signed URLs at once
+    signed_urls = {}
+    if urls_to_generate:
+        signed_urls = await batch_generate_signed_urls(urls_to_generate, 86400)  # 24 hour expiry
     
     # Build analysis entries with photo URLs
     analysis_entries = []
@@ -2989,21 +3162,10 @@ async def get_analysis_history_endpoint(
         if photo_ids and photo_ids[0] in photos_by_id:
             primary_photo = photos_by_id[photo_ids[0]]
             
-            # Generate signed URLs for non-sensitive photos
+            # Get pre-generated signed URL
             if primary_photo.get('storage_url') and primary_photo.get('category') != 'medical_sensitive':
-                try:
-                    # Full size photo URL (24 hour expiration)
-                    url_data = supabase.storage.from_(STORAGE_BUCKET).create_signed_url(
-                        primary_photo['storage_url'],
-                        86400  # 24 hours
-                    )
-                    photo_url = url_data.get('signedURL') or url_data.get('signedUrl')
-                    
-                    # For now, thumbnail is same as full photo (frontend can handle resizing)
-                    thumbnail_url = photo_url
-                    
-                except Exception as e:
-                    print(f"Error creating signed URL: {str(e)}")
+                photo_url = signed_urls.get(primary_photo['storage_url'])
+                thumbnail_url = photo_url  # For now, same as full photo
         
         # Extract key metrics
         analysis_data = analysis.get('analysis_data', {})

@@ -48,20 +48,36 @@ async def get_body_systems_health(user_id: str):
         end_date = datetime.now()
         start_date = end_date - timedelta(days=30)
         
-        # Fetch symptom tracking data
-        symptoms = supabase.table("symptom_tracking").select("*").eq(
-            "user_id", user_id
-        ).gte("recorded_at", start_date.isoformat()).execute()
+        # Parallel fetch all data using asyncio.gather for better performance
+        import asyncio
         
-        # Fetch recent consultations
-        consultations = supabase.table("oracle_chats").select("*").eq(
-            "user_id", user_id
-        ).gte("created_at", start_date.isoformat()).limit(20).execute()
+        async def fetch_symptoms():
+            return supabase.table("symptom_tracking").select(
+                "id, created_at, symptom_name, severity, body_systems_affected"
+            ).eq(
+                "user_id", user_id
+            ).gte("created_at", start_date.isoformat()).limit(100).execute()
         
-        # Fetch quick scans
-        scans = supabase.table("quick_scans").select("*").eq(
-            "user_id", user_id
-        ).gte("created_at", start_date.isoformat()).execute()
+        async def fetch_consultations():
+            return supabase.table("conversations").select(
+                "id, created_at, message, context"
+            ).eq(
+                "user_id", user_id
+            ).gte("created_at", start_date.isoformat()).limit(20).execute()
+        
+        async def fetch_scans():
+            return supabase.table("quick_scans").select(
+                "id, created_at, body_part, urgency_level, summary, analysis_result"
+            ).eq(
+                "user_id", user_id
+            ).gte("created_at", start_date.isoformat()).limit(50).execute()
+        
+        # Execute all queries in parallel
+        symptoms, consultations, scans = await asyncio.gather(
+            fetch_symptoms(),
+            fetch_consultations(),
+            fetch_scans()
+        )
         
         # Check if user has any data
         has_data = bool(symptoms.data or consultations.data or scans.data)
@@ -86,7 +102,7 @@ async def get_body_systems_health(user_id: str):
         
         # Prepare context for LLM
         symptoms_summary = "\n".join([
-            f"- {s.get('symptom_name', 'Unknown')}: severity {s.get('severity', '?')}/10 on {s.get('recorded_at', '')}"
+            f"- {s.get('symptom_name', 'Unknown')}: severity {s.get('severity', '?')}/10 on {s.get('created_at', '')}"
             for s in (symptoms.data or [])[:30]
         ])
         

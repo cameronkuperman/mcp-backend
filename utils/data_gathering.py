@@ -50,52 +50,71 @@ async def get_health_story_data(user_id: str, date_range: Optional[Dict[str, str
         # Get medical profile
         data["medical_profile"] = await get_user_medical_data(user_id)
         
-        # Get Oracle chat messages - need to join through conversations table
-        # First get user's conversations
+        # Get Oracle chat messages - optimized with single query using inner join logic
+        # First get user's conversations with date filter applied
         conv_response = supabase.table("conversations")\
             .select("id")\
             .eq("user_id", user_id)\
+            .gte("created_at", date_range["start"])\
+            .lte("created_at", date_range["end"])\
+            .limit(100)\
             .execute()
         
         conversation_ids = [conv["id"] for conv in (conv_response.data or [])]
         
-        # Then get messages from those conversations
+        # Then batch fetch messages from those conversations with pagination
         if conversation_ids:
             chat_response = supabase.table("messages")\
-                .select("*")\
+                .select("id, conversation_id, role, content, created_at")\
                 .in_("conversation_id", conversation_ids)\
                 .gte("created_at", date_range["start"])\
                 .lte("created_at", date_range["end"])\
                 .order("created_at", desc=False)\
+                .limit(500)\
                 .execute()
             data["oracle_chats"] = chat_response.data if chat_response.data else []
         else:
             data["oracle_chats"] = []
         
-        # Get Quick Scans - with string conversion for user_id
+        # Get Quick Scans - with date filter and specific fields
         scan_response = supabase.table("quick_scans")\
-            .select("*")\
-            .eq("user_id", str(user_id))\
-            .execute()
-        data["quick_scans"] = scan_response.data if scan_response.data else []
-        
-        # Get Deep Dive sessions (user_id is text type)
-        dive_response = supabase.table("deep_dive_sessions")\
-            .select("*")\
+            .select(
+                "id, created_at, body_part, form_data, analysis_result, "
+                "confidence_score, urgency_level, llm_summary"
+            )\
             .eq("user_id", str(user_id))\
             .gte("created_at", date_range["start"])\
             .lte("created_at", date_range["end"])\
             .order("created_at", desc=False)\
+            .limit(100)\
+            .execute()
+        data["quick_scans"] = scan_response.data if scan_response.data else []
+        
+        # Get Deep Dive sessions - with specific fields and pagination
+        dive_response = supabase.table("deep_dive_sessions")\
+            .select(
+                "id, created_at, body_part, form_data, questions, "
+                "final_analysis, final_confidence, status"
+            )\
+            .eq("user_id", str(user_id))\
+            .gte("created_at", date_range["start"])\
+            .lte("created_at", date_range["end"])\
+            .order("created_at", desc=False)\
+            .limit(50)\
             .execute()
         data["deep_dives"] = dive_response.data if dive_response.data else []
         
-        # Get symptom tracking data (user_id is text type)
+        # Get symptom tracking data - with specific fields and pagination
         symptom_response = supabase.table("symptom_tracking")\
-            .select("*")\
+            .select(
+                "id, occurrence_date, symptom_name, severity, duration_hours, "
+                "body_systems_affected, triggers, notes, created_at"
+            )\
             .eq("user_id", str(user_id))\
             .gte("occurrence_date", date_range["start"])\
             .lte("occurrence_date", date_range["end"])\
             .order("occurrence_date", desc=False)\
+            .limit(200)\
             .execute()
         data["symptom_tracking"] = symptom_response.data if symptom_response.data else []
         
