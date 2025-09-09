@@ -2494,7 +2494,12 @@ async def get_session_timeline(session_id: str):
     
     # Parallel fetch all data using asyncio.gather
     async def fetch_session():
-        return supabase.table('photo_sessions').select('*').eq('id', session_id).single().execute()
+        # Industry standard: Select only needed fields for performance
+        return supabase.table('photo_sessions')\
+            .select('id, condition_name, created_at, is_sensitive, user_id')\
+            .eq('id', session_id)\
+            .single()\
+            .execute()
     
     async def fetch_photos():
         return supabase.table('photo_uploads')\
@@ -2511,37 +2516,33 @@ async def get_session_timeline(session_id: str):
             .execute()
     
     async def fetch_reminder():
-        try:
-            return supabase.table('photo_reminders')\
-                .select('*')\
-                .eq('session_id', session_id)\
-                .single()\
-                .execute()
-        except:
-            # Return mock object with data=None when no reminder exists
-            return type('obj', (object,), {'data': None})()
+        # Industry standard: No exceptions for expected cases
+        result = supabase.table('photo_reminders')\
+            .select('*')\
+            .eq('session_id', session_id)\
+            .limit(1)\
+            .execute()
+        # Return consistent structure without creating mock objects
+        return {'data': result.data[0] if result.data else None}
     
     # Execute all queries in parallel for better performance
     session_result, photos_result, analyses_result, reminder_result = await asyncio.gather(
         fetch_session(),
         fetch_photos(),
         fetch_analyses(),
-        fetch_reminder(),
-        return_exceptions=True  # Handle exceptions gracefully
+        fetch_reminder()
     )
     
-    # Check for session fetch errors
-    if isinstance(session_result, Exception) or not session_result.data:
+    # Direct access without expensive type checking
+    if not session_result.data:
         raise HTTPException(status_code=404, detail="Session not found")
     
     session = session_result.data
-    photos = photos_result.data if not isinstance(photos_result, Exception) else []
-    analyses = analyses_result.data if not isinstance(analyses_result, Exception) else []
+    photos = photos_result.data or []
+    analyses = analyses_result.data or []
     
-    # Handle reminder - could be Exception, mock object, or real data
-    reminder = None
-    if not isinstance(reminder_result, Exception) and hasattr(reminder_result, 'data'):
-        reminder = reminder_result.data
+    # Simple dict access for reminder - no hasattr needed
+    reminder = reminder_result.get('data')
     
     # Collect all storage URLs that need signed URLs for batch generation
     urls_to_generate = []
