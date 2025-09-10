@@ -11,5 +11,6 @@
       "Bash(uv run:*)"
     ],
     "deny": []
-  }
+  },
+  "outputStyle": "default"
 }
