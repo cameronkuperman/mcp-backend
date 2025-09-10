@@ -348,16 +348,46 @@ async def call_llm(
         )
     except Exception as e:
         print(f"Request exception: {str(e)}")
-        # Return mock response as fallback
-        data = {
-            "choices": [{
-                "message": {
-                    "content": "I understand your query. (Note: Using fallback response due to connection issue)"
-                },
-                "finish_reason": "stop"
-            }],
-            "usage": {"prompt_tokens": 10, "completion_tokens": 20, "total_tokens": 30}
-        }
+        print(f"Exception type: {type(e).__name__}")
+        print(f"Full exception details: {repr(e)}")
+        
+        # Fallback to synchronous requests library
+        print("Falling back to requests library...")
+        import requests
+        try:
+            response = requests.post(
+                "https://openrouter.ai/api/v1/chat/completions",
+                headers=headers,
+                json=request_params,
+                timeout=60
+            )
+            if response.status_code == 200:
+                data = response.json()
+                print("Fallback successful with requests library")
+            else:
+                print(f"Fallback failed: {response.status_code} - {response.text[:200]}")
+                # Return mock response as fallback
+                data = {
+                    "choices": [{
+                        "message": {
+                            "content": f"I understand your query. (Note: API error {response.status_code})"
+                        },
+                        "finish_reason": "stop"
+                    }],
+                    "usage": {"prompt_tokens": 10, "completion_tokens": 20, "total_tokens": 30}
+                }
+        except Exception as fallback_e:
+            print(f"Fallback also failed: {fallback_e}")
+            # Return mock response as last resort
+            data = {
+                "choices": [{
+                    "message": {
+                        "content": "I understand your query. (Note: Connection issue - please try again)"
+                    },
+                    "finish_reason": "stop"
+                }],
+                "usage": {"prompt_tokens": 10, "completion_tokens": 20, "total_tokens": 30}
+            }
     
     # Debug logging to see exact response structure
     if reasoning_mode:
