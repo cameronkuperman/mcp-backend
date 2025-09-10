@@ -300,6 +300,57 @@ async def health_check():
     """Simple health check endpoint"""
     return {"status": "healthy", "timestamp": datetime.now(timezone.utc).isoformat()}
 
+@router.get("/test-openrouter")
+async def test_openrouter():
+    """Test OpenRouter API connection"""
+    import requests
+    api_key = os.getenv("OPENROUTER_API_KEY")
+    
+    if not api_key:
+        return {"error": "OPENROUTER_API_KEY not set", "status": "error"}
+    
+    try:
+        response = requests.post(
+            "https://openrouter.ai/api/v1/chat/completions",
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json"
+            },
+            json={
+                "model": "deepseek/deepseek-chat",
+                "messages": [
+                    {"role": "system", "content": "You are a test bot."},
+                    {"role": "user", "content": "Reply with 'OK' only"}
+                ],
+                "temperature": 0.1,
+                "max_tokens": 10
+            },
+            timeout=10
+        )
+        
+        if response.status_code == 200:
+            data = response.json()
+            return {
+                "status": "success",
+                "openrouter_working": True,
+                "response": data.get("choices", [{}])[0].get("message", {}).get("content", ""),
+                "model": data.get("model", "unknown")
+            }
+        else:
+            return {
+                "status": "error",
+                "openrouter_working": False,
+                "error_code": response.status_code,
+                "error_message": response.text[:200]
+            }
+    except Exception as e:
+        return {
+            "status": "error",
+            "openrouter_working": False,
+            "exception": str(e),
+            "exception_type": type(e).__name__
+        }
+
 @router.get("/debug-context/{user_id}")
 async def debug_context(user_id: str):
     """Debug endpoint to test context building"""
