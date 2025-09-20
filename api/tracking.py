@@ -574,3 +574,106 @@ async def get_past_dives_for_tracking(user_id: str, limit: int = 20):
     except Exception as e:
         print(f"Error fetching past dives: {e}")
         return {"error": str(e), "status": "error"}
+
+@router.get("/timeline/{scan_id}")
+async def get_tracking_timeline(scan_id: str):
+    """Get symptom tracking timeline data for PDF inclusion"""
+    try:
+        # Determine scan type and fetch data
+        # Try quick_scans first
+        scan_response = supabase.table("quick_scans").select("*").eq("id", scan_id).execute()
+        scan_type = "quick_scan"
+        
+        if not scan_response.data:
+            # Try deep_dive_sessions
+            scan_response = supabase.table("deep_dive_sessions").select("*").eq("id", scan_id).execute()
+            scan_type = "deep_dive"
+            
+        if not scan_response.data:
+            return {"error": "Scan not found", "status": "error"}
+        
+        scan_data = scan_response.data[0]
+        user_id = scan_data.get("user_id")
+        
+        # Find tracking configuration for this scan
+        config_response = supabase.table("tracking_configurations")\
+            .select("*")\
+            .eq("source_id", scan_id)\
+            .eq("source_type", scan_type)\
+            .execute()
+        
+        if not config_response.data:
+            # No tracking data available yet
+            return {
+                "tracking_data": [],
+                "trend": "no_data",
+                "metric_name": None,
+                "frequency": None,
+                "status": "no_tracking"
+            }
+        
+        config = config_response.data[0]
+        config_id = config["id"]
+        
+        # Fetch last 30 days of tracking data
+        thirty_days_ago = (datetime.now(timezone.utc) - timedelta(days=30)).isoformat()
+        
+        data_response = supabase.table("tracking_data_points")\
+            .select("*")\
+            .eq("configuration_id", config_id)\
+            .gte("recorded_at", thirty_days_ago)\
+            .order("recorded_at")\
+            .execute()
+        
+        data_points = data_response.data or []
+        
+        # Format data for PDF
+        tracking_timeline = []
+        for dp in data_points:
+            tracking_timeline.append({
+                "date": dp["recorded_at"][:10],  # YYYY-MM-DD format
+                "severity": dp["value"],
+                "notes": dp.get("notes", "")
+            })
+        
+        # Calculate trend
+        if len(data_points) >= 2:
+            recent_avg = sum(dp["value"] for dp in data_points[-7:]) / min(7, len(data_points))
+            older_avg = sum(dp["value"] for dp in data_points[:-7]) / max(1, len(data_points) - 7)
+            
+            if recent_avg < older_avg * 0.9:
+                trend = "improving"
+            elif recent_avg > older_avg * 1.1:
+                trend = "worsening"
+            else:
+                trend = "stable"
+        else:
+            trend = "insufficient_data"
+        
+        # Determine tracking frequency
+        if len(data_points) >= 7:
+            days_tracked = (datetime.fromisoformat(data_points[-1]["recorded_at"]) - 
+                          datetime.fromisoformat(data_points[0]["recorded_at"])).days
+            frequency = "daily" if len(data_points) / max(1, days_tracked) > 0.7 else "weekly"
+        else:
+            frequency = "sporadic"
+        
+        return {
+            "tracking_data": tracking_timeline,
+            "trend": trend,
+            "metric_name": config.get("metric_name", "Symptom Severity"),
+            "metric_description": config.get("metric_description", ""),
+            "frequency": frequency,
+            "total_points": len(data_points),
+            "chart_config": {
+                "y_axis_label": config.get("y_axis_label", "Severity"),
+                "y_axis_min": config.get("y_axis_min", 0),
+                "y_axis_max": config.get("y_axis_max", 10),
+                "tracking_type": config.get("tracking_type", "severity")
+            },
+            "status": "success"
+        }
+        
+    except Exception as e:
+        print(f"Error fetching tracking timeline: {e}")
+        return {"error": str(e), "status": "error"}

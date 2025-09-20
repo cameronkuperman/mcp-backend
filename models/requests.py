@@ -98,8 +98,30 @@ class ExitSummaryRequest(BaseModel):
 
 class CheckContextRequest(BaseModel):
     conversation_id: str
-    new_message: str
-    user_id: str
+
+# Email Models
+class EmailReportRequest(BaseModel):
+    to: str
+    cc: Optional[List[str]] = []
+    subject: Optional[str] = "Your Seimeo Health Assessment"
+    template: str = "patient"  # patient, doctor, employer
+    attachment: Dict[str, Any]  # filename, content (base64), type
+    custom_message: Optional[str] = None
+    scan_id: Optional[str] = None
+    metadata: Optional[Dict[str, Any]] = {}
+
+class EmailScanRequest(BaseModel):
+    to: str
+    subject: Optional[str] = "Your Quick Scan Results"
+    template: str = "quick_scan"
+    data: Dict[str, Any]  # Quick scan data
+    scan_id: str
+
+class EmailResponse(BaseModel):
+    success: bool
+    message_id: str
+    sent_at: str
+    message: Optional[str] = None
 
 class ResumeConversationRequest(BaseModel):
     conversation_id: str
