@@ -5,8 +5,8 @@ You MUST return a JSON object that exactly matches the AnalysisResult interface 
 
 ```typescript
 interface AnalysisResult {{
-  confidence: number;           // 0-100
-  primaryCondition: string;     // Main diagnosis
+  confidence: number;           /* 0-100 (confidence should not be arbitrarily chosen it should be thought out thoroughly and seriously contemplated given the set of information provided it can take on any number 0-100 not just units of 5 although it definitely still take on these units of 5) */
+  primaryCondition: string;     // Main diagnosis (DO Not exclude and consider all possibilities although common ones can take preference over uncommon ones you should explore all possible options before dismissing only to common ones ie lead poisoning is improbable and likely in 99.9% of cases but is still possible in some cases as are other types of conditions even) can be medical whatever
   likelihood: string;           // "Very likely" | "Likely" | "Possible"
   symptoms: string[];           // Array of identified symptoms
   recommendations: string[];    // 3-5 immediate actions
@@ -26,7 +26,7 @@ interface AnalysisResult {{
 ```
 
 ## Additional Requirements
-- what_this_means: Provide a clear, non-medical explanation of what the symptoms indicate. Focus on helping the patient understand their situation in plain language.
+- what_this_means: Provide a clear, non-medical explanation of what the symptoms indicate. Focus on helping the patient understand their situation in plain language. This should also explain the conditions that you presented, notably, the one you said had the highest probability of occurrence and the other ones as well; be friendly in this, help them understand their health.
 - immediate_actions: List 3-5 specific, actionable steps the patient can take immediately based on their symptoms.
 
 ## Input Format
@@ -37,12 +37,12 @@ interface AnalysisResult {{
 
 ## CRITICAL UNDERSTANDING
 The body part selected ({body_part}) is a GENERAL REGION indicator from a 3D model click. The actual symptoms may be:
-- In a specific part within this region (e.g., "head" selection might mean temples, forehead, back of head, etc.)
+- In a specific part within this region (e.g., "head" selection might mean temples, forehead, back of head, inside of head etc.)
 - Radiating from or to this region
 - Related to organs/systems in this general area
 - Connected to this region through nerve pathways or referred pain
 
-IMPORTANT: The user clicked on a 3D muscular model, so the selection is a general area, not an exact anatomical point. Always analyze the ACTUAL SYMPTOMS described, not just the selected region. The region helps narrow down possibilities but shouldn't limit your analysis.
+IMPORTANT: The user clicked on a 3D muscular model, so the selection is a general area, not an exact anatomical point. Always analyze the ACTUAL SYMPTOMS described, not just the selected region. The region helps narrow down possibilities but shouldn't limit your analysis. For example, pec can mean heart.
 
 ## Additional Context from Intake Form
 When the user mentions "when it started" or temporal information, incorporate this into your analysis for:
@@ -54,9 +54,13 @@ When the user mentions "when it started" or temporal information, incorporate th
 ## Analysis Guidelines
 
 ### Confidence Scoring
-- 85-100: Clear pattern, typical presentation, matches known conditions
-- 70-84: Good match with minor uncertainties
-- <70: Multiple possibilities, ambiguous symptoms, needs deeper analysis
+
+Confidence Level Assessment:
+When providing diagnostic assessments, assign confidence levels with actual thought and nuance - not mindlessly assigning 85 or other multiples of 5. Although multiples of 5 can and should be used, they should be deliberated on thoroughly before making a decision. Each percentage should reflect specific evidence, strength and analytical consideration.
+85-100%: Clear pattern, typical presentation, matches known conditions. Please be cautious with assigning extremely high confidences >95% - these should be reserved for near-certainty cases only.
+70-84%: Good match with minor uncertainties. Primary diagnosis fits well but may have some atypical features or missing confirmatory data.
+50-69%: Moderate confidence. Several competing possibilities, mixed or incomplete symptom picture, key distinguishing features absent. Requires additional investigation.
+Below 50%: Multiple possibilities, ambiguous symptoms, needs deeper analysis. Contradictory findings or insufficient information for clear direction requiring comprehensive differential analysis.
 
 ### Urgency Assessment
 - high: Potentially serious, needs immediate medical attention

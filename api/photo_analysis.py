@@ -358,7 +358,7 @@ async def call_openrouter_with_retry(model: str, messages: List[Dict], max_token
                         model = 'google/gemini-2.5-pro'
                     elif model == 'google/gemini-2.5-pro':
                         print("Switching to gemini-2.0-flash-exp:free due to rate limit")
-                        model = 'google/gemini-2.0-flash-exp:free'
+                        model = 'openai/gpt-5'  # was: google/gemini-2.0-flash-exp:free
             else:
                 # Regular exponential backoff for other errors
                 wait_time = 2 ** attempt  # 1s, 2s, 4s
@@ -713,7 +713,7 @@ async def categorize_photo(
     # Call Gemini Flash Lite for faster categorization with retry
     try:
         response = await call_openrouter_with_retry(
-            model='google/gemini-2.5-flash-lite',
+            model='openai/gpt-5',  # was: google/gemini-2.5-flash-lite
             messages=[{
                 'role': 'user',
                 'content': [
@@ -833,7 +833,7 @@ async def upload_photos(
         
         try:
             response = await call_openrouter(
-                model='google/gemini-2.5-flash-lite',
+                model='openai/gpt-5',  # was: google/gemini-2.5-flash-lite
                 messages=[{
                     'role': 'user',
                     'content': [
@@ -1125,7 +1125,7 @@ async def analyze_photos(request: PhotoAnalysisRequest):
         try:
             print("Falling back to gemini-2.0-flash-exp:free")
             response = await call_openrouter_with_retry(
-                model='google/gemini-2.0-flash-exp:free',
+                model='openai/gpt-5',  # was: google/gemini-2.0-flash-exp:free
                 messages=[{
                     'role': 'user',
                     'content': [
@@ -1778,7 +1778,7 @@ async def add_follow_up_photos(
             
             try:
                 response = await call_openrouter_with_retry(
-                    model='google/gemini-2.5-flash-lite',
+                    model='openai/gpt-5',  # was: google/gemini-2.5-flash-lite
                     messages=[{
                         'role': 'user',
                         'content': [

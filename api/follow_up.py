@@ -555,7 +555,7 @@ async def generate_ai_questions(
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt}
             ],
-            model="deepseek/deepseek-chat",
+            model="openai/gpt-5",  # was: deepseek/deepseek-chat
             temperature=0.7
         )
         
@@ -770,7 +770,7 @@ async def generate_follow_up_analysis(
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt}
             ],
-            model="deepseek/deepseek-chat",
+            model="openai/gpt-5",  # was: deepseek/deepseek-chat
             temperature=0.5
         )
         

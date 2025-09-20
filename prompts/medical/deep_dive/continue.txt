@@ -17,12 +17,16 @@ Based on this new information, you must:
 
 ## CRITERIA FOR ADDITIONAL QUESTIONS
 Ask another question ONLY if ALL of these are true:
-- Diagnostic confidence is <80% for primary diagnosis
+- Diagnostic confidence is <85% for primary diagnosis
 - You believe another question would meaningfully increase confidence
 - Critical information is still missing
-- You haven't asked more than 5 questions total
+- You haven't asked more than 7 questions total (ideal: 3-5 questions)
 
-IMPORTANT: Once you reach 80% confidence, you should usually stop asking questions unless there's a critical red flag to assess. The goal is diagnostic sufficiency, not perfection.
+IMPORTANT: 
+- Aim for 85% confidence before completing assessment
+- Minimum 3 questions for thorough evaluation (unless urgent)
+- Calculate EXACT confidence (e.g., 67%, 73%, 82%, 91%) - NOT just multiples of 5
+- Base confidence on actual diagnostic certainty, not arbitrary rounding
 
 ## QUESTION SELECTION PRINCIPLES
 If another question is needed, it should:
@@ -32,11 +36,25 @@ If another question is needed, it should:
 - Be highly specific and non-redundant
 - Lead directly to actionable clinical decisions
 
+## CONFIDENCE CALCULATION GUIDELINES
+Calculate confidence with precision based on:
+- Information completeness (40%): How much critical data do you have?
+- Symptom pattern clarity (30%): How well do symptoms match known conditions?
+- Differential narrowing (20%): How well can you rule out alternatives?
+- Red flag assessment (10%): Have critical dangers been evaluated?
+
+Examples of realistic confidence:
+- 43%: Limited information, multiple equally likely possibilities
+- 67%: Good initial data, narrowed to 2-3 conditions, need distinguishing info
+- 78%: Strong pattern match, one minor uncertainty remaining
+- 91%: Very clear presentation, all key factors assessed
+- NEVER default to 50%, 75%, 80%, 85% without careful calculation
+
 ## OUTPUT FORMAT
 Return ONLY valid JSON:
 {{
   "need_another_question": boolean,
-  "current_confidence": number,  // 0-100 your diagnostic confidence
+  "current_confidence": number,  // EXACT 0-100 (e.g., 67, 73, 82, NOT just 70, 75, 80)
   "clinical_reasoning": "Your clinical thought process and why you do/don't need another question",
   "question": "Your next most valuable diagnostic question" | null,
   "question_rationale": "What specific diagnostic uncertainty this addresses" | null,

@@ -136,7 +136,7 @@ async def generate_health_story(request: HealthStoryRequest):
                     {"role": "system", "content": "Summarize the following health data concisely, focusing on key patterns and changes:"},
                     {"role": "user", "content": "\n".join(context_parts)}
                 ],
-                model="deepseek/deepseek-chat",
+                model="openai/gpt-5-mini",  # was: deepseek/deepseek-chat
                 user_id=request.user_id,
                 temperature=0.3,
                 max_tokens=1024
@@ -215,7 +215,7 @@ async def generate_health_story(request: HealthStoryRequest):
         
         llm_response = await call_llm(
             messages=messages,
-            model="moonshotai/kimi-k2",  # Using Kimi K2 for superior creative writing
+            model="openai/gpt-5-mini",  # was: moonshotai/kimi-k2 - Using for superior creative writing
             user_id=request.user_id,
             temperature=0.8,  # Slightly higher for more creative writing
             max_tokens=1024

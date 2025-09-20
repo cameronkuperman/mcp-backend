@@ -207,7 +207,7 @@ Respond in JSON format:
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_query}
             ],
-            model="google/gemini-2.5-flash-lite",
+            model="openai/gpt-5-mini",  # was: google/gemini-2.5-flash-lite
             temperature=0.7
         )
         
@@ -361,7 +361,7 @@ Example for what_this_means:
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": analysis_prompt}
             ],
-            model="deepseek/deepseek-chat",
+            model="openai/gpt-5-mini",  # was: deepseek/deepseek-chat
             temperature=0.6
         )
         
@@ -551,7 +551,7 @@ Respond in JSON format:
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": refinement_prompt}
             ],
-            model="deepseek/deepseek-chat",
+            model="openai/gpt-5-mini",  # was: deepseek/deepseek-chat
             temperature=0.5  # Lower temperature for more consistent refinement
         )
         
@@ -674,7 +674,7 @@ Respond in JSON format:
                 {"role": "system", "content": CATEGORY_PROMPTS[category]},
                 {"role": "user", "content": first_question_prompt}
             ],
-            model="deepseek/deepseek-chat",
+            model="openai/gpt-5-mini",  # was: deepseek/deepseek-chat
             temperature=0.5
         )
         
@@ -793,7 +793,7 @@ Respond in JSON format:
                 {"role": "system", "content": CATEGORY_PROMPTS[category]},
                 {"role": "user", "content": next_question_prompt}
             ],
-            model="deepseek/deepseek-chat",
+            model="openai/gpt-5-mini",  # was: deepseek/deepseek-chat
             temperature=0.5
         )
         
@@ -918,7 +918,7 @@ Provide a comprehensive final analysis in JSON format:
                 {"role": "system", "content": CATEGORY_PROMPTS[category]},
                 {"role": "user", "content": final_analysis_prompt}
             ],
-            model="deepseek/deepseek-chat",
+            model="openai/gpt-5-mini",  # was: deepseek/deepseek-chat
             temperature=0.4
         )
         

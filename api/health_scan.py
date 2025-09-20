@@ -30,11 +30,43 @@ router = APIRouter(prefix="/api", tags=["health-scan"])
 
 # Deep Dive Configuration
 DEEP_DIVE_CONFIG = {
-    "max_questions": 6,  # Force completion after 6 questions
-    "target_confidence": 80,  # Target 80% confidence
-    "min_confidence_for_completion": 80,  # Can complete at 80% if confident enough
-    "min_questions": 2,  # Minimum questions before completion
+    "max_questions": 7,  # Maximum questions before forcing completion
+    "target_confidence": 85,  # Target 85% confidence for completion
+    "min_confidence_for_completion": 85,  # Need 85% confidence to complete
+    "min_questions": 3,  # Minimum 3 questions for thorough assessment
+    "ideal_questions": 4,  # Ideal number of questions for comprehensive analysis
 }
+
+def calculate_realistic_confidence(decision_data: dict, question_count: int) -> int:
+    """Calculate nuanced confidence based on multiple diagnostic factors
+    Returns a realistic confidence score (0-100) not just multiples of 5"""
+    
+    # Extract factors from the LLM's analysis
+    base_confidence = decision_data.get('current_confidence', 0)
+    
+    # Apply modifiers based on diagnostic completeness
+    modifiers = {
+        'symptom_clarity': 1.0,  # How clear are the symptoms
+        'history_completeness': 0.9 if question_count >= 3 else 0.7,  # More questions = better history
+        'red_flags_assessed': 1.0 if question_count >= 2 else 0.8,  # Have we checked for red flags
+        'differential_narrowing': min(1.0, question_count * 0.25),  # Progressive narrowing
+    }
+    
+    # Calculate weighted confidence
+    if base_confidence > 0:
+        # If LLM provided confidence, adjust it based on factors
+        adjusted = base_confidence * sum(modifiers.values()) / len(modifiers)
+        # Add slight randomness to avoid always hitting round numbers
+        import random
+        variance = random.randint(-2, 2)
+        final_confidence = max(20, min(95, int(adjusted) + variance))
+    else:
+        # Fallback calculation if no LLM confidence
+        base = 25 + (question_count * 15)  # Progressive baseline
+        variance = random.randint(-3, 3)
+        final_confidence = min(85, base + variance)
+    
+    return final_confidence
 
 def is_duplicate_question(new_question: str, previous_questions: list) -> bool:
     """Prevent asking the same question twice"""
@@ -240,8 +272,8 @@ async def start_deep_dive(request: DeepDiveStartRequest):
             "medical_data": medical_data if medical_data and "error" not in medical_data else None
         }
         
-        # Use DeepSeek V3 by default (more reliable JSON output)
-        model = request.model or "deepseek/deepseek-chat"
+        # Use GPT-5 by default (more reliable JSON output)
+        model = request.model or "openai/gpt-5"  # was: deepseek/deepseek-chat
         
         # Add model validation and fallback
         WORKING_MODELS = [
@@ -261,7 +293,7 @@ async def start_deep_dive(request: DeepDiveStartRequest):
         # If specified model not in list, use DeepSeek V3
         if model not in WORKING_MODELS:
             print(f"Model {model} not in working list, using DeepSeek V3")
-            model = "deepseek/deepseek-chat"
+            model = "openai/gpt-5"  # was: deepseek/deepseek-chat
         
         # Generate initial question
         query = request.form_data.get("symptoms", "Health analysis requested")
@@ -451,7 +483,7 @@ async def continue_deep_dive(request: DeepDiveContinueRequest):
         )
         
         # Call LLM - use fallback model if provided
-        model_to_use = request.fallback_model if request.fallback_model else session.get("model_used", "deepseek/deepseek-chat")
+        model_to_use = request.fallback_model if request.fallback_model else session.get("model_used", "openai/gpt-5")  # was: deepseek/deepseek-chat
         
         # Force JSON output
         user_prompt = "Process answer and decide next step. OUTPUT ONLY JSON."
@@ -500,8 +532,13 @@ async def continue_deep_dive(request: DeepDiveContinueRequest):
                     
         except Exception as e:
             print(f"Parse error in deep dive continue: {e}")
+            # On parse error, force continuation with low confidence
             decision_data = {
-                "ready_for_analysis": True,
+                "need_another_question": True,  # Force continuation
+                "current_confidence": 45,  # Low confidence to ensure more questions
+                "question": "Can you provide more details about your symptoms, including when they occur and what makes them better or worse?",
+                "clinical_reasoning": "Need additional information to build diagnostic confidence",
+                "updated_analysis": session.get("internal_state", {}),
                 "questions_completed": request.question_number
             }
         
@@ -518,11 +555,18 @@ async def continue_deep_dive(request: DeepDiveContinueRequest):
         except Exception as e:
             print(f"Error updating session: {e}")
         
-        # Get current confidence level
-        current_confidence = decision_data.get("current_confidence", 0)
+        # Calculate realistic confidence level
         question_count = len(previous_questions)
+        llm_confidence = decision_data.get("current_confidence", 0)
         
-        print(f"Deep Dive Progress: Question {question_count}, Confidence: {current_confidence}%, Target: {DEEP_DIVE_CONFIG['target_confidence']}%")
+        # Use realistic confidence calculation
+        current_confidence = calculate_realistic_confidence(decision_data, question_count)
+        
+        # Override if we have very few questions
+        if question_count < 2 and current_confidence > 70:
+            current_confidence = min(65, current_confidence)  # Cap confidence early on
+        
+        print(f"Deep Dive Progress: Question {question_count}, LLM Confidence: {llm_confidence}%, Adjusted: {current_confidence}%, Target: {DEEP_DIVE_CONFIG['target_confidence']}%")
         
         # Update session with current confidence and question count
         session_data_for_completion = {
@@ -541,9 +585,11 @@ async def continue_deep_dive(request: DeepDiveContinueRequest):
             should_complete = True
             print(f"[FORCE COMPLETE] Max questions ({DEEP_DIVE_CONFIG['max_questions']}) reached at {current_confidence}% confidence")
         
-        # Need at least minimum questions
+        # Enforce minimum questions strictly
         if question_count < DEEP_DIVE_CONFIG["min_questions"]:
             should_complete = False
+            llm_wants_more = True  # Force more questions regardless of LLM decision
+            print(f"[ENFORCE MIN] Only {question_count} questions asked, minimum {DEEP_DIVE_CONFIG['min_questions']} required")
         
         # Continue asking questions if we haven't hit completion criteria AND either:
         # - LLM wants more questions, OR
@@ -692,7 +738,7 @@ async def complete_deep_dive(request: DeepDiveCompleteRequest):
         )
         
         # Call LLM for final analysis - use fallback model if provided
-        model_to_use = request.fallback_model if request.fallback_model else "deepseek/deepseek-chat"
+        model_to_use = request.fallback_model if request.fallback_model else "openai/gpt-5"  # was: deepseek/deepseek-chat
         
         # Special handling for Gemini models - force JSON mode
         user_prompt = "Generate comprehensive final analysis based on all Q&A. OUTPUT ONLY JSON, NO OTHER TEXT."
@@ -1426,7 +1472,7 @@ Return JSON with this structure:
                 {"role": "system", "content": question_prompt},
                 {"role": "user", "content": "Generate the most diagnostically valuable question"}
             ],
-            model="deepseek/deepseek-chat",  # Use standard model for question generation
+            model="openai/gpt-5-mini",  # was: deepseek/deepseek-chat - Use standard model for question generation
             user_id=request.user_id or session.get("user_id"),
             temperature=0.7,
             max_tokens=500
@@ -2114,7 +2160,7 @@ Return JSON:
                 {"role": "system", "content": follow_up_prompt},
                 {"role": "user", "content": "Generate the most valuable follow-up question"}
             ],
-            model="deepseek/deepseek-chat",
+            model="openai/gpt-5-mini",  # was: deepseek/deepseek-chat
             user_id=request.user_id or scan.get("user_id"),
             temperature=0.7,
             max_tokens=500

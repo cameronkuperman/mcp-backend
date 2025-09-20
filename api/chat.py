@@ -74,7 +74,7 @@ Write concise medical summary:"""
                         "Content-Type": "application/json"
                     },
                     json={
-                        "model": "deepseek/deepseek-chat",
+                        "model": "openai/gpt-5-mini",  # was: deepseek/deepseek-chat
                         "messages": [{"role": "system", "content": aggregate_prompt}],
                         "max_tokens": target_tokens,
                         "temperature": 0.3
