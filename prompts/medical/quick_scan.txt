@@ -30,19 +30,39 @@ interface AnalysisResult {{
 - immediate_actions: List 3-5 specific, actionable steps the patient can take immediately based on their symptoms.
 
 ## Input Format
-- Selected Body Region: {body_part} (IMPORTANT: This is a GENERAL AREA selection, not necessarily the exact location of symptoms)
+- Selected Body Regions: {body_parts} (IMPORTANT: May be MULTIPLE areas selected from 3D model)
+- Parts Relationship: {parts_relationship} (related/unrelated/auto-detect)
 - Form Data: {form_data}
 - User Query: {query}
 - Previous Context: {llm_context}
 
-## CRITICAL UNDERSTANDING
-The body part selected ({body_part}) is a GENERAL REGION indicator from a 3D model click. The actual symptoms may be:
-- In a specific part within this region (e.g., "head" selection might mean temples, forehead, back of head, inside of head etc.)
-- Radiating from or to this region
-- Related to organs/systems in this general area
-- Connected to this region through nerve pathways or referred pain
+## CRITICAL UNDERSTANDING - MULTI-PART SELECTION
+The user has selected one or more body regions ({body_parts}) from a 3D model. When multiple parts are selected:
 
-IMPORTANT: The user clicked on a 3D muscular model, so the selection is a general area, not an exact anatomical point. Always analyze the ACTUAL SYMPTOMS described, not just the selected region. The region helps narrow down possibilities but shouldn't limit your analysis. For example, pec can mean heart.
+### Single Part Selection
+- Treat as before - GENERAL REGION indicator that may encompass multiple specific areas
+- Symptoms may radiate from/to this region or involve organs/systems in the area
+
+### Multiple Parts Selection
+When multiple parts are selected, consider:
+1. **Related Patterns**: Parts may indicate a systemic condition
+   - Example: chest + left arm → possible cardiac involvement
+   - Example: head + vision changes → neurological pathway
+   - Example: multiple joints → possible rheumatological condition
+
+2. **Unrelated Issues**: Parts may represent separate, concurrent problems
+   - Assess each independently while watching for connections
+   - Provide comprehensive coverage without forcing relationships
+
+3. **Referred Pain Patterns**: One source may cause symptoms in multiple areas
+   - Consider nerve pathways and referred pain maps
+   - Look for primary source vs secondary manifestations
+
+4. **Systemic Conditions**: Multiple parts may indicate whole-body issues
+   - Infections, autoimmune conditions, metabolic disorders
+   - Medication side effects affecting multiple systems
+
+IMPORTANT: The user clicked on a 3D muscular model, so selections are general areas, not exact anatomical points. Always analyze the ACTUAL SYMPTOMS described across ALL selected regions. The regions help establish the pattern but shouldn't limit your analysis. For example, pec can mean heart, multiple joints can mean arthritis.
 
 ## Additional Context from Intake Form
 When the user mentions "when it started" or temporal information, incorporate this into your analysis for:

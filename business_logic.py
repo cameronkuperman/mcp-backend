@@ -13,8 +13,19 @@ from utils.async_http import make_async_post_with_retry
 # Load .env file
 load_dotenv()
 
-def make_prompt(query: str, user_data: dict, llm_context: str, category: str, part_selected: Optional[str] = None, region: Optional[str] = None) -> str:
-    """Generate contextual prompts based on category and parameters."""
+def make_prompt(query: str, user_data: dict, llm_context: str, category: str, part_selected: Optional[str] = None, region: Optional[str] = None, body_parts: Optional[List[str]] = None, parts_relationship: Optional[str] = None) -> str:
+    """Generate contextual prompts based on category and parameters.
+    
+    Args:
+        query: User query/symptoms
+        user_data: User medical data and form data
+        llm_context: Previous context/history
+        category: Prompt category (quick-scan, deep-dive, etc.)
+        part_selected: Single body part (deprecated, use body_parts)
+        region: Geographic region (optional)
+        body_parts: List of selected body parts (new)
+        parts_relationship: Relationship between parts (related/unrelated/auto-detect)
+    """
     
     # Helper function to load and format prompt from file
     def load_prompt_template(file_path: str) -> str:
@@ -25,6 +36,18 @@ def make_prompt(query: str, user_data: dict, llm_context: str, category: str, pa
         except FileNotFoundError:
             print(f"Warning: Prompt file not found: {file_path}")
             return None
+    
+    # Helper function to format body parts for display
+    def format_body_parts(parts: List[str]) -> str:
+        """Format body parts list for prompt display"""
+        if not parts:
+            return "Not specified"
+        elif len(parts) == 1:
+            return parts[0]
+        elif len(parts) == 2:
+            return f"{parts[0]} and {parts[1]}"
+        else:
+            return ", ".join(parts[:-1]) + f", and {parts[-1]}"
     
     # Base directory for prompts
     prompts_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'prompts', 'medical')
@@ -45,18 +68,36 @@ def make_prompt(query: str, user_data: dict, llm_context: str, category: str, pa
     elif category == "quick-scan":
         # Extract form data if passed in user_data
         form_data = user_data.get('form_data', {}) if isinstance(user_data, dict) else {}
-        body_part = part_selected or user_data.get('body_part', 'General')
+        
+        # Handle backward compatibility - prefer body_parts over body_part
+        if body_parts:
+            parts_list = body_parts
+        elif part_selected:
+            parts_list = [part_selected]
+        elif user_data.get('body_parts'):
+            parts_list = user_data['body_parts']
+        elif user_data.get('body_part'):
+            parts_list = [user_data['body_part']]
+        else:
+            parts_list = ['General']
+        
+        # Determine parts relationship if not provided
+        if not parts_relationship and len(parts_list) > 1:
+            parts_relationship = 'auto-detect'
+        elif not parts_relationship:
+            parts_relationship = 'single'
         
         template = load_prompt_template(os.path.join(prompts_dir, 'quick_scan.txt'))
         if template:
             return template.format(
-                body_part=body_part,
+                body_parts=format_body_parts(parts_list),
+                parts_relationship=parts_relationship,
                 form_data=json.dumps(form_data) if form_data else 'Not provided',
                 query=query,
                 llm_context=llm_context if llm_context else 'None - new user or anonymous'
             )
         # Fallback
-        return f"Quick scan for {body_part}: {query}"
+        return f"Quick scan for {format_body_parts(parts_list)}: {query}"
     
     elif category == "deep-dive":
         # Generic deep dive - use basic format
@@ -73,20 +114,38 @@ def make_prompt(query: str, user_data: dict, llm_context: str, category: str, pa
     elif category == "deep-dive-initial":
         # Extract form data if passed in user_data
         form_data = user_data.get('form_data', {}) if isinstance(user_data, dict) else {}
-        body_part = part_selected or user_data.get('body_part', 'General')
         medical_data = user_data.get('medical_data', {}) if isinstance(user_data, dict) else {}
+        
+        # Handle backward compatibility - prefer body_parts over body_part
+        if body_parts:
+            parts_list = body_parts
+        elif part_selected:
+            parts_list = [part_selected]
+        elif user_data.get('body_parts'):
+            parts_list = user_data['body_parts']
+        elif user_data.get('body_part'):
+            parts_list = [user_data['body_part']]
+        else:
+            parts_list = ['General']
+        
+        # Determine parts relationship if not provided
+        if not parts_relationship and len(parts_list) > 1:
+            parts_relationship = 'auto-detect'
+        elif not parts_relationship:
+            parts_relationship = 'single'
         
         template = load_prompt_template(os.path.join(prompts_dir, 'deep_dive', 'initial.txt'))
         if template:
             return template.format(
-                body_part=body_part,
+                body_parts=format_body_parts(parts_list),
+                parts_relationship=parts_relationship,
                 query=query,
                 form_data=json.dumps(form_data) if form_data else 'Not provided',
                 medical_data=str(medical_data)[:200] + '...' if medical_data else 'Not available',
                 llm_context=llm_context if llm_context else 'New patient'
             )
         # Fallback
-        return f"Deep dive initial for {body_part}: {query}"
+        return f"Deep dive initial for {format_body_parts(parts_list)}: {query}"
     
     elif category == "deep-dive-continue":
         # For continuing deep dive with previous Q&A

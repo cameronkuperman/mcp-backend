@@ -20,17 +20,37 @@ class GenerateSummaryRequest(BaseModel):
 
 # Health Scan Models
 class QuickScanRequest(BaseModel):
-    body_part: str
+    body_part: Optional[str] = None  # Deprecated, use body_parts
+    body_parts: Optional[List[str]] = None  # New: Support multiple parts
+    parts_relationship: Optional[str] = None  # 'related', 'unrelated', or 'auto-detect'
     form_data: Dict[str, Any]
     user_id: Optional[str] = None
     model: Optional[str] = None
+    
+    def get_body_parts(self) -> List[str]:
+        """Get body parts list with backward compatibility"""
+        if self.body_parts:
+            return self.body_parts
+        elif self.body_part:
+            return [self.body_part]
+        return []
 
 class DeepDiveStartRequest(BaseModel):
-    body_part: str
+    body_part: Optional[str] = None  # Deprecated, use body_parts
+    body_parts: Optional[List[str]] = None  # New: Support multiple parts
+    parts_relationship: Optional[str] = None  # 'related', 'unrelated', or 'auto-detect'
     form_data: Dict[str, Any]
     user_id: Optional[str] = None
     model: Optional[str] = None  # Will default to google/gemini-2.5-pro
     fallback_model: Optional[str] = None  # For retry support
+    
+    def get_body_parts(self) -> List[str]:
+        """Get body parts list with backward compatibility"""
+        if self.body_parts:
+            return self.body_parts
+        elif self.body_part:
+            return [self.body_part]
+        return []
 
 class DeepDiveContinueRequest(BaseModel):
     session_id: str

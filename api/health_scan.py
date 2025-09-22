@@ -118,9 +118,15 @@ async def quick_scan_endpoint(request: QuickScanRequest):
             medical_data = await get_user_medical_data(request.user_id)
             llm_context = await get_llm_context_biz(request.user_id)
         
+        # Get body parts with backward compatibility
+        body_parts_list = request.get_body_parts()
+        if not body_parts_list:
+            return {"error": "No body parts specified", "status": "error"}
+        
         # Prepare data for prompt
         prompt_data = {
-            "body_part": request.body_part,
+            "body_part": body_parts_list[0] if len(body_parts_list) == 1 else None,  # For backward compat
+            "body_parts": body_parts_list,
             "form_data": request.form_data,
             "medical_data": medical_data if medical_data and "error" not in medical_data else None
         }
@@ -132,14 +138,15 @@ async def quick_scan_endpoint(request: QuickScanRequest):
             user_data=prompt_data,
             llm_context=llm_context,
             category="quick-scan",
-            part_selected=request.body_part
+            body_parts=body_parts_list,
+            parts_relationship=request.parts_relationship
         )
         
         # Call LLM with lower temperature for consistent JSON
         llm_response = await call_llm(
             messages=[
                 {"role": "system", "content": system_prompt},
-                {"role": "user", "content": f"Analyze my symptoms for {request.body_part}: {json.dumps(request.form_data)}"}
+                {"role": "user", "content": f"Analyze my symptoms for {', '.join(body_parts_list)}: {json.dumps(request.form_data)}"}
             ],
             model=request.model,
             user_id=request.user_id,
@@ -182,7 +189,10 @@ async def quick_scan_endpoint(request: QuickScanRequest):
                 scan_data = {
                     "id": scan_id,
                     "user_id": request.user_id,
-                    "body_part": request.body_part,
+                    "body_part": body_parts_list[0] if body_parts_list else "general",  # Backward compat
+                    "body_parts": body_parts_list,  # New array field
+                    "is_multi_part": len(body_parts_list) > 1,
+                    "parts_relationship": {"type": request.parts_relationship} if request.parts_relationship else None,
                     "form_data": request.form_data,
                     "analysis_result": analysis_result,
                     "urgency_level": analysis_result.get("urgency", "low"),
@@ -193,7 +203,8 @@ async def quick_scan_endpoint(request: QuickScanRequest):
                 print(f"Scan ID: {scan_id}")
                 print(f"User ID: '{request.user_id}' (type: {type(request.user_id)})")
                 print(f"User ID repr: {repr(request.user_id)}")
-                print(f"Body part: {request.body_part}")
+                print(f"Body parts: {body_parts_list}")
+                print(f"Is multi-part: {len(body_parts_list) > 1}")
                 
                 supabase.table("quick_scans").insert(scan_data).execute()
                 print("Quick scan saved successfully!")
@@ -206,7 +217,7 @@ async def quick_scan_endpoint(request: QuickScanRequest):
                         "user_id": request.user_id,
                         "quick_scan_id": scan_id,
                         "symptom_name": request.form_data["symptoms"],
-                        "body_part": request.body_part,
+                        "body_part": body_parts_list[0] if body_parts_list else "general",  # Primary part
                         "severity": severity
                     }
                     supabase.table("symptom_tracking").insert(tracking_data).execute()
@@ -219,7 +230,10 @@ async def quick_scan_endpoint(request: QuickScanRequest):
         response_data = {
             "scan_id": scan_id,
             "analysis": analysis_result,
-            "body_part": request.body_part,
+            "body_part": body_parts_list[0] if len(body_parts_list) == 1 else None,  # Backward compat
+            "body_parts": body_parts_list,  # New field
+            "is_multi_part": len(body_parts_list) > 1,
+            "parts_relationship": request.parts_relationship,
             "confidence": analysis_result.get("confidence", 0),
             "user_id": request.user_id,
             "usage": llm_response.get("usage", {}),
@@ -265,9 +279,15 @@ async def start_deep_dive(request: DeepDiveStartRequest):
             medical_data = await get_user_medical_data(request.user_id)
             llm_context = await get_llm_context_biz(request.user_id)
         
+        # Get body parts with backward compatibility
+        body_parts_list = request.get_body_parts()
+        if not body_parts_list:
+            return {"error": "No body parts specified", "status": "error"}
+        
         # Prepare data for prompt
         prompt_data = {
-            "body_part": request.body_part,
+            "body_part": body_parts_list[0] if len(body_parts_list) == 1 else None,  # For backward compat
+            "body_parts": body_parts_list,
             "form_data": request.form_data,
             "medical_data": medical_data if medical_data and "error" not in medical_data else None
         }
@@ -302,7 +322,8 @@ async def start_deep_dive(request: DeepDiveStartRequest):
             user_data=prompt_data,
             llm_context=llm_context,
             category="deep-dive-initial",
-            part_selected=request.body_part
+            body_parts=body_parts_list,
+            parts_relationship=request.parts_relationship
         )
         
         # Call LLM with fallback support
@@ -344,7 +365,7 @@ async def start_deep_dive(request: DeepDiveStartRequest):
                 # Invalid or missing question
                 print(f"Invalid question data received: {question_data}")
                 question_data = {
-                    "question": f"Can you describe the {request.body_part} pain in more detail? Is it sharp, dull, burning, or aching?",
+                    "question": f"Can you describe the {' and '.join(body_parts_list)} pain in more detail? Is it sharp, dull, burning, or aching?",
                     "question_type": "symptom_characterization",
                     "internal_analysis": {"fallback": True, "original": question_data}
                 }
@@ -354,7 +375,7 @@ async def start_deep_dive(request: DeepDiveStartRequest):
             if any(word in question_text.lower() for word in ["json", "format", "response", "ensure", "```"]):
                 print(f"Question contains formatting instructions: {question_text}")
                 question_data = {
-                    "question": f"Can you describe the {request.body_part} symptoms in more detail? When did they start and what makes them better or worse?",
+                    "question": f"Can you describe the {' and '.join(body_parts_list)} symptoms in more detail? When did they start and what makes them better or worse?",
                     "question_type": "symptom_characterization",
                     "internal_analysis": {"fallback": True, "formatting_detected": True}
                 }
@@ -375,7 +396,10 @@ async def start_deep_dive(request: DeepDiveStartRequest):
         session_data = {
             "id": session_id,
             "user_id": request.user_id,
-            "body_part": request.body_part,
+            "body_part": body_parts_list[0] if len(body_parts_list) == 1 else body_parts_list[0],  # Backward compat
+            "body_parts": body_parts_list,  # New array field
+            "is_multi_part": len(body_parts_list) > 1,
+            "parts_relationship": {"type": request.parts_relationship} if request.parts_relationship else None,
             "form_data": request.form_data,
             "model_used": model,
             "questions": [],  # PostgreSQL array, not dict
