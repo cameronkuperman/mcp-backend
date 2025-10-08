@@ -224,7 +224,7 @@ Example valid response:
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_query}
             ],
-            model="openai/gpt-5-mini",  # was: google/gemini-2.5-flash-lite
+            model="google/gemini-2.5-flash-lite",
             temperature=0.7
         )
         
@@ -285,7 +285,7 @@ Example valid response:
                 "urgency": parsed.get("urgency", "medium"),
                 "confidence_score": float(parsed.get("confidence", 70)),  # Ensure it's a float
                 "suggested_next_action": parsed.get("next_action", "general-assessment"),
-                "model_used": "google/gemini-2.5-flash-lite",
+                "model_used": "google/gemini-2.5-flash-lite",  # Matches actual model now
                 "category": None  # Flash assessments don't have a specific category
             }).execute()
             
