@@ -124,6 +124,7 @@ def extract_json_from_response(content) -> Optional:
     # No automatic fallback - let calling endpoint handle failure appropriately
     # Each endpoint has specific fallback logic for its expected response structure
     # LLMs should return proper JSON based on explicit prompt instructions
+    # Force Railway redeploy - this comment added to trigger build
     return None
 
 # Alias for consistency
