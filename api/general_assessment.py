@@ -176,7 +176,7 @@ async def flash_assessment(request: Request):
             medical_context = "No medical history available"
         
         system_prompt = f"""You are a medical triage AI. Handle symptoms, concerns, and health questions professionally.
-        
+
 User Medical Context:
 {medical_context}
 
@@ -191,6 +191,13 @@ For CONCERNS (e.g., "worried about these symptoms together"):
 
 Keep it professional but human - like a skilled triage nurse. Be direct, no fluff.
 
+CRITICAL JSON REQUIREMENTS:
+1. You MUST respond with ONLY valid JSON - no text before or after the JSON
+2. ALL fields listed below are REQUIRED - do NOT omit any field
+3. Do NOT include any fields not listed below (especially do NOT include "question" or "questions" fields)
+4. The "urgency" field is MANDATORY and must be one of: low, medium, high, emergency
+5. The "confidence" must be a number from 0-100, not a string
+
 Respond in JSON format:
 {{
     "response": "Your assessment (2-4 sentences max)",
@@ -199,6 +206,16 @@ Respond in JSON format:
     "confidence": 0-100,
     "next_action": "general-assessment|body-scan|see-doctor|monitor",
     "action_reason": "Why this action (be specific)"
+}}
+
+Example valid response:
+{{
+    "response": "Headache lasting 2 days could indicate tension headache, migraine, or rarely something more serious. Key factors: any fever, neck stiffness, or vision changes would raise concern. Urgency: Low if isolated symptom. Next: Monitor for 24h.",
+    "main_concern": "Tension headache vs migraine",
+    "urgency": "low",
+    "confidence": 75,
+    "next_action": "monitor",
+    "action_reason": "Symptoms suggest benign headache; monitor for red flags before escalating"
 }}"""
 
         # Call LLM
@@ -327,33 +344,127 @@ async def general_assessment(request: Request):
         analysis_prompt = f"""Patient presents with the following in the {category} category:
 {symptoms_context}
 
-Provide a comprehensive analysis in JSON format:
+STEP 1 - CORE DIAGNOSTIC ASSESSMENT:
+Analyze symptoms and provide comprehensive assessment with ALL required fields.
+
+STEP 2 - FOLLOW-UP QUESTION DECISION:
+Determine if additional information would significantly improve diagnostic accuracy (increase confidence by ≥10 points).
+
+ASK FOLLOW-UP QUESTIONS (include 1-3 questions in follow_up_questions array) IF:
+✓ Your confidence is < 75%
+✓ Critical red flag symptoms are possible but unconfirmed (e.g., chest pain could be cardiac but duration unknown)
+✓ Multiple diagnoses have similar likelihood (within 15% of each other)
+✓ Missing key diagnostic criteria specific to this condition (e.g., fever pattern for infection, timing for medication side effects)
+
+Examples when TO ask follow-up:
+- User reports "chest pain" but no info on: radiation, duration, exertion-relationship → ASK these
+- Fatigue could be thyroid, anemia, or sleep disorder with equal probability → ASK differentiating questions
+- Medication side effect vs new condition unclear → ASK about timing relationship
+
+DO NOT ask follow-up questions (return empty array []) IF:
+✓ Confidence ≥ 75% with clear leading diagnosis
+✓ Sufficient information for safe triage decision already provided
+✓ Symptoms are self-limiting and low-risk (e.g., mild cold symptoms with clear viral pattern)
+✓ Additional questions unlikely to change management (e.g., obvious urgent care needed)
+
+Examples when NOT to ask follow-up:
+- Clear tension headache with typical pattern, no red flags, confidence 85% → NO questions needed
+- Obvious allergic reaction with known trigger → NO questions needed
+- Severe symptoms requiring immediate evaluation regardless of additional details → NO questions needed
+
+Provide analysis in JSON format with ALL fields required:
 {{
-    "primary_assessment": "main clinical impression",
+    "primary_assessment": "Most likely diagnosis with brief clinical reasoning",
     "confidence": 0-100,
-    "key_findings": ["finding1", "finding2", ...],
+    "key_findings": ["finding1", "finding2", "finding3"],
     "possible_causes": [
-        {{"condition": "name", "likelihood": 0-100, "explanation": "why this is possible"}}
+        {{"condition": "Most likely condition", "likelihood": 70, "explanation": "why this is most likely"}},
+        {{"condition": "Second possibility", "likelihood": 20, "explanation": "why this is possible"}},
+        {{"condition": "Less likely option", "likelihood": 10, "explanation": "why less likely but considered"}}
     ],
-    "recommendations": ["specific recommendation 1", "recommendation 2", ...],
+    "recommendations": ["specific actionable recommendation 1", "recommendation 2", "recommendation 3"],
     "urgency": "low|medium|high|emergency",
-    "follow_up_questions": ["question to clarify diagnosis", ...],
+    "follow_up_questions": [
+        "Specific question to narrow differential diagnosis",
+        "Question to rule out red flag condition"
+    ] OR [] if no follow-up needed,
     "severity_level": "low|moderate|high|urgent",
     "confidence_level": "low|medium|high",
-    "what_this_means": "Plain English explanation of what symptoms indicate (2-3 sentences, no medical jargon)",
-    "immediate_actions": ["3-5 specific actionable steps to take right now"],
-    "red_flags": ["Specific warning signs requiring immediate medical attention"],
-    "tracking_metrics": ["3-4 specific symptoms/measurements to monitor daily with how to measure"],
+    "what_this_means": "Plain English explanation (2-3 sentences, no jargon) - help patient understand their situation",
+    "immediate_actions": ["Action 1", "Action 2", "Action 3"],
+    "red_flags": ["Warning sign 1 requiring immediate attention", "Warning sign 2"],
+    "tracking_metrics": ["Metric 1 with how to measure", "Metric 2", "Metric 3"],
     "follow_up_timeline": {{
         "check_progress": "When to reassess (e.g., '3 days')",
-        "see_doctor_if": "Specific conditions for seeking medical care"
+        "see_doctor_if": "Specific conditions for medical care"
     }}
 }}
 
+CRITICAL REQUIREMENTS:
+1. ALL fields listed above are REQUIRED - do NOT omit any field
+2. "urgency" field is MANDATORY - frontend crashes if missing
+3. "follow_up_questions" must be an array - use [] if no questions needed, do NOT omit
+4. Confidence score must be numeric 0-100, not a string
+5. "possible_causes" must have at least 2-3 differential diagnoses with likelihoods that roughly sum to 100
+6. Do NOT include any fields not listed above (especially do NOT include "question" as a standalone field)
+7. Return ONLY valid JSON - no text before or after
+
 Example for what_this_means:
-- Good: "Your fatigue and difficulty concentrating suggest your body is dealing with stress. This pattern is common and usually responds well to lifestyle adjustments."
+- Good: "Your fatigue and difficulty concentrating suggest your body is dealing with stress, which is depleting your energy reserves. This pattern is common and usually responds well to lifestyle adjustments."
 - Avoid: "You have chronic fatigue syndrome with cognitive dysfunction."
-"""
+
+Example when follow-up questions ARE needed (confidence 68%):
+{{
+    "primary_assessment": "Possible viral gastroenteritis vs food poisoning",
+    "confidence": 68,
+    "key_findings": ["Acute onset", "Gastrointestinal symptoms", "No fever yet"],
+    "possible_causes": [
+        {{"condition": "Viral gastroenteritis", "likelihood": 45, "explanation": "Common cause, typical presentation"}},
+        {{"condition": "Food poisoning", "likelihood": 40, "explanation": "Similar symptoms, depends on exposure history"}},
+        {{"condition": "Early appendicitis", "likelihood": 15, "explanation": "Less likely but must rule out"}}
+    ],
+    "recommendations": ["Stay hydrated", "Monitor symptoms", "Rest"],
+    "urgency": "medium",
+    "follow_up_questions": [
+        "Have others who ate the same food become ill?",
+        "Do you have any blood in your stool or severe abdominal pain?"
+    ],
+    "severity_level": "moderate",
+    "confidence_level": "medium",
+    "what_this_means": "Your symptoms suggest a stomach bug or food-related illness. Most cases resolve on their own with rest and fluids.",
+    "immediate_actions": ["Drink clear fluids", "Rest", "Monitor temperature"],
+    "red_flags": ["Severe abdominal pain", "Blood in stool", "High fever >102°F"],
+    "tracking_metrics": ["Number of episodes of vomiting/diarrhea", "Fluid intake in cups", "Energy level 1-10"],
+    "follow_up_timeline": {{
+        "check_progress": "24 hours",
+        "see_doctor_if": "Symptoms worsen or no improvement in 48 hours"
+    }}
+}}
+
+Example when follow-up questions are NOT needed (confidence 88%):
+{{
+    "primary_assessment": "Tension-type headache with stress trigger",
+    "confidence": 88,
+    "key_findings": ["Bilateral pressure", "No visual changes", "Associated with stress"],
+    "possible_causes": [
+        {{"condition": "Tension headache", "likelihood": 75, "explanation": "Classic presentation with stress trigger"}},
+        {{"condition": "Caffeine withdrawal", "likelihood": 15, "explanation": "Possible if changed coffee habits"}},
+        {{"condition": "Migraine", "likelihood": 10, "explanation": "Less likely without typical migraine features"}}
+    ],
+    "recommendations": ["OTC pain reliever", "Stress management", "Regular sleep schedule"],
+    "urgency": "low",
+    "follow_up_questions": [],
+    "severity_level": "low",
+    "confidence_level": "high",
+    "what_this_means": "You're experiencing a tension headache, likely triggered by stress. This is very common and usually responds well to simple measures.",
+    "immediate_actions": ["Take ibuprofen or acetaminophen", "Rest in quiet room", "Apply cold compress"],
+    "red_flags": ["Sudden severe headache", "Vision changes", "Fever with headache"],
+    "tracking_metrics": ["Headache severity 1-10", "Stress level 1-10", "Hours of sleep"],
+    "follow_up_timeline": {{
+        "check_progress": "3 days",
+        "see_doctor_if": "Headaches become frequent or severe"
+    }}
+}}"""
 
         # Call LLM
         llm_response = await call_llm(

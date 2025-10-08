@@ -120,18 +120,10 @@ def extract_json_from_response(content) -> Optional:
                                 return json.loads(json_str)
     except Exception as e:
         print(f"Error parsing JSON from text: {e}")
-    
-    # Strategy 5: Create fallback response for deep dive
-    if "question" in content.lower() or "?" in content:
-        # Extract potential question from text
-        lines = content.strip().split('\n')
-        question = next((line.strip() for line in lines if '?' in line), lines[0] if lines else "Can you describe your symptoms?")
-        return {
-            "question": question,
-            "question_type": "open_ended",
-            "internal_analysis": {"extracted": True}
-        }
-    
+
+    # No automatic fallback - let calling endpoint handle failure appropriately
+    # Each endpoint has specific fallback logic for its expected response structure
+    # LLMs should return proper JSON based on explicit prompt instructions
     return None
 
 # Alias for consistency
