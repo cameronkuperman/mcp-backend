@@ -71,25 +71,28 @@ def calculate_realistic_confidence(decision_data: dict, question_count: int) -> 
 def is_duplicate_question(new_question: str, previous_questions: list) -> bool:
     """Prevent asking the same question twice"""
     import difflib
-    
-    if not previous_questions:
+
+    # FIX: Ensure previous_questions is a list before iterating
+    if not previous_questions or not isinstance(previous_questions, list):
         return False
-    
+
     # Normalize the new question
     new_q_normalized = new_question.lower().strip()
-    
+
     for prev_q in previous_questions:
+        if not prev_q or not isinstance(prev_q, str):
+            continue
         # Check similarity (80% threshold)
         similarity = difflib.SequenceMatcher(
-            None, 
-            new_q_normalized, 
+            None,
+            new_q_normalized,
             prev_q.lower().strip()
         ).ratio()
-        
+
         if similarity > 0.8:  # 80% similar = duplicate
             print(f"Duplicate question detected: {similarity:.2%} similar to previous question")
             return True
-    
+
     return False
 
 def should_complete_deep_dive(session_data: dict) -> bool:
@@ -469,8 +472,11 @@ async def continue_deep_dive(request: DeepDiveContinueRequest):
         }
         
         questions = session.get("questions", [])
+        # FIX: Ensure questions is always a list, never None
+        if not isinstance(questions, list):
+            questions = []
         questions.append(qa_entry)
-        
+
         # Track questions through the questions array
         previous_questions = [q.get("question", "") for q in questions if q.get("question")]
         if session.get("last_question") and session.get("last_question") not in previous_questions:

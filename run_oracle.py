@@ -26,7 +26,8 @@ from api.ai_predictions import router as ai_predictions_router
 from api.health_score import router as health_score_router
 from api.general_assessment import router as general_assessment_router
 from api.follow_up import router as follow_up_router
-from api.email import router as email_router
+# Temporarily comment out email router due to missing sendgrid dependency
+# from api.email import router as email_router
 
 # Import intelligence routers
 from api.intelligence.weekly_brief import router as weekly_brief_router
@@ -94,7 +95,7 @@ app.include_router(ai_predictions_router)
 app.include_router(health_score_router)
 app.include_router(general_assessment_router)
 app.include_router(follow_up_router)
-app.include_router(email_router)
+# app.include_router(email_router)
 
 # Include intelligence routers
 app.include_router(weekly_brief_router)

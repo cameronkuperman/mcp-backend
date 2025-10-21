@@ -105,10 +105,10 @@ async def get_health_story_data(user_id: str, date_range: Optional[Dict[str, str
         data["deep_dives"] = dive_response.data if dive_response.data else []
         
         # Get symptom tracking data - with specific fields and pagination
+        # Fixed: using only columns that exist in the schema
         symptom_response = supabase.table("symptom_tracking")\
             .select(
-                "id, occurrence_date, symptom_name, severity, duration_hours, "
-                "body_systems_affected, triggers, notes, created_at"
+                "id, occurrence_date, symptom_name, severity, body_part, created_at"
             )\
             .eq("user_id", str(user_id))\
             .gte("occurrence_date", date_range["start"])\

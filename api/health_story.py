@@ -136,7 +136,7 @@ async def generate_health_story(request: HealthStoryRequest):
                     {"role": "system", "content": "Summarize the following health data concisely, focusing on key patterns and changes:"},
                     {"role": "user", "content": "\n".join(context_parts)}
                 ],
-                model="openai/gpt-5-mini",  # was: deepseek/deepseek-chat
+                model="deepseek/deepseek-chat",  # Good for summarization
                 user_id=request.user_id,
                 temperature=0.3,
                 max_tokens=1024
@@ -215,7 +215,7 @@ async def generate_health_story(request: HealthStoryRequest):
         
         llm_response = await call_llm(
             messages=messages,
-            model="openai/gpt-5-mini",  # was: moonshotai/kimi-k2 - Using for superior creative writing
+            model="google/gemini-2.5-pro",  # FIXED: Use Gemini for creative content, not o-series reasoning models
             user_id=request.user_id,
             temperature=0.8,  # Slightly higher for more creative writing
             max_tokens=1024
@@ -223,9 +223,14 @@ async def generate_health_story(request: HealthStoryRequest):
         
         print(f"LLM Response received. Model used: {llm_response.get('model', 'unknown')}")
         print(f"Token usage: {llm_response.get('usage', {})}")
-        
+
         # Parse the JSON response to get title and content
-        story_response = llm_response.get("content", {})
+        # Handle both direct content and OpenRouter format
+        story_response = None
+        if "choices" in llm_response and len(llm_response["choices"]) > 0:
+            story_response = llm_response["choices"][0]["message"].get("content", "")
+        else:
+            story_response = llm_response.get("content", "")
         
         # Log raw response
         print(f"Raw LLM response type: {type(story_response)}")

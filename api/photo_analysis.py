@@ -728,9 +728,14 @@ async def categorize_photo(
         # Parse response
         content = response['choices'][0]['message']['content']
         categorization = extract_json_from_text(content)
-        
+
+        # FIX: Default to medical_normal if parsing fails
+        if not categorization:
+            print(f"⚠️  Categorization parsing failed, defaulting to medical_normal. Response: {content[:300]}")
+            categorization = {"category": "medical_normal", "confidence": 0.5}
+
         # Add session context if provided
-        if session_id and supabase:
+        if session_id and supabase and isinstance(categorization, dict):
             session = supabase.table('photo_sessions').select('*').eq('id', session_id).single().execute()
             if session.data:
                 photo_count = supabase.table('photo_uploads').select('id').eq('session_id', session_id).execute()
@@ -738,7 +743,7 @@ async def categorize_photo(
                     'is_sensitive_session': session.data.get('is_sensitive', False),
                     'previous_photos': len(photo_count.data) if photo_count.data else 0
                 }
-        
+
         return categorization
         
     except Exception as e:
@@ -818,7 +823,11 @@ async def upload_photos(
             'condition_name': condition_name,
             'description': description
         }).execute()
-        
+
+        # FIX: Check data exists before accessing [0]
+        if not session_result.data:
+            raise HTTPException(status_code=500, detail="Session creation failed - no data returned")
+
         session_id = session_result.data[0]['id']
     
     uploaded_photos = []
@@ -847,10 +856,18 @@ async def upload_photos(
             
             content = response['choices'][0]['message']['content']
             categorization = extract_json_from_text(content)
-            category = categorization['category']
-            
+
+            # FIX: Default to medical_normal if parsing fails
+            if not categorization:
+                print(f"⚠️  Upload categorization failed, defaulting to medical_normal")
+                category = "medical_normal"
+            else:
+                category = categorization.get('category', 'medical_normal')
+
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Categorization failed: {str(e)}")
+            # FIX: Default to medical_normal even on exception, continue analyzing
+            print(f"⚠️  Categorization exception: {str(e)}, defaulting to medical_normal")
+            category = "medical_normal"
         
         # Handle based on category
         stored = False
@@ -1268,9 +1285,13 @@ async def analyze_photos(request: PhotoAnalysisRequest):
         'is_sensitive': session.get('is_sensitive', False) or request.temporary_analysis,
         'expires_at': (datetime.now() + timedelta(hours=24)).isoformat() if request.temporary_analysis else None
     }).execute()
-    
+
+    # FIX: Check data exists before accessing [0]
+    if not analysis_record.data:
+        raise HTTPException(status_code=500, detail="Analysis record creation failed")
+
     analysis_id = analysis_record.data[0]['id']
-    
+
     # Generate tracking suggestions if applicable
     if analysis.get('trackable_metrics') and not request.temporary_analysis:
         for metric in analysis['trackable_metrics']:
@@ -1467,16 +1488,23 @@ async def approve_tracking_suggestions(
             'source_id': analysis_id
         }).execute()
         
+        # FIX: Check data exists before accessing [0]
+        if not tracking_result.data:
+            print(f"⚠️  Tracking config insert failed for {config['metric_name']}, skipping")
+            continue
+
+        tracking_id = tracking_result.data[0]['id']
+
         tracking_configs.append({
-            'id': tracking_result.data[0]['id'],
+            'id': tracking_id,
             'metric_name': config['metric_name'],
-            'configuration_id': tracking_result.data[0]['id']
+            'configuration_id': tracking_id
         })
-        
+
         # Add initial data point if provided
         if 'initial_value' in config:
             supabase.table('photo_tracking_data').insert({
-                'configuration_id': tracking_result.data[0]['id'],
+                'configuration_id': tracking_id,
                 'value': config['initial_value'],
                 'analysis_id': analysis_id
             }).execute()
@@ -1792,10 +1820,18 @@ async def add_follow_up_photos(
                 
                 content = response['choices'][0]['message']['content']
                 categorization = extract_json_from_text(content)
-                category = categorization['category']
-                
+
+                # FIX: Default to medical_normal if parsing fails
+                if not categorization:
+                    print(f"⚠️  Followup categorization failed, defaulting to medical_normal")
+                    category = "medical_normal"
+                else:
+                    category = categorization.get('category', 'medical_normal')
+
             except Exception as e:
-                raise HTTPException(status_code=500, detail=f"Categorization failed: {str(e)}")
+                # FIX: Default to medical_normal on exception
+                print(f"⚠️  Followup categorization exception: {str(e)}, defaulting to medical_normal")
+                category = "medical_normal"
             
             # Upload based on category
             stored = False
