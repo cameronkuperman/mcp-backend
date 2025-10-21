@@ -66,7 +66,7 @@ class DeepDiveCompleteRequest(BaseModel):
 class DeepDiveThinkHarderRequest(BaseModel):
     session_id: str
     user_id: Optional[str] = None
-    model: str = "x-ai/grok-4"  # Grok 4 for maximum reasoning in deep dive
+    model: str = "openai/gpt-5-pro"  # GPT-5-Pro for pro users
 
 class DeepDiveAskMoreRequest(BaseModel):
     session_id: str
@@ -93,7 +93,7 @@ class QuickScanUltraThinkRequest(BaseModel):
     scan_id: Optional[str] = None  # For quick scans
     deep_dive_id: Optional[str] = None  # For deep dives
     user_id: Optional[str] = None
-    model: str = "x-ai/grok-4"  # Grok 4 for maximum reasoning
+    model: str = "openai/gpt-5-pro"  # GPT-5-Pro for pro users
 
 class QuickScanAskMoreRequest(BaseModel):
     scan_id: str

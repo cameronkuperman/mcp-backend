@@ -22,7 +22,7 @@
 
 ### ALWAYS USE THESE WORKING MODELS:
 1. ✅ `openai/gpt-5-mini` - DEFAULT for Quick Scan, Chat & Flash Assessment
-2. ✅ `x-ai/grok-4` - Ultra Think & Deep Dive Think Harder (maximum reasoning)
+2. ✅ `openai/gpt-5-pro` - Ultra Think for Pro Users (maximum reasoning)
 3. ✅ `google/gemini-2.5-pro` - Photo Analysis & Deep Dive
 4. ✅ `openai/gpt-5-mini` - Think Harder tier 2 (balanced cost/performance)
 5. ✅ `deepseek/deepseek-chat` - DeepSeek V3 - Fallback option
@@ -36,8 +36,8 @@
 - **Deep Dive**: Uses `deepseek/deepseek-chat` (Good JSON compliance)
 - **Photo Analysis**: Uses `openai/gpt-5` (with `google/gemini-2.5-pro` as fallback)
 - **Think Harder**: Uses `openai/gpt-5-mini` (with `deepseek/deepseek-chat` as fallback)
-- **Ultra Think**: Uses `x-ai/grok-4` (UNCHANGED - maximum reasoning)
-- **Deep Dive Think Harder**: Uses `x-ai/grok-4`
+- **Ultra Think**: Uses `openai/gpt-5-pro` (Pro users - maximum reasoning)
+- **Deep Dive Think Harder**: Uses `openai/gpt-5-pro` (Pro users)
 
 ## 🚀 SCALABILITY & BEST PRACTICES
 

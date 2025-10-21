@@ -1077,7 +1077,7 @@ Return a JSON response with this exact structure:
 
 @router.post("/deep-dive/ultra-think")
 async def deep_dive_ultra_think(request: DeepDiveThinkHarderRequest):
-    """Ultra Think endpoint specifically for Deep Dive - uses Grok 4 for maximum reasoning"""
+    """Ultra Think endpoint specifically for Deep Dive - uses GPT-5-Pro for pro users"""
     try:
         # Get session from database
         session_response = supabase.table("deep_dive_sessions").select("*").eq("id", request.session_id).execute()
@@ -1104,8 +1104,8 @@ async def deep_dive_ultra_think(request: DeepDiveThinkHarderRequest):
             medical_data = await get_user_medical_data(user_id)
             llm_context = await get_llm_context_biz(user_id)
         
-        # Create Ultra Think prompt for Grok 4
-        ultra_prompt = f"""You are applying maximum reasoning capabilities with Grok 4 to provide definitive medical analysis.
+        # Create Ultra Think prompt for GPT-5-Pro
+        ultra_prompt = f"""You are applying maximum reasoning capabilities with GPT-5-Pro to provide definitive medical analysis.
 
 PATIENT PRESENTATION:
 - Body Part: {body_part}
@@ -1119,7 +1119,7 @@ CURRENT ANALYSIS:
 {json.dumps(final_analysis)}
 
 ULTRA REASONING TASK:
-Apply Grok 4's advanced reasoning to:
+Apply GPT-5-Pro's advanced reasoning to:
 1. Identify patterns missed by standard analysis
 2. Consider rare conditions and complex interactions
 3. Provide critical insights that change management
@@ -1165,13 +1165,13 @@ Return JSON with this structure:
     "followUp": "When to reassess"
 }}"""
 
-        # Call Grok 4
+        # Call GPT-5-Pro
         llm_response = await call_llm(
             messages=[
                 {"role": "system", "content": ultra_prompt},
                 {"role": "user", "content": "Apply maximum reasoning for definitive analysis"}
             ],
-            model="x-ai/grok-4",  # Always use Grok 4 for Ultra Think
+            model=request.model,  # Use model from request (default: openai/gpt-5-pro)
             user_id=session.get("user_id"),
             temperature=0.1,
             max_tokens=3000
@@ -1200,7 +1200,7 @@ Return JSON with this structure:
         update_data = {
             "ultra_analysis": ultra_analysis,
             "ultra_confidence": ultra_confidence,
-            "ultra_model": "x-ai/grok-4",
+            "ultra_model": request.model,
             "ultra_at": datetime.now(timezone.utc).isoformat()
         }
         
@@ -1220,8 +1220,8 @@ Return JSON with this structure:
             "total_confidence_gain": ultra_confidence - original_confidence,
             "complexity_score": ultra_analysis.get("complexity_score", 0),
             "critical_insights": ultra_analysis.get("critical_insights", []),
-            "model_used": "x-ai/grok-4",
-            "processing_message": "Grokked your symptoms with maximum reasoning",
+            "model_used": request.model,
+            "processing_message": "Analyzed your symptoms with GPT-5-Pro maximum reasoning",
             "session_id": request.session_id,
             "usage": llm_response.get("usage", {})
         }
@@ -1887,7 +1887,7 @@ CRITICAL: Output ONLY valid JSON with no text before or after:
 
 @router.post("/quick-scan/ultra-think")
 async def quick_scan_ultra_think(request: QuickScanUltraThinkRequest):
-    """Maximum reasoning analysis using Grok 4 for complex cases - handles both Quick Scan and Deep Dive"""
+    """Maximum reasoning analysis using GPT-5-Pro for pro users - handles both Quick Scan and Deep Dive"""
     try:
         # Determine which type of scan we're dealing with
         scan_data = None
@@ -1934,8 +1934,8 @@ async def quick_scan_ultra_think(request: QuickScanUltraThinkRequest):
             medical_data = await get_user_medical_data(scan["user_id"])
             llm_context = await get_llm_context_biz(scan["user_id"])
         
-        # Create Grok 4 ultra reasoning prompt
-        ultra_prompt = f"""You are Grok 4, applying maximum reasoning capability to solve a complex medical case.
+        # Create GPT-5-Pro ultra reasoning prompt
+        ultra_prompt = f"""You are GPT-5-Pro, applying maximum reasoning capability to solve a complex medical case.
 
 COMPREHENSIVE CASE DATA:
 
@@ -2023,13 +2023,13 @@ CRITICAL: Output ONLY valid JSON:
     "recommendation_change": "How this analysis changes the recommended approach"
 }}"""
 
-        # Call Grok 4
+        # Call GPT-5-Pro
         llm_response = await call_llm(
             messages=[
                 {"role": "system", "content": ultra_prompt},
                 {"role": "user", "content": "Apply maximum reasoning to provide definitive analysis"}
             ],
-            model=request.model,  # "x-ai/grok-beta"
+            model=request.model,  # Use model from request (default: openai/gpt-5-pro)
             user_id=scan.get("user_id"),
             temperature=0.1,
             max_tokens=2500
@@ -2083,7 +2083,7 @@ CRITICAL: Output ONLY valid JSON:
             },
             "total_confidence_gain": ultra_confidence - original_confidence,
             "model_used": request.model,
-            "processing_message": "Grokked your symptoms",
+            "processing_message": "Analyzed your symptoms with GPT-5-Pro maximum reasoning",
             "complexity_score": ultra_analysis.get("complexity_score", 0),
             "critical_insights": ultra_analysis.get("critical_insights", []),
             "scan_id": request.scan_id if scan_type == "quick_scan" else None,
