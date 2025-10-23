@@ -215,7 +215,7 @@ async def generate_health_story(request: HealthStoryRequest):
         
         llm_response = await call_llm(
             messages=messages,
-            model="google/gemini-2.5-pro",  # FIXED: Use Gemini for creative content, not o-series reasoning models
+            model="deepseek/deepseek-chat",  # FIXED: Use DeepSeek V3 - non-reasoning mode, excellent JSON compliance
             user_id=request.user_id,
             temperature=0.8,  # Slightly higher for more creative writing
             max_tokens=1024
@@ -235,16 +235,19 @@ async def generate_health_story(request: HealthStoryRequest):
         # Log raw response
         print(f"Raw LLM response type: {type(story_response)}")
         if isinstance(story_response, str):
-            print(f"Raw response (first 500 chars): {story_response[:500]}...")
+            print(f"Raw response length: {len(story_response)} chars")
+            print(f"Raw response (first 200 chars): {story_response[:200]}")
+            print(f"Raw response (last 200 chars): {story_response[-200:]}")
         else:
             print(f"Raw response (dict): {story_response}")
-        
+
         # Use aggressive JSON extraction
         story_data = extract_json_from_response(story_response)
-        
+
         # Debug logging
         if not story_data:
-            print(f"ERROR: Failed to extract JSON from Kimi response")
+            print(f"ERROR: Failed to extract JSON from response")
+            print(f"Full raw response length: {len(story_response) if story_response else 0}")
             print(f"Full raw response: {story_response}")
         else:
             print(f"Successfully extracted JSON. Keys: {list(story_data.keys()) if isinstance(story_data, dict) else 'Not a dict'}")
