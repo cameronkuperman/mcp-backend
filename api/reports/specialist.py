@@ -163,7 +163,7 @@ allergy-immunology, primary-care"""
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": context}
             ],
-            model="google/gemini-2.0-flash-exp:free",
+            model="openai/gpt-5",
             temperature=0.3,
             max_tokens=1000
         )
@@ -522,29 +522,26 @@ Photo Analysis Data:
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": context}
             ],
-            model="google/gemini-2.5-flash",
+            model="openai/gpt-5",
             user_id=request.user_id,
             temperature=0.3,
             max_tokens=2000
         )
         
         report_data = extract_json_from_response(llm_response.get("content", llm_response.get("raw_content", "")))
-        
+
+        logger.info(f"[SPECIALIST] LLM response length: {len(llm_response.get('content', ''))}")
+        logger.info(f"[SPECIALIST] JSON extraction successful: {report_data is not None}")
+
         if not report_data:
-            report_data = {
-                "executive_summary": {
-                    "one_page_summary": f"Specialist referral report for {specialty} consultation.",
-                    "chief_complaints": [],
-                    "key_findings": [],
-                    "referral_reason": "Clinical evaluation needed"
-                },
-                "clinical_presentation": {},
-                "specialist_focus": {},
-                "recommendations": {
-                    "timing": "Within 2-4 weeks"
-                }
+            logger.error(f"[SPECIALIST] Failed to extract JSON from LLM response for {specialty}")
+            return {
+                "status": "error",
+                "error": "Failed to generate report content. AI did not return valid JSON.",
+                "code": "AI_GENERATION_FAILED",
+                "specialty": specialty
             }
-        
+
         # Save report
         report_id = str(uuid.uuid4())
         report_record = {
@@ -556,7 +553,7 @@ Photo Analysis Data:
             "report_data": report_data,
             "executive_summary": report_data["executive_summary"]["one_page_summary"],
             "confidence_score": 85,
-            "model_used": "google/gemini-2.5-flash"
+            "model_used": "openai/gpt-5"
         }
         
         # Add specialty field for future use
@@ -582,10 +579,12 @@ Photo Analysis Data:
         logger.info("Report generation complete!")
         
         return final_response
-        
+
     except Exception as e:
-        print(f"Error generating specialist report: {e}")
-        return {"error": str(e), "status": "error"}
+        logger.error(f"[SPECIALIST] Exception generating report: {e}")
+        import traceback
+        logger.error(f"[SPECIALIST] Traceback: {traceback.format_exc()}")
+        return {"error": str(e), "status": "error", "code": "EXCEPTION", "specialty": request.specialty if hasattr(request, 'specialty') else 'unknown'}
 
 @router.post("/cardiology")
 async def generate_cardiology_report(request: SpecialistReportRequest):
@@ -867,28 +866,31 @@ Return JSON format:
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": context}
             ],
-            model="google/gemini-2.5-flash",
+            model="openai/gpt-5",
             temperature=0.3,
             max_tokens=4000
         )
         
         report_data = extract_json_from_response(llm_response.get("content", llm_response.get("raw_content", "")))
-        
+
+        logger.info(f"[CARDIOLOGY] LLM response length: {len(llm_response.get('content', ''))}")
+        logger.info(f"[CARDIOLOGY] JSON extraction successful: {report_data is not None}")
+
         if not report_data:
-            report_data = {
-                "executive_summary": {
-                    "one_page_summary": "Cardiology report generation failed. Please retry.",
-                    "chief_complaints": [],
-                    "key_findings": [],
-                    "urgency_indicators": [],
-                    "action_items": ["Regenerate report"]
-                }
+            logger.error("[CARDIOLOGY] Failed to extract JSON from LLM response")
+            return {
+                "status": "error",
+                "error": "Failed to generate report content. AI did not return valid JSON.",
+                "code": "AI_GENERATION_FAILED",
+                "specialty": "cardiology"
             }
-        
+
         # Save report
         report_id = str(uuid.uuid4())
         await save_specialist_report(report_id, request, "cardiology", report_data)
-        
+
+        logger.info(f"[CARDIOLOGY] Report saved successfully: {report_id}")
+
         return {
             "report_id": report_id,
             "report_type": "cardiology",
@@ -897,10 +899,10 @@ Return JSON format:
             "report_data": report_data,
             "status": "success"
         }
-        
+
     except Exception as e:
-        print(f"Error generating cardiology report: {e}")
-        return {"error": str(e), "status": "error"}
+        logger.error(f"[CARDIOLOGY] Exception generating report: {e}")
+        return {"error": str(e), "status": "error", "code": "EXCEPTION", "specialty": "cardiology"}
 
 @router.post("/neurology")
 async def generate_neurology_report(request: SpecialistReportRequest):
@@ -1151,7 +1153,7 @@ Return JSON format:
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": context}
             ],
-            model="google/gemini-2.5-flash",
+            model="openai/gpt-5",
             temperature=0.3,
             max_tokens=4000
         )
@@ -1424,7 +1426,7 @@ Return JSON format:
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": context}
             ],
-            model="google/gemini-2.5-flash",
+            model="openai/gpt-5",
             temperature=0.3,
             max_tokens=4000
         )
@@ -1700,7 +1702,7 @@ Return JSON format:
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": context}
             ],
-            model="google/gemini-2.5-flash",
+            model="openai/gpt-5",
             temperature=0.3,
             max_tokens=4000
         )
@@ -1976,7 +1978,7 @@ Return JSON format:
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": context}
             ],
-            model="google/gemini-2.5-flash",
+            model="openai/gpt-5",
             temperature=0.3,
             max_tokens=4000
         )
@@ -2165,7 +2167,7 @@ Return JSON format:
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": context}
             ],
-            model="google/gemini-2.5-flash",
+            model="openai/gpt-5",
             temperature=0.3,
             max_tokens=4000
         )
@@ -2360,7 +2362,7 @@ Return JSON format:
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": context}
             ],
-            model="google/gemini-2.5-flash",
+            model="openai/gpt-5",
             temperature=0.3,
             max_tokens=4000
         )
@@ -2540,21 +2542,25 @@ Return JSON format:
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": context}
             ],
-            model="google/gemini-2.0-flash-exp:free",
+            model="openai/gpt-5",
             temperature=0.3,
             max_tokens=4000
         )
         
         report_data = extract_json_from_response(llm_response.get("content", llm_response.get("raw_content", "")))
-        
+
+        logger.info(f"[PRIMARY-CARE] LLM response length: {len(llm_response.get('content', ''))}")
+        logger.info(f"[PRIMARY-CARE] JSON extraction successful: {report_data is not None}")
+
         if not report_data:
-            report_data = {
-                "clinical_summary": {
-                    "chief_complaints": ["Unable to generate report"],
-                    "hpi": "Report generation failed. Please retry."
-                }
+            logger.error("[PRIMARY-CARE] Failed to extract JSON from LLM response")
+            return {
+                "status": "error",
+                "error": "Failed to generate report content. AI did not return valid JSON.",
+                "code": "AI_GENERATION_FAILED",
+                "specialty": "primary-care"
             }
-        
+
         # Log the results
         logger.info(f"[PRIMARY-CARE] Report generated successfully")
         if report_data.get('clinical_summary'):
@@ -2565,13 +2571,13 @@ Return JSON format:
         if report_data.get('specialist_coordination', {}).get('recommended_referrals'):
             referrals = report_data['specialist_coordination']['recommended_referrals']
             logger.info(f"[PRIMARY-CARE] Recommended referrals: {[ref.get('specialty') for ref in referrals]}")
-        
+
         # Save report
         report_id = str(uuid.uuid4())
         await save_specialist_report(report_id, request, "primary_care", report_data)
-        
+
         logger.info(f"[PRIMARY-CARE] Report saved with ID: {report_id}")
-        
+
         return {
             "report_id": report_id,
             "report_type": "primary_care",
@@ -2580,10 +2586,10 @@ Return JSON format:
             "report_data": report_data,
             "status": "success"
         }
-        
+
     except Exception as e:
-        print(f"Error generating primary care report: {e}")
-        return {"error": str(e), "status": "error"}
+        logger.error(f"[PRIMARY-CARE] Exception generating report: {e}")
+        return {"error": str(e), "status": "error", "code": "EXCEPTION", "specialty": "primary-care"}
 
 @router.post("/orthopedics")
 async def generate_orthopedics_report(request: SpecialistReportRequest):
@@ -2841,7 +2847,7 @@ Return JSON format:
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": context}
             ],
-            model="google/gemini-2.5-flash",
+            model="openai/gpt-5",
             temperature=0.3,
             max_tokens=4000
         )
@@ -3149,7 +3155,7 @@ Return JSON format:
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": context}
             ],
-            model="google/gemini-2.5-flash",
+            model="openai/gpt-5",
             temperature=0.3,
             max_tokens=4000
         )
